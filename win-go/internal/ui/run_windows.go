@@ -26,6 +26,9 @@ import (
 	"whatrwipe/win-go/internal/winver"
 )
 
+// maxTreemapVerticalUnitPt is FS § Treemap → Metrics: vertical unit (vu) must not exceed 45 points.
+const maxTreemapVerticalUnitPt = 45
+
 type scanKind int
 
 const (
@@ -798,7 +801,8 @@ func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) 
 
 	var best float64 = 8
 	bestDiff := 1e9
-	for s := 4; s <= 64; s++ {
+	// Only font sizes ≤ maxTreemapVerticalUnitPt are legal for vu (FS); never search above it.
+	for s := 4; s <= maxTreemapVerticalUnitPt; s++ {
 		font := a.ensureLabelFont(s)
 		if font == nil {
 			continue
@@ -814,19 +818,24 @@ func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) 
 			best = float64(s)
 		}
 	}
-	// FS § Treemap → Metrics: vertical unit (pt) must not exceed 45.
-	if best > 45 {
-		return 45
+	if best > maxTreemapVerticalUnitPt {
+		return float64(maxTreemapVerticalUnitPt)
 	}
 	return best
 }
 
 func (a *app) drawFancyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
 	vu := int(a.verticalUnitPt(b, dpi, canvas) + 0.5)
+	if vu > maxTreemapVerticalUnitPt {
+		vu = maxTreemapVerticalUnitPt
+	}
 	if vu < 6 {
 		vu = 6
 	}
 	metaPt := int(float64(vu)*0.8 + 0.5)
+	if metaPt > maxTreemapVerticalUnitPt {
+		metaPt = maxTreemapVerticalUnitPt
+	}
 	if metaPt < 6 {
 		metaPt = 6
 	}
