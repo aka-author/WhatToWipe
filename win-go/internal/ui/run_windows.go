@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
 	"github.com/lxn/win"
@@ -95,6 +96,11 @@ type app struct {
 	inspectHit        int
 
 	tooltipsOnce sync.Once
+
+	// Throttle status bar path updates during scan (latest path, at most once per second).
+	scanProgMu      sync.Mutex
+	scanProgLatest  string
+	scanProgShownAt time.Time
 }
 
 // Run starts the WhatToWipe main window (FS + techspec shell).
@@ -206,7 +212,8 @@ func (a *app) chartChildren() []Widget {
 	tbPad := Size{Width: 32, Height: 32}
 	return []Widget{
 		Composite{
-			Layout: HBox{Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}, Spacing: 8},
+			// Left margin 0: align command strip with treemap left edge (same vertical as chart).
+			Layout: HBox{Margins: Margins{Left: 0, Top: 6, Right: 0, Bottom: 6}, Spacing: 8},
 			Children: []Widget{
 				ToolButton{
 					AssignTo:    &a.openBtn,
@@ -265,8 +272,9 @@ func (a *app) chartChildren() []Widget {
 			StretchFactor:       1,
 			AlwaysConsumeSpace:  true,
 			InvalidatesOnResize: true,
-			ClearsBackground:    true,
-			PaintPixels:         a.paintTreemap,
+			// Avoid erasing the whole client each paint (reduces flicker when overlaying labels / tooltip on hover).
+			ClearsBackground: false,
+			PaintPixels:      a.paintTreemap,
 			ContextMenuItems: []MenuItem{
 				Action{
 					Text:        "Inspect",
@@ -361,6 +369,27 @@ func (a *app) setStatus(s string) {
 	if a.st != nil {
 		a.st.SetText(s)
 	}
+}
+
+// noteScanProgress updates the status path at most once per second (always shows the latest path).
+func (a *app) noteScanProgress(scanID uint64, path string) {
+	a.scanProgMu.Lock()
+	a.scanProgLatest = path
+	ready := a.scanProgShownAt.IsZero() || time.Since(a.scanProgShownAt) >= time.Second
+	a.scanProgMu.Unlock()
+	if !ready {
+		return
+	}
+	a.mw.Synchronize(func() {
+		if scanID != atomic.LoadUint64(&a.scanSeq) {
+			return
+		}
+		a.scanProgMu.Lock()
+		a.scanProgShownAt = time.Now()
+		msg := a.scanProgLatest
+		a.scanProgMu.Unlock()
+		a.setStatus(msg)
+	})
 }
 
 func (a *app) onOpenFolder() {
@@ -477,14 +506,14 @@ func (a *app) startScan(folder string, kind scanKind) {
 	}
 	a.driveTotal, a.driveFree = dt, fr
 
+	a.scanProgMu.Lock()
+	a.scanProgLatest = ""
+	a.scanProgShownAt = time.Time{}
+	a.scanProgMu.Unlock()
+
 	go func(scanID uint64, root string, sk scanKind) {
 		node, errCount, cancelled := scan.ScanTree(a.scanCtx, root, func(p string) {
-			a.mw.Synchronize(func() {
-				if scanID != atomic.LoadUint64(&a.scanSeq) {
-					return
-				}
-				a.setStatus(p)
-			})
+			a.noteScanProgress(scanID, p)
 		})
 
 		a.mw.Synchronize(func() {
@@ -765,6 +794,12 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 
 	if a.chartBmp == nil {
 		return nil
+	}
+	// Full opaque background each frame so ClearsBackground=false does not leave shabby-tooltip ghosts.
+	bg, _ := walk.NewSolidColorBrush(walk.RGB(250, 250, 252))
+	if bg != nil {
+		_ = canvas.FillRectanglePixels(bg, bounds)
+		bg.Dispose()
 	}
 	if err := canvas.DrawImagePixels(a.chartBmp, walk.Point{}); err != nil {
 		return err
