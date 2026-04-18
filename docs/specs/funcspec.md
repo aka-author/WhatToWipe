@@ -717,14 +717,14 @@ The size of the tile must correspond to the drive share of the subfolder.
 
 Tiles that represent node subfolders must be displayed colored. The colors that are allowed for painting tiles are listed below. 
 
-| Color Name | sRGB Hex  |
-|------------|-----------|
-| Atoll      | `#AFE9DE` |
-| Blush      | `#EFBFD4` |
-| Foxglove   | `#DCC8F2` |
-| Nectarine  | `#FFD4BF` |
-| Peridot    | `#C9ECC5` |
-| Quince     | `#F2E2B3` |
+| Color Name   | sRGB Hex  |
+|--------------|-----------|
+| Atoll        | `#AFE9DE` |
+| Blush        | `#EFBFD4` |
+| Foxglove     | `#DCC8F2` |
+| Nectarine    | `#FFD4BF` |
+| Peridot      | `#C9ECC5` |
+| Quince       | `#F2E2B3` |
 | Stratosphere | `#B8DFF7` |
 
 Tiles that represent leaf subfolders must be displayed grayscale.
@@ -813,7 +813,7 @@ The file object size must include the following items:
 
 Zero must give `0.0 KB` for a file object size.
 
-A shabby tile must not show a label. 
+A shabby tile must show the same three-line label (same data and formats as in the table above). **Folder Name** must use **10 points**. **Folder Details** must use **8 points** (0.8 × 10 per the style table). Text that would extend past the tile is clipped at the tile boundary.
 
 
 #### Tooltips

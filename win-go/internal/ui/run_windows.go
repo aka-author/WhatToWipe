@@ -29,6 +29,10 @@ import (
 // maxTreemapVerticalUnitPt is FS § Treemap → Metrics: vertical unit (vu) must not exceed 45 points.
 const maxTreemapVerticalUnitPt = 45
 
+// shabbyLabelFolderNamePt / shabbyLabelFolderDetailsPt: fixed sizes for shabby-tile on-tile labels (FS § Tile Labels).
+const shabbyLabelFolderNamePt = 10
+const shabbyLabelFolderDetailsPt = 8 // 0.8 × 10 pt per Folder Details style table
+
 type scanKind int
 
 const (
@@ -777,10 +781,11 @@ func (a *app) drawBlockLabels(canvas *walk.Canvas) {
 		dpi = a.chart.DPI()
 	}
 	for _, b := range a.blocks {
-		if !a.tileIsFancy(b, dpi, canvas) {
-			continue
+		if a.tileIsFancy(b, dpi, canvas) {
+			a.drawFancyTile(canvas, b, dpi)
+		} else {
+			a.drawShabbyTile(canvas, b, dpi)
 		}
-		a.drawFancyTile(canvas, b, dpi)
 	}
 }
 
@@ -869,7 +874,17 @@ func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) 
 
 func (a *app) drawFancyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
 	vu, metaPt := a.treemapClampedFontSizes(a.verticalUnitPt(b, dpi, canvas))
-	nameFont := a.ensureLabelFont(vu)
+	a.drawTreemapTileLabel(canvas, b, dpi, vu, metaPt)
+}
+
+func (a *app) drawShabbyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
+	a.drawTreemapTileLabel(canvas, b, dpi, shabbyLabelFolderNamePt, shabbyLabelFolderDetailsPt)
+}
+
+// drawTreemapTileLabel draws the three-line tile label (Folder Name + gap + two Folder Details lines).
+// namePt is the Folder Name font size in points; metaPt is Folder Details (0.8 × vu in FS, passed explicitly).
+func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt, metaPt int) {
+	nameFont := a.ensureLabelFont(namePt)
 	metaFont := a.ensureLabelFont(metaPt)
 	if nameFont == nil || metaFont == nil {
 		return
@@ -888,8 +903,8 @@ func (a *app) drawFancyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
 		y += lh
 	}
 	drawLine(b.Name, nameFont, nameLH, walk.RGB(18, 18, 22))
-	// FS § Styles: Folder Details indent above 0.5 vu (vertical gap before first detail line).
-	y += int(0.5*float64(vu)*float64(dpi)/72.0 + 0.5)
+	// FS § Styles: Folder Details indent above 0.5 vu (vu = Folder Name font size in points).
+	y += int(0.5*float64(namePt)*float64(dpi)/72.0 + 0.5)
 	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, walk.RGB(35, 35, 40))
 	drawLine(fmtPercent(b.DriveShare), metaFont, metaLH, walk.RGB(55, 55, 62))
 }
