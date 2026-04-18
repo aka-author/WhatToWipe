@@ -719,13 +719,13 @@ Tiles that represent node subfolders must be displayed colored. The colors that 
 
 | Color Name | sRGB Hex  |
 |------------|-----------|
-| Byzantium  | `#6930A3` |
-| Cobalt     | `#3358D4` |
-| Gamboge    | `#B87E04` |
-| Myrtle     | `#2D6A4F` |
-| Oxblood    | `#952042` |
-| Paprika    | `#C73E1D` |
-| Verdigris  | `#1B998B` |
+| Atoll      | `#AFE9DE` |
+| Blush      | `#EFBFD4` |
+| Foxglove   | `#DCC8F2` |
+| Nectarine  | `#FFD4BF` |
+| Peridot    | `#C9ECC5` |
+| Quince     | `#F2E2B3` |
+| Stratosphere | `#B8DFF7` |
 
 Tiles that represent leaf subfolders must be displayed grayscale.
 

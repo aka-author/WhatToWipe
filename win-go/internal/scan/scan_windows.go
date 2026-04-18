@@ -118,13 +118,13 @@ func BuildTreeItems(kids []model.FolderNode) []model.TreeItem {
 	}
 	// FS § Treemap → Tile Colors: node fills only these seven sRGB values (names and order match spec table).
 	nodeFills := []color.RGBA{
-		{R: 0x69, G: 0x30, B: 0xA3, A: 255}, // Byzantium
-		{R: 0x33, G: 0x58, B: 0xD4, A: 255}, // Cobalt
-		{R: 0xB8, G: 0x7E, B: 0x04, A: 255}, // Gamboge
-		{R: 0x2D, G: 0x6A, B: 0x4F, A: 255}, // Myrtle
-		{R: 0x95, G: 0x20, B: 0x42, A: 255}, // Oxblood
-		{R: 0xC7, G: 0x3E, B: 0x1D, A: 255}, // Paprika
-		{R: 0x1B, G: 0x99, B: 0x8B, A: 255}, // Verdigris
+		{R: 0xAF, G: 0xE9, B: 0xDE, A: 255}, // Atoll
+		{R: 0xEF, G: 0xBF, B: 0xD4, A: 255}, // Blush
+		{R: 0xDC, G: 0xC8, B: 0xF2, A: 255}, // Foxglove
+		{R: 0xFF, G: 0xD4, B: 0xBF, A: 255}, // Nectarine
+		{R: 0xC9, G: 0xEC, B: 0xC5, A: 255}, // Peridot
+		{R: 0xF2, G: 0xE2, B: 0xB3, A: 255}, // Quince
+		{R: 0xB8, G: 0xDF, B: 0xF7, A: 255}, // Stratosphere
 	}
 	out := make([]model.TreeItem, 0, len(kids))
 	for i, k := range kids {
