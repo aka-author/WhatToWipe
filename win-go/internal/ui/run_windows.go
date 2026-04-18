@@ -83,9 +83,7 @@ type app struct {
 	chartDirty      bool
 	treemapComplete bool
 
-	hoverIdx, hoverX, hoverY int
-	labelFonts               map[int]*walk.Font
-	smallFont                *walk.Font
+	labelFonts map[int]*walk.Font
 
 	scanCtx    context.Context
 	scanCancel context.CancelFunc
@@ -106,9 +104,8 @@ type app struct {
 // Run starts the WhatToWipe main window (FS + techspec shell).
 func Run() error {
 	a := &app{
-		hoverIdx:    -1,
-		inspectHit:  -1,
-		labelFonts:  make(map[int]*walk.Font),
+		inspectHit: -1,
+		labelFonts: make(map[int]*walk.Font),
 	}
 
 	if err := a.loadToolbarArt(); err != nil {
@@ -322,17 +319,6 @@ func (a *app) chartChildren() []Widget {
 				}
 				a.navPath = append(a.navPath, a.blocks[h].Path)
 				a.rebuildTreemap()
-			},
-			OnMouseMove: func(x, y int, button walk.MouseButton) {
-				i := a.hitTest(x, y)
-				if i == a.hoverIdx {
-					return
-				}
-				a.hoverIdx = i
-				a.hoverX, a.hoverY = x, y
-				if a.chart != nil {
-					a.chart.Invalidate()
-				}
 			},
 		},
 	}
@@ -806,7 +792,6 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 	}
 
 	a.drawBlockLabels(canvas)
-	a.drawShabbyTooltip(canvas, bounds)
 	return nil
 }
 
@@ -944,69 +929,6 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	drawLine(fmtPercent(b.DriveShare), metaFont, metaLH, walk.RGB(55, 55, 62))
 }
 
-func (a *app) drawShabbyTooltip(canvas *walk.Canvas, bounds walk.Rectangle) {
-	if a.hoverIdx < 0 || a.hoverIdx >= len(a.blocks) {
-		return
-	}
-	b := a.blocks[a.hoverIdx]
-	dpi := 96
-	if a.chart != nil {
-		dpi = a.chart.DPI()
-	}
-	if a.tileIsFancy(b, dpi, canvas) {
-		return
-	}
-	font := a.ensureSmallFont()
-	if font == nil {
-		return
-	}
-	line1 := trimName(b.Name, 48)
-	line2 := format.ObjectSize(b.Size)
-	line3 := fmtPercent(b.DriveShare)
-	metaFont := a.ensureLabelFont(maxInt(6, font.PointSize()-3))
-	if metaFont == nil {
-		metaFont = font
-	}
-	nameLH := textLineHeightPx(a.chart, font)
-	metaLH := textLineHeightPx(a.chart, metaFont)
-	bw := maxInt(200, minInt(400, 16+utf8.RuneCountInString(line1)*7))
-	pad := 8
-	bh := pad*2 + nameLH + 2*metaLH
-
-	x := a.hoverX + 14
-	y := a.hoverY + 12
-	if x+bw > bounds.Width-8 {
-		x = bounds.Width - bw - 8
-	}
-	if y+bh > bounds.Height-8 {
-		y = bounds.Height - bh - 8
-	}
-	if x < 8 {
-		x = 8
-	}
-	if y < 8 {
-		y = 8
-	}
-
-	brush, _ := walk.NewSolidColorBrush(walk.RGB(255, 250, 205))
-	if brush != nil {
-		_ = canvas.FillRectanglePixels(brush, walk.Rectangle{X: x, Y: y, Width: bw, Height: bh})
-		brush.Dispose()
-	}
-	pen, _ := walk.NewCosmeticPen(walk.PenSolid, walk.RGB(90, 80, 40))
-	if pen != nil {
-		_ = canvas.DrawRectanglePixels(pen, walk.Rectangle{X: x, Y: y, Width: bw, Height: bh})
-		pen.Dispose()
-	}
-
-	yy := y + pad
-	_ = canvas.DrawTextPixels(line1, font, walk.RGB(25, 22, 15), walk.Rectangle{X: x + pad, Y: yy, Width: bw - 2*pad, Height: nameLH}, walk.TextWordEllipsis|walk.TextSingleLine|walk.TextTop)
-	yy += nameLH
-	_ = canvas.DrawTextPixels(line2, metaFont, walk.RGB(35, 32, 22), walk.Rectangle{X: x + pad, Y: yy, Width: bw - 2*pad, Height: metaLH}, walk.TextSingleLine|walk.TextWordEllipsis|walk.TextTop)
-	yy += metaLH
-	_ = canvas.DrawTextPixels(line3, metaFont, walk.RGB(55, 50, 35), walk.Rectangle{X: x + pad, Y: yy, Width: bw - 2*pad, Height: metaLH}, walk.TextSingleLine|walk.TextWordEllipsis|walk.TextTop)
-}
-
 func (a *app) hitTest(x, y int) int {
 	if a.chart == nil || len(a.blocks) == 0 {
 		return -1
@@ -1044,18 +966,6 @@ func textLineHeightPx(widget walk.Widget, font *walk.Font) int {
 		px = 8
 	}
 	return px + maxInt(4, px/4)
-}
-
-func (a *app) ensureSmallFont() *walk.Font {
-	if a.smallFont != nil {
-		return a.smallFont
-	}
-	f, err := walk.NewFont("Segoe UI", 8, 0)
-	if err != nil {
-		return nil
-	}
-	a.smallFont = f
-	return a.smallFont
 }
 
 func (a *app) ensureLabelFont(px int) *walk.Font {
@@ -1110,40 +1020,6 @@ func fmtPercent(share float64) string {
 		share = 0
 	}
 	return fmt.Sprintf("%.1f%%", share*100)
-}
-
-func trimName(s string, max int) string {
-	s = trimSpaceRunes(s)
-	if utf8.RuneCountInString(s) <= max {
-		return s
-	}
-	if max < 4 {
-		rs := []rune(s)
-		if len(rs) > max {
-			return string(rs[:max])
-		}
-		return s
-	}
-	rs := []rune(s)
-	if len(rs) <= max {
-		return s
-	}
-	return string(rs[:max-3]) + "..."
-}
-
-func trimSpaceRunes(s string) string {
-	// minimal trim
-	for len(s) > 0 && (s[0] == ' ' || s[0] == '\t') {
-		s = s[1:]
-	}
-	return s
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func maxInt(a, b int) int {

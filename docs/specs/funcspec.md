@@ -818,9 +818,7 @@ A shabby tile must show the same three-line label (same data and formats as in t
 
 #### Tooltips
 
-On a shabby tile, the program must show the same three lines in a tooltip. 
-
-The tooltip must show the same data a label would show for the same tile.
+Shabby tiles already show the three-line on-tile label (see **Tile Labels**). **Hover tooltips for shabby tiles are not required in the current product build** (they were removed to avoid treemap repaint artifacts). A future build may restore optional shabby hover tooltips that repeat the same three lines.
 
 
 ### Status Bar
