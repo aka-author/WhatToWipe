@@ -116,9 +116,15 @@ func BuildTreeItems(kids []model.FolderNode) []model.TreeItem {
 	if sum <= 0 {
 		return nil
 	}
-	palette := []color.RGBA{
-		{220, 90, 90, 255}, {70, 130, 220, 255}, {240, 190, 60, 255}, {60, 175, 165, 255},
-		{150, 110, 220, 255}, {235, 140, 55, 255}, {50, 175, 95, 255}, {215, 75, 70, 255},
+	// FS § Treemap → Tile Colors: node fills only these seven sRGB values (names match spec table order).
+	nodeFills := []color.RGBA{
+		{R: 0xD9, G: 0x77, B: 0x06, A: 255}, // Amber
+		{R: 0x25, G: 0x63, B: 0xEB, A: 255}, // Blue
+		{R: 0x16, G: 0xA3, B: 0x4A, A: 255}, // Green
+		{R: 0xE1, G: 0x1D, B: 0x48, A: 255}, // Rose
+		{R: 0x47, G: 0x55, B: 0x69, A: 255}, // Slate
+		{R: 0x0D, G: 0x94, B: 0x88, A: 255}, // Teal
+		{R: 0x7C, G: 0x3A, B: 0xED, A: 255}, // Violet
 	}
 	out := make([]model.TreeItem, 0, len(kids))
 	for i, k := range kids {
@@ -129,10 +135,11 @@ func BuildTreeItems(kids []model.FolderNode) []model.TreeItem {
 		c.IsNode = k.IsNode
 		c.DriveShare = k.Share
 		if k.IsNode {
-			c.Color = palette[i%len(palette)]
+			c.Color = nodeFills[i%len(nodeFills)]
 		} else {
-			g := uint8(155 + (i%5)*8)
-			c.Color = color.RGBA{R: g, G: g, B: g + 6, A: 255}
+			// FS: leaf tiles achromatic (grayscale fill only).
+			g := uint8(160 + (i%6)*10)
+			c.Color = color.RGBA{R: g, G: g, B: g, A: 255}
 		}
 		out = append(out, c)
 	}
