@@ -814,6 +814,10 @@ func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) 
 			best = float64(s)
 		}
 	}
+	// FS § Treemap → Metrics: vertical unit (pt) must not exceed 45.
+	if best > 45 {
+		return 45
+	}
 	return best
 }
 
