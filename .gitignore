@@ -1,0 +1,4 @@
+# Never commit build products inside the codebase repo.
+/bin/
+/out/
+*.exe

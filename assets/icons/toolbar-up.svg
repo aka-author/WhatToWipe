@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Up</title>
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#2c3e50" stroke-width="3"/>
+  <path fill="#2c3e50" stroke="#2c3e50" stroke-width="1" stroke-linejoin="round"
+        d="M32 14 L46 34 H38 V46 H26V34H18Z"/>
+</svg>

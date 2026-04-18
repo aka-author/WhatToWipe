@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Open high contrast</title>
+  <path fill="#ffffff" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"
+        d="M10 22h20l8-10h16q3 0 3 3v34q0 3-3 3H10q-3 0-3-3V25q0-3 3-3z"/>
+  <path fill="#000000" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"
+        d="M10 22h24l-6-10H10v10z"/>
+</svg>

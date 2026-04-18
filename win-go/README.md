@@ -1,0 +1,1 @@
+Windows + Go stub: [techspec-win-go.md](../docs/specs/techspec-win-go.md), [arch-win-go.md](../docs/specs/arch-win-go.md). Code: **[../../samples/](../../samples/)**. Build: **[../../samples/build.bat](../../samples/build.bat)** → **`samples/DiskTreemap.exe`** (local only; no project `bin/` yet).

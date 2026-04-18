@@ -1,0 +1,10 @@
+Functional spec: docs/specs/funcspec.md — “### Toolbar” table.
+
+app.svg                    Main window unique icon (FS “Main Window” — unique icon).
+toolbar-open.svg           Open — folder icon.
+toolbar-up.svg             Up — top-pointing arrow inside a circle.
+toolbar-manage.svg         Manage — eye icon.
+toolbar-update.svg         Update — right-pointing triangle, green, play icon.
+toolbar-stop.svg           Stop — solid red circle (stop indicator).
+
+High-contrast set (same filenames with -hc suffix before .svg): app-hc.svg, toolbar-open-hc.svg, toolbar-up-hc.svg, toolbar-manage-hc.svg, toolbar-update-hc.svg, toolbar-stop-hc.svg.
