@@ -784,10 +784,53 @@ func (a *app) drawBlockLabels(canvas *walk.Canvas) {
 	}
 }
 
+// treemapClampedFontSizes maps FS vertical unit (pt) to Folder Name / Folder Details point sizes.
+func (a *app) treemapClampedFontSizes(vuPt float64) (vu, meta int) {
+	vu = int(vuPt + 0.5)
+	if vu > maxTreemapVerticalUnitPt {
+		vu = maxTreemapVerticalUnitPt
+	}
+	if vu < 6 {
+		vu = 6
+	}
+	meta = int(float64(vu)*0.8 + 0.5)
+	if meta > maxTreemapVerticalUnitPt {
+		meta = maxTreemapVerticalUnitPt
+	}
+	if meta < 6 {
+		meta = 6
+	}
+	return vu, meta
+}
+
+// treemapLabelMinHeightPx is the minimum tile height (px) for the FS fancy label stack:
+// pad, Folder Name (1 vu), indent 0.5 vu before Folder Details, then two 0.8 vu lines.
+func (a *app) treemapLabelMinHeightPx(dpi, vu, meta int) int {
+	if a.chart == nil {
+		return 1 << 30
+	}
+	nameFont := a.ensureLabelFont(vu)
+	metaFont := a.ensureLabelFont(meta)
+	if nameFont == nil || metaFont == nil {
+		return 1 << 30
+	}
+	nameLH := textLineHeightPx(a.chart, nameFont)
+	metaLH := textLineHeightPx(a.chart, metaFont)
+	gap := int(0.5*float64(vu)*float64(dpi)/72.0 + 0.5) // FS: Folder Details indent above 0.5 vu
+	const padY = 6
+	return padY + nameLH + gap + metaLH + metaLH
+}
+
 func (a *app) tileIsFancy(b model.BlockLayout, dpi int, canvas *walk.Canvas) bool {
-	vu := a.verticalUnitPt(b, dpi, canvas)
-	hPt := float64(b.Rect.Dy()) * 72.0 / float64(dpi)
-	return vu >= 10.0 && hPt >= 5.0*vu
+	if a.chart == nil {
+		return false
+	}
+	vuPt := a.verticalUnitPt(b, dpi, canvas)
+	if vuPt < 10 {
+		return false
+	}
+	vu, meta := a.treemapClampedFontSizes(vuPt)
+	return b.Rect.Dy() >= a.treemapLabelMinHeightPx(dpi, vu, meta)
 }
 
 func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) float64 {
@@ -825,20 +868,7 @@ func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) 
 }
 
 func (a *app) drawFancyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
-	vu := int(a.verticalUnitPt(b, dpi, canvas) + 0.5)
-	if vu > maxTreemapVerticalUnitPt {
-		vu = maxTreemapVerticalUnitPt
-	}
-	if vu < 6 {
-		vu = 6
-	}
-	metaPt := int(float64(vu)*0.8 + 0.5)
-	if metaPt > maxTreemapVerticalUnitPt {
-		metaPt = maxTreemapVerticalUnitPt
-	}
-	if metaPt < 6 {
-		metaPt = 6
-	}
+	vu, metaPt := a.treemapClampedFontSizes(a.verticalUnitPt(b, dpi, canvas))
 	nameFont := a.ensureLabelFont(vu)
 	metaFont := a.ensureLabelFont(metaPt)
 	if nameFont == nil || metaFont == nil {
@@ -858,6 +888,8 @@ func (a *app) drawFancyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
 		y += lh
 	}
 	drawLine(b.Name, nameFont, nameLH, walk.RGB(18, 18, 22))
+	// FS § Styles: Folder Details indent above 0.5 vu (vertical gap before first detail line).
+	y += int(0.5*float64(vu)*float64(dpi)/72.0 + 0.5)
 	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, walk.RGB(35, 35, 40))
 	drawLine(fmtPercent(b.DriveShare), metaFont, metaLH, walk.RGB(55, 55, 62))
 }
