@@ -2,42 +2,55 @@
 
 ## Purpose
 
-The WhatToWipe utility helps users see how disk space is used. It shows how large each part is next to the full drive, without guesswork. It supports clear choices about what to keep, move, or remove.
+The WhatToWipe utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
 
 
 ## Concepts and Terms
 
-**Program:** The WhatToWipe utility.
+*Program:* If not specified, the WhatToWipe utility.
 
-**Target folder:** A folder that has been opened by the user as a root.
+*Volume:* A storage unit recognized by the operating system as a single accessible location, such as a physical drive, logical drive, partition, or mounted storage, excluding network locations.
 
-**Context folder:** A folder that the user is currently exploring.
+*Volume capacity:* The total capacity of the current volume.
 
-**Subfolder:** A folder within the context folder.
+*Volume free space:* Free space on the current volume.
 
-**Node subfolder:** A subfolder that contains nested folders.
+*Target folder:* A folder that has been chosen by the user as a root.
 
-**Leaf subfolder:** A subfolder that does not contain nested folders.
+*Context folder:* A folder that the user is currently exploring.
 
-**Superfolder:** A folder that directly contains the context folder.
+*Current volume:* The volume that contains the context folder.
 
-**Folder class:** The indicator telling whether the folder is node or leaf.
+*Subfolder:* If not specified, a folder within the context folder.
 
-**Size of the folder:** The aggregated size of all the files inside the folder, calculated recursively.
+*Node subfolder:* A subfolder that contains nested folders.
 
-**Drive share of the folder:** The share of the folder size compared to the total capacity of the drive.
+*Leaf subfolder:* A subfolder that does not contain nested folders.
 
-**Treemap:** A diagram made of **tiles** that displays the content of the context folder. If the context folder has subfolders, then the treemap displays their sizes, drive shares, and other helpful information. A treemap is **complete** when it represents a folder that has been scanned successfully. A treemap is **unset** otherwise.
+*Superfolder:* If not specified, a folder that directly contains the context folder.
 
-**Tile:** One region of the treemap; each tile represents a subfolder of the context folder.
+*Folder class:* The indicator telling whether the folder is node or leaf.
 
-**Navigation:** Moving up and down the folder hierarchy to bring a folder of interest into focus.
+*Size of the folder:* The aggregated size of all the files inside the folder, calculated recursively.
 
-**Current drive:** the volume that contains the context folder.
+*Volume share of the folder:* The share of the folder size compared to the total capacity of the volume.
 
-**Drive capacity:** The total capacity of the current drive.
+*Scanning a folder:* An automatic activity during which the program collects data on the folder, its nested folders, and files recursively.
 
-**Drive free space:** Free space on the current drive.
+*Success:* Applied to scanning a folder, means that the scanning was not interrupted by the user voluntarily or by the program for technical reasons.
+
+> **NOTE**
+> If the program fails to collect data on some inner folders or files because of insufficient permicions, but finishes scanning organically without interruptions it's still success.   
+
+*Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders, including their sizes and volume shares.
+
+*Complete treemap:* A treemap representing a successfully scanned folder.
+
+**Unset treemap:* A treemap that is not complete. 
+
+*Tile:* One region of the treemap; each tile represents a subfolder of the context folder.
+
+*Navigation:* The user moves up and down the folder hierarchy in the program interface by changing the context folder to bring a folder of interest into focus.
 
 
 ## Use Cases
@@ -52,8 +65,8 @@ The program must support the following use cases:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -62,21 +75,21 @@ The program must support the following use cases:
 
 **Context**
 
-The user decides to clean up drives on their devices.
+The user decides to clean up volumes on their devices.
 
 **Steps**
 
 1. The user launches the program.
+
+   **Step Result**
 
    The program starts. The main window opens.
 
 **Result**
 
 - The program is ready to work.
-- The treemap zone is unset.
-- The following indicators must be updated:
-  - **Total**
-  - **Free**
+- The treemap is unset.
+- The volume indicators are unset.
 
 **Postrequisites**
 
@@ -103,22 +116,48 @@ The program is not scanning.
 
    **Step Result**
 
-   A system **Open** dialog box opens.
+   The system **Open** dialog box opens.
 
 2. The user selects a folder.
 
+   2 Positive. The program accepts the selected folder.
+
+   **Conditions**
+
+   The folder is available for scanning. 
+
    **Step Result**
 
-   - The folder selected by the user becomes the target folder and the context folder.
+   - The folder selected by the user becomes a target folder.
+   - The folder selected by the user becomes a context folder.
+   - The volume indicators are updated.
    - The treemap gets unset.
-   - The use case *Scanning the Context Folder* starts.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   
+   2 Negative. The program rejects the selected folder. 
 
-3. The program handles the scanning outcomes.
+   **Conditions**
 
-   3 Positive. The treemap gets complete
+   The folder if unavailable because of some technical reasons. 
+   
+   The possible reasons for rejecting the folder are listed below.
+   
+   - The folder has been deleted.
+   - The program does not have sufficient permissions to scan the folder.
+   - Other runtime errors or technical reasons. 
+
+   **Step Results**
+
+   An error code is #001. The program displays an error alert.   
+
+3. The program starts the use case *Scanning the Context Folder*.
+
+   **Step Results**
+
+   The use case *Scanning the Context Folder* has strted.
+   
+4. The program handles the scanning outcomes.
+
+   4 Positive. The treemap gets complete.
 
    **Conditions**
 
@@ -126,12 +165,9 @@ The program is not scanning.
 
    **Step Result**
 
-   - The treemap is displayed complete.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
-
-   3 Negative. The treemap gets unset
+   The treemap is displayed complete.
+   
+   4 Negative. The treemap gets unset.
 
    **Conditions**
 
@@ -141,26 +177,17 @@ The program is not scanning.
 
    **Step Result**
 
-   - The treemap is displayed unset.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   The treemap is displayed unset.
 
 **Result**
 
    **Positive**
 
-   - The treemap is displayed complete.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
-
+   The treemap is displayed complete.
+   
    **Negative**
 
-   - The treemap is displayed unset.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   The treemap is displayed unset.
 
 **Postrequisites**
 
@@ -169,8 +196,8 @@ The following use cases are available to the user:
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -179,7 +206,7 @@ The following use cases are available to the user:
 
 **Context**
 
-The treemap is based on data collected during the last scan. This data includes folder sizes, structure, and drive shares. Changes in the file system make this data outdated. Files and folders may be deleted, moved, or added. The treemap does not update automatically. It may no longer reflect the actual state of the context folder. This use case updates the data and rebuilds the treemap.
+The treemap is based on data collected during the last scan. This data includes folder sizes, structure, and volume shares. Changes in the file system make this data outdated. Files and folders may be deleted, moved, or added. The treemap does not update automatically. It may no longer reflect the actual state of the context folder. This use case updates the data and rebuilds the treemap.
 
 **Prerequisites**
 
@@ -189,15 +216,17 @@ The treemap is based on data collected during the last scan. This data includes 
 
 **Steps**
 
-1. The user clicks the **Update** button.
+1. The user selects the **File → Update** command.
 
    **Step Result**
+
+   The context folder is declared *anchored*.
 
    The use case *Scanning the Context Folder* starts.
 
 2. The program handles the scanning outcomes.
 
-   2 Positive. The treemap gets complete
+   2 Positive. The treemap gets complete.
 
    **Conditions**
 
@@ -206,40 +235,45 @@ The treemap is based on data collected during the last scan. This data includes 
    **Step Result**
 
    - The treemap is displayed complete.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   - The **Free** indicator is updated.
 
-   2 Negative. The treemap gets unset
+   2 Negative. The treemap gets unset.
 
    **Conditions**
 
-   - The user interrupted scanning.  
+   - The user interrupted the scanning,
      OR  
-   - Scanning failed for other reasons.
+   - The scanning failed for other reasons.
 
    **Step Result**
 
-   - The treemap is displayed unset.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   The treemap is displayed unset.
 
 **Result**
 
    **Positive**
 
-   - The treemap is displayed complete.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   An *appropreate* folder is identified according to the table below.
+
+   | Target Folder | Anchored Folder | Context Folder | Appropreate Folder |
+   |---------------|-----------------|----------------|--------------------|
+   | Exists        | Exists          | Exists         | Context folder     |
+   | Exists        | Exists          | Absent         | Pinned folder      |
+   | Exists        | Absent          | Absent         | Target folder      |
+   | Exists        | Absent          | Exists         | Context folder     |
+   | Absent        | Absent          | Absent         | Not identified     |
+
+   - A complete treemap is shown for the appropreate folder if it is identified.
+   - An unset treemap is shown if an appropreate folder in not identified. 
+   - The the **Free** indicator is updated.
 
    **Negative**
 
-   - The treemap is displayed unset.
-   - The following indicators must be updated:
-     - **Total**
-     - **Free**
+   The treemap is displayed unchanged.
+
+**Rules**
+
+The user is allowed to navigate while the use case *Scanning the Context Folder* is in progress.
 
 **Postrequisites**
 
@@ -249,8 +283,8 @@ The following use cases are available to the user:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -259,9 +293,9 @@ The following use cases are available to the user:
 
 **Context**
 
-- Overall use case *Choosing a Target Folder*, step 2.  
+- Overall use case *Choosing a Target Folder*, step 2,  
   OR  
-- Overall *Updating the Context Folder*, step 1.
+- Overall use case *Updating the Context Folder*, step 1.
 
 **Steps**
 
@@ -269,24 +303,24 @@ The following use cases are available to the user:
 
    **Step Result**
 
-   - The **Update** button disappears.
-   - The **Stop** button appears.
+   - The **Inspetc → Update** command disappears.
+   - The **Inspect → Stop** command appears.
 
-2. User reacts.
+2. The user waits or reacts.
 
-   2 Positive. User waits when the scanning has finished
+   2 Positive. User waits when the scanning has finished.
 
    **Step Result**
 
    The scanning has finished successfully.
 
-   2 Negative #1. The user clicks on the **Stop** button
+   2 Negative #1. The user selects the **Inspect → Stop** command.
 
    **Step Result**
 
    The scanning is terminated.
 
-   2 Negative #2. An error occurs during the scanning
+   2 Negative #2. An error occurs during the scanning.
 
    **Step Result**
 
@@ -296,12 +330,18 @@ The following use cases are available to the user:
 
    **Step Result**
 
-   - The **Stop** button disappears.
-   - The **Update** button appears.
-   - If the scan finished **successfully** and the treemap is **complete**, then the following indicators must be updated:
-     - **Total**
-     - **Free**
-   - If the scan did **not** finish successfully, follow the negative indicator rules of the calling use case. That use case is either *Choosing a Target Folder* or *Updating the Context Folder*.
+      **Any Case**
+
+      - The **Inspetc → Stop** command disappears.
+      - The **Inspect → Update** command appears.
+      
+   **Positive**
+
+      The exit code `success` returns to the overall use case.
+
+   **Negative**
+
+      The exit code `terminated` returns to the overall use case.  
 
 **Rules**
 
@@ -314,13 +354,13 @@ The following data must be collected or updated for the context folder and for e
 - Name
 - Full path
 - Folder size
-- Drive share of the folder
+- Volume share of the folder
 - Class of the folder
 
 The following numeric data must be recalculated along the entire hierarchy if the context folder is not the target folder:
 
 - Folder sizes
-- Drive shares of the folders
+- Volume shares of the folders
 
 The data collected during the scanning must be stored in memory and used for navigation within the target folder.
 
@@ -367,7 +407,7 @@ The overall use case proceeds.
 
    - The subfolder corresponding to the tile becomes a context folder.
    - The treemap is updated for the new context folder.
-   - If the **current drive** (volume that contains the new context folder) differs from the one previously shown, then the following indicators must be updated:
+   - If the **current volume** differs from the volume previously shown, then the following indicators must be updated:
      - **Total**
      - **Free**
 
@@ -389,8 +429,8 @@ The following use cases are available to the user:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -415,7 +455,7 @@ The user navigates the folder hierarchy upward.
 
    - The superfolder becomes the context folder.
    - The treemap is updated for the new context folder.
-   - If the **current drive** changes compared to the previous context folder, then the following indicators must be updated:
+   - If the **current volume** changes compared to the previous context folder, then the following indicators must be updated:
      - **Total**
      - **Free**
 
@@ -431,13 +471,13 @@ The following use cases are available to the user:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
 
-### Managing the Context Folder
+### Exploring the Context Folder
 
 **Context**
 
@@ -449,7 +489,7 @@ The user wants to open the context folder in the system file manager.
 
 **Steps**
 
-1. The user clicks the **Manage** button.
+1. The user clicks the **Explore** button.
 
    **Step Result**
 
@@ -467,13 +507,13 @@ The following use cases are available to the user:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
 
-### Managing a Subfolder
+### Exploring a Subfolder
 
 **Context**
 
@@ -491,7 +531,7 @@ The user wants to open a subfolder in the system file manager.
 
    A context menu opens.
 
-2. The user selects the **Inspect** command.
+2. The user selects the **Inspect → Explore** command.
 
    **Step Result**
 
@@ -509,8 +549,8 @@ The following use cases are available to the user:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -585,8 +625,8 @@ The following use cases are available to the user:
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
 - *Returning to a Superfolder*
-- *Managing the Context Folder*
-- *Managing a Subfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -609,15 +649,15 @@ The main window must have a unique icon.
 
 The following commands must be available for the user in the main window.
 
-| Command                  | Toolbar    | Hot Keys      | Action                               |
-|--------------------------|------------|---------------|--------------------------------------|
-| **File → Open a Folder** | **Open**   | **Ctrl+O**    | *Choosing a Target Folder*           |
-| **File → Exit**          |            | **Ctrl+X**    | *Quitting the Current Session*       |
-| **Inspect → Up**         | **Up**     | **Backspace** | *Returning to a Superfolder*         |
-| **Inspect → Manage**     | **Manage** | **Ctrl+M**    | *Managing the Context Folder*        |
-| **Inspect → Update**     | **Update** | **Ctrl+S**    | *Updating the Context Folder*        |
-| **Inspect → Stop**       | **Stop**   | **Esc**       | Terminating scanning                 |
-| **Help → About**         |            |               | *Displaying the Program Information* |
+| Command                  | Toolbar     | Hot Keys      | Action                               |
+|--------------------------|-------------|---------------|--------------------------------------|
+| **File → Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
+| **File → Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
+| **Inspect → Up**         | **Up**      | **Backspace** | *Returning to a Superfolder*         |
+| **Inspect → Explore**    | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
+| **Inspect → Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
+| **Inspect → Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
+| **Help → About**         |             |               | *Displaying the Program Information* |
 
 Selecting menu commands, clicking on toolbar buttons, and pressing hot keys must be treated as equivalent actions according to the table above. 
 
@@ -641,6 +681,22 @@ The mutually exclusive groups must affect the following access methods:
 - Toolbar elements
 - Hot keys
 
+The phrase *command gets disabled* refers to the following effects arising at the same time.
+
+The corresponding menu item is displayed as disabled.
+The corresponding button in the toolbar is displayed as disabled.
+The corresponding hotkeys do not produce the corresponding response.
+
+The phrase *command gets enabled* means that the effects listed above cease at the same time.
+
+The phrase *command disappears* refers to the follwoing effects arising at the same time. 
+
+- The corresponding item disappears from the menu.
+- The corresponding button disappears from the toolbar.
+- The corresponding hotkeys do not produce the corresponding response. 
+
+The phrase *command appears* means that the effects listed above cease at the same time. 
+
 
 ### Menu
 
@@ -652,7 +708,7 @@ The menu must have the following structure.
   - **Exit**
 - **Inspect**
   - **Up**
-  - **Manage**
+  - **Explore**
   - --- (separator)
   - **Update**
   - **Stop**
@@ -666,20 +722,22 @@ The menu must have the following structure.
 
 The toolbar must contain the following elements.
 
-| Element    | Type      | Icon/Data          | Tooltip                       | Label         |
-|------------|-----------|--------------------|-------------------------------|---------------|
-| **Open**   | Button    | Folder icon        | *Open a folder*               |               |
-| **Up**     | Button    | Top-pointing arrow | *Go up*                       |               |
-| **Manage** | Button    | Eye icon           | *Open in file manager*        |               |
-| **Update** | Button    | Green play icon    | *Update the folder data*      |               |
-| **Stop**   | Button    | Stop indicator     | *Stop scanning folders*       |               |
-| **Total**  | Indicator | Drive capacity     | *Total capacity of the drive* | *Total at X:* |
-| **Free**   | Indicator | Drive free space   | *Free space on the drive*     | *Free at X:*  |
+| Element     | Type      | Icon/Data          | Tooltip                        | Label         |
+|-------------|-----------|--------------------|--------------------------------|---------------|
+| **Open**    | Button    | Folder icon        | `Open a folder`                |               |
+| **Up**      | Button    | Top-pointing arrow | `Go up`                        |               |
+| **Explore** | Button    | Eye icon           | `Open in file manager`         |               |
+| **Update**  | Button    | Green play icon    | `Update the folder data`       |               |
+| **Stop**    | Button    | Stop indicator     | `Stop scanning folders`        |               |
+| **Total**   | Indicator | Volume capacity    | `Total capacity of the volume` | `Total at X:` |
+| **Free**    | Indicator | Volume free space  | `Free space on the volume`     | `Free at X:`  |
+
+The **Total** and **Free** indicators are the *volume indicators* together.
 
 
 #### Indicator **Total** 
 
-The **Total** element must be implemented as a static text. The static text must be *Total at X:*. The *X* stands for the volume label (**current drive** letter or name); the text must also show total capacity for that volume.
+The **Total** element must be implemented as a static text. The static text must be `Total at X:`. The `X` stands for the volume label (**current volume** letter or name); the text must also show total capacity for that volume.
 
 
 #### Indicator **Free** 
@@ -689,9 +747,9 @@ The **Free** element must be implemented as a compound that contains the followi
 - Static label
 - Button 
 
-The static label must be *Free at X:*. The *X* stands for the current drive letter or name. 
+The static label must be *Free at X:*. The *X* stands for the current volume letter or name. 
 
-The button must display the drive free space. When the user clicks on the button the drive free space updates. 
+The button must display the volume free space. When the user clicks on the button the volume free space updates. 
 
 
 #### Icons
@@ -710,7 +768,7 @@ The treemap must always be stretched over the client area. The treemap must get 
 
 Each tile of the treemap must represent a subfolder.
 
-The size of the tile must correspond to the drive share of the subfolder.
+The size of the tile must correspond to the volume share of the subfolder.
 
 
 #### Tile Colors
@@ -803,7 +861,7 @@ A fancy tile must show a label consisting of the following lines.
 |---------------|------------------|---------------------------|
 | Folder name   | `Folder Name`    | Plain text                |
 | Folder size   | `Folder Details` | File object size          |
-| Drive share   | `Folder Details` | One fractional digit; `%` |
+| Volume share   | `Folder Details` | One fractional digit; `%` |
 
 The file object size must include the following items: 
 
@@ -839,3 +897,63 @@ The open folder dialog box must include the following buttons:
 
 > **IMPORTANT**  
 > Button Create New Folder is irrelevant.
+
+
+## Handling Errors
+
+### Reasons for Handling Errors
+
+Some failures must be reported explicitly so the user understands why an action did not complete and what they can do next.
+
+
+### Errors
+
+Every error has the following properties:
+
+- Code
+- Reason
+- Message
+
+The code identifies the failure. The same class of failure keeps the same code across releases unless this specification changes. The code is suitable for documentation and for support references.
+
+The reason states why the program assigns the code. It describes the technical or situational conditions that qualify the failure. The reason is part of the specification text in the table below.
+
+The message is user-facing text paired with the code for that failure. It must convey the meaning defined for that code in the table below. Other languages may use different wording. The English *Message* column in the table still defines what each code must communicate.
+
+The table below lists the value of each property for every defined failure.
+
+| Code   | Reason | Message |
+|--------|--------|---------|
+| `001` | The user chose a folder that cannot be used as the scan root. | The folder could not be opened for scanning. Check that it still exists and that you have permission to read it. |
+| `002` | Scanning did not finish successfully for a technical reason. | Scanning stopped because of an error. The treemap may be incomplete or empty. |
+| `003` | The folder could not be opened in the system file manager. | The folder could not be opened in File Explorer. |
+
+
+### Error Alert
+
+The program opens error alerts to inform the user about an error. 
+
+An error alert must be a modal dialog box. 
+
+An error alert must contain the following elements:
+
+- Error alert icon
+- Error info block
+- **OK** button
+
+The error alert icon must be a yellow rectangle with a black exclamation mark inside. 
+
+An error info block must provode the following data: 
+
+- Error code
+- Error message
+
+The **OK** button must hold the focus.
+
+An error alert must get closed when the user performs one of the following actions: 
+
+- Closes the error alert using the standard operating system method
+- Clicks on the **OK** button.
+- Presses one of the following keys:
+   - **Enter**
+   - **Esc**

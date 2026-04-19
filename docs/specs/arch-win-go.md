@@ -29,12 +29,12 @@ Main window, menu bar, status bar, treemap host, and a **command strip** above t
 
 #### Command strip (not `ToolbarWindow32`)
 
-The product does **not** use the Win32 rebar **`ToolbarWindow32`** band for Open / Up / Manage / Update–Stop / Total / Free. Reasons: Total must read as **static text** (`Label`), Free as a **real push button**, and the icon commands need predictable layout with the treemap—without fighting toolbar button semantics (mixed text-only and image-only items).
+The product does **not** use the Win32 rebar **`ToolbarWindow32`** band for Open / Up / Explore / Update–Stop / Total / Free. Reasons: Total must read as **static text** (`Label`), Free as a **real push button**, and the icon commands need predictable layout with the treemap—without fighting toolbar button semantics (mixed text-only and image-only items).
 
 Implementation shape (under `win-go/internal/ui`, `walk` declarative shell):
 
 - **`MainWindow`** is built **without** declarative `ToolBar` items. The vendored `walk` `declarative` `MainWindow` path **disposes** the default empty toolbar control so the client area is **menu + content only** (no blank strip).
-- The **first child** of the main client `VBox` is a horizontal **`Composite`**: **`ToolButton`**s for Open, Up, Manage, and Update/Stop (bitmaps from the existing art pipeline), then a **`Label`** for Total, then a **`PushButton`** for Free, then a spacer. The treemap **`CustomWidget`** follows with stretch.
+- The **first child** of the main client `VBox` is a horizontal **`Composite`**: **`ToolButton`**s for Open, Up, Explore, and Update/Stop (bitmaps from the existing art pipeline), then a **`Label`** for Total, then a **`PushButton`** for Free, then a spacer. The treemap **`CustomWidget`** follows with stretch.
 - **Menu** actions remain the source of truth for shortcuts and Inspect/File entries; **`setScanChrome`** keeps menu **`Action`** enabled/visible state in sync with the strip widgets (and drives the scan button image/tooltip between Update and Stop).
 
 Vendored `walk` (under `samples/third_party/walk`): besides the empty-toolbar disposal above, **`ToolButton.CreateLayoutItem`** was adjusted so layout height/width respect **bitmap size** and declarative **`MinSize`**, avoiding vertical clipping of 24×24-at-96-DPI-style glyphs in an `HBox`.
@@ -65,7 +65,7 @@ Paint, labels, tooltips, hit testing. Measure fonts with the same DPI you use to
 
 ### Shell helpers
 
-Folder picker and Explorer launch for Manage. Meet FS dialog constraints. If `ShellExecute` or equivalent fails, show a clear error to the user (FS does not define the string; avoid silent failure).
+Folder picker and Explorer launch for Explore. Meet FS dialog constraints. If `ShellExecute` or equivalent fails, show a clear error to the user (FS does not define the string; avoid silent failure).
 
 ## 4. Concurrency and data ownership
 

@@ -1,0 +1,25 @@
+---
+description: No repo edits unless the user explicitly orders a change; no scope creep.
+alwaysApply: true
+---
+
+# Change discipline (agent)
+
+## Primary rule
+
+Do **not** modify the project (files, configs, git state, or running commands that alter the workspace) unless the user gives a **direct instruction** to make that change.
+
+Do **not** make changes that were **not requested**, including “helpful” cleanups, drive-by refactors, typo fixes, formatting, lint-only edits, dependency bumps, or speculative reverts.
+
+## What counts as a direct instruction
+
+- Clear imperatives: *change*, *fix*, *add*, *remove*, *implement*, *update*, *rename*, *revert*, *delete*, *create*, *apply the patch*, *run migration*, etc., aimed at concrete work.
+- If the user only says *read*, *explain*, *what does*, *summarize*, *understand*, *review without changing*, treat the task as **read-only**: answer from the codebase using read/search tools only; **no edits**.
+
+## When unsure
+
+Ask one short question before editing, or default to **no edits** and describe what you would change only if asked.
+
+## Exceptions
+
+None unless the user explicitly names an exception for that message (e.g. emergency security patch they authorize).
