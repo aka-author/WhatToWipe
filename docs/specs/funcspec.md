@@ -17,7 +17,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Target folder:* A folder that has been chosen by the user as a root.
 
-*Context folder:* A folder that the user is currently exploring.
+*Context folder:* A folder that the user is currently viewing.
 
 *Current volume:* The volume that contains the context folder.
 
@@ -40,9 +40,11 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 *Success:* Applied to scanning a folder, means that the scanning was not interrupted by the user voluntarily or by the program for technical reasons.
 
 > **NOTE**
-> If the program fails to collect data on some inner folders or files because of insufficient permicions, but finishes scanning organically without interruptions it's still success.   
+> If the program fails to collect data on some inner folders or files because of insufficient permissions, but finishes scanning organically without interruptions, it's still success.   
 
 *Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders, including their sizes and volume shares.
+
+*Treemap data:* The data on the target folder and its content that has been collected during the latest successful scanning.
 
 *Complete treemap:* A treemap representing a successfully scanned folder.
 
@@ -51,6 +53,8 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 *Tile:* One region of the treemap; each tile represents a subfolder of the context folder.
 
 *Navigation:* The user moves up and down the folder hierarchy in the program interface by changing the context folder to bring a folder of interest into focus.
+
+*Volime indicators:* The indicators that display properties of the current volume. 
 
 
 ## Use Cases
@@ -67,6 +71,7 @@ The program must support the following use cases:
 - *Returning to a Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
+- *Checking a Folder of Interest*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -81,7 +86,7 @@ The user decides to clean up volumes on their devices.
 
 1. The user launches the program.
 
-   **Step Result**
+   **System Response**
 
    The program starts. The main window opens.
 
@@ -92,8 +97,6 @@ The user decides to clean up volumes on their devices.
 - The volume indicators are unset.
 
 **Postrequisites**
-
-The following use cases are available to the user:
 
 - *Choosing a Target Folder*
 - *Displaying the Program Information*
@@ -108,82 +111,73 @@ The user has to choose a folder that they will treat as a target folder.
 
 **Prerequisites**
 
-The program is not scanning.
+All of the following conditions are met:
+
+- The program is not scanning.
+- Neither modal dialog box is open. 
 
 **Steps**
 
 1. The user selects the **File → Open a Folder** command.
 
-   **Step Result**
+   **System Response**
 
-   The system **Open** dialog box opens.
+   Display the **Open** dialog box.
 
-2. The user selects a folder.
+2. The user selects some folder.
 
-   2 Positive. The program accepts the selected folder.
+   **System Response**
 
-   **Conditions**
-
-   The folder is available for scanning. 
-
-   **Step Result**
-
-   - The folder selected by the user becomes a target folder.
-   - The folder selected by the user becomes a context folder.
-   - The volume indicators are updated.
-   - The treemap gets unset.
+   Update the volume indicators.
    
-   2 Negative. The program rejects the selected folder. 
+   Display the treemap unset.
 
-   **Conditions**
-
-   The folder if unavailable because of some technical reasons. 
+   If the folder is available for scanning:
    
-   The possible reasons for rejecting the folder are listed below.
+   - Set the selected folder the both the target and the context folder.
+   - Apply the *Scanning the Context Folder* use case.
+
+   If the folder is not available for scanning:
    
-   - The folder has been deleted.
-   - The program does not have sufficient permissions to scan the folder.
-   - Other runtime errors or technical reasons. 
+   - Rise the `#001` error.
+   - Display an error alert.
+   - Terminate the use case.
 
-   **Step Results**
+3. The user waits when the scanning has finished. 
 
-   An error code is #001. The program displays an error alert.   
+   **System Response**
 
-3. The program starts the use case *Scanning the Context Folder*.
+   If the target folder does not exist:
 
-   **Step Results**
+   - Rise the `#004` error.
+   - Display an error alert.
+   - Keep the treemap unset.    
+   - Recognize the result as negative.
+   - Terminate the use case. 
 
-   The use case *Scanning the Context Folder* has strted.
+   If the scanning has finished successfuly: 
+
+   - Display the treemap complete.
+   - Recognize the result as positive.
+
+   If the scanning has terminated: 
    
-4. The program handles the scanning outcomes.
-
-   4 Positive. The treemap gets complete.
-
-   **Conditions**
-
-   The target folder has been fully scanned.
-
-   **Step Result**
-
-   The treemap is displayed complete.
+   - Keep the treemap unset.
+   - Display a termination alert.
+   - Recognize the result as negative.
    
-   4 Negative. The treemap gets unset.
+**Rules**
 
-   **Conditions**
+The folder is not available for scanning if the program does not have sufficient permissions to access it. 
 
-   - User interrupted scanning of the target folder.  
-     OR  
-   - Scanning of the target folder failed by other reasons.
-
-   **Step Result**
-
-   The treemap is displayed unset.
+Otherwise, the folder is available for scanning. 
 
 **Result**
 
    **Positive**
 
-   The treemap is displayed complete.
+   - The data on the target folder content is collected. 
+   - The treemap is displayed complete.
    
    **Negative**
 
@@ -191,15 +185,21 @@ The program is not scanning.
 
 **Postrequisites**
 
-The following use cases are available to the user:
+   **Positive**
 
-- *Choosing a Target Folder*
-- *Updating the Context Folder*
-- *Diving Into a Subfolder*
-- *Exploring the Context Folder*
-- *Exploring a Subfolder*
-- *Displaying the Program Information*
-- *Quitting the Current Session*
+   - *Choosing a Target Folder*
+   - *Updating the Context Folder*
+   - *Diving Into a Subfolder*
+   - *Exploring the Context Folder*
+   - *Exploring a Subfolder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
+
+   **Negative**
+
+   - *Choosing a Target Folder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
 
 
 ### Updating the Context Folder
@@ -210,66 +210,58 @@ The treemap is based on data collected during the last scan. This data includes 
 
 **Prerequisites**
 
-- A context folder is set,  
-  AND  
+All of the following conditions are met:
+
+- A context folder is set.  
 - The program is not scanning.
+- Neither modal dialog box is open. 
 
 **Steps**
 
 1. The user selects the **File → Update** command.
 
-   **Step Result**
+   **System Response**
 
-   The context folder is declared *anchored*.
+   - Declare the context folder *anchored*.
+   - Apply *Scanning the Context Folder* use case.
 
-   The use case *Scanning the Context Folder* starts.
+3. The user waits when the scanning has finished. 
 
-2. The program handles the scanning outcomes.
+   **System Response**
 
-   2 Positive. The treemap gets complete.
+   If the context folder does not exist:
 
-   **Conditions**
+   - Display the treemap unset.
+   - Rise the `#004` error.
+   - Display an error alert.    
+   - Recognize the result as incomplete.
+   - Terminate the use case. 
 
-   The context folder has been fully scanned.
+   If the scanning has finished successfully: 
 
-   **Step Result**
+   - Update the treemap data. 
+   - Display the treemap complete for the context folder.
+   - Recognize the result as positive.
 
-   - The treemap is displayed complete.
-   - The **Free** indicator is updated.
-
-   2 Negative. The treemap gets unset.
-
-   **Conditions**
-
-   - The user interrupted the scanning,
-     OR  
-   - The scanning failed for other reasons.
-
-   **Step Result**
-
-   The treemap is displayed unset.
+   If the scanning has terminated: 
+   
+   - Keep the treemap and treemap data unchanged. 
+   - Display the scanning termination alert.
+   - Recognize the result as negative.
 
 **Result**
 
    **Positive**
 
-   An *appropreate* folder is identified according to the table below.
+   The treemap is displayed complete. 
 
-   | Target Folder | Anchored Folder | Context Folder | Appropreate Folder |
-   |---------------|-----------------|----------------|--------------------|
-   | Exists        | Exists          | Exists         | Context folder     |
-   | Exists        | Exists          | Absent         | Pinned folder      |
-   | Exists        | Absent          | Absent         | Target folder      |
-   | Exists        | Absent          | Exists         | Context folder     |
-   | Absent        | Absent          | Absent         | Not identified     |
+   **Incomplete**
 
-   - A complete treemap is shown for the appropreate folder if it is identified.
-   - An unset treemap is shown if an appropreate folder in not identified. 
-   - The the **Free** indicator is updated.
+   The treemap is displayed unchanged.
 
    **Negative**
 
-   The treemap is displayed unchanged.
+   The treemap is displayed unset. 
 
 **Rules**
 
@@ -277,77 +269,73 @@ The user is allowed to navigate while the use case *Scanning the Context Folder*
 
 **Postrequisites**
 
-The following use cases are available to the user:
+   **Positive**
 
-- *Choosing a Target Folder*
-- *Updating the Context Folder*
-- *Diving Into a Subfolder*
-- *Returning to a Superfolder*
-- *Exploring the Context Folder*
-- *Exploring a Subfolder*
-- *Displaying the Program Information*
-- *Quitting the Current Session*
+   - *Choosing a Target Folder*
+   - *Updating the Context Folder*
+   - *Diving Into a Subfolder*
+   - *Returning to a Superfolder*
+   - *Exploring the Context Folder*
+   - *Exploring a Subfolder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
+
+   **Negative**
+
+   - *Choosing a Target Folder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
 
 
 ### Scanning the Context Folder
 
 **Context**
 
-- Overall use case *Choosing a Target Folder*, step 2,  
-  OR  
-- Overall use case *Updating the Context Folder*, step 1.
+Any of the following conditions is met:
+
+- Overall use case is *Choosing a Target Folder*.  
+- Overall use case is *Updating the Context Folder*.
 
 **Steps**
 
-1. The program begins to scan the context folder hierarchy.
+1. Reconfigure the user interface. 
 
-   **Step Result**
+   - Hide the **Inspect → Update** command.
+   - Show the **Inspect → Stop** command.
+   - Set the mouse pointer to the busy state.
 
-   - The **Inspetc → Update** command disappears.
-   - The **Inspect → Stop** command appears.
+2. Scan the context folder hierarchy. 
 
-2. The user waits or reacts.
+   Handle the possible issues as stated below. 
 
-   2 Positive. User waits when the scanning has finished.
+   If the user selects the **Inspect → Stop** command: 
+   
+   - Stop scanning.
+   - Recognize the result as negative. 
+   - Terminate the use case.
 
-   **Step Result**
 
-   The scanning has finished successfully.
+   If the scanning becomes impossible for technical reasons:
 
-   2 Negative #1. The user selects the **Inspect → Stop** command.
+   - Stop scanning. 
+   - Recognize the result as negative.
+   - Terminate the use case.
+ 
+   Otherwise, if scanning has finished organically:
 
-   **Step Result**
+   - Recognize the result positive. 
 
-   The scanning is terminated.
+3. Reconfigure the user interface. 
 
-   2 Negative #2. An error occurs during the scanning.
-
-   **Step Result**
-
-   The scanning is terminated.
-
-3. The scanning finishes.
-
-   **Step Result**
-
-      **Any Case**
-
-      - The **Inspetc → Stop** command disappears.
-      - The **Inspect → Update** command appears.
-      
-   **Positive**
-
-      The exit code `success` returns to the overall use case.
-
-   **Negative**
-
-      The exit code `terminated` returns to the overall use case.  
+   - Hide the **Inspect → Stop** command.
+   - Show the **Inspect → Update** command.
+   - Set the mouse pointer to the default state.
 
 **Rules**
 
-All nested folders and files must be scanned recursively from the context folder down to terminal folders and files.
+All nested folders and files must be scanned recursively from the context folder down to leaf folders and files.
 
-During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path.
+During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent disgusting blinking the program must update the status bar each 0.5 seconds.
 
 The following data must be collected or updated for the context folder and for each folder within it:
 
@@ -356,6 +344,10 @@ The following data must be collected or updated for the context folder and for e
 - Folder size
 - Volume share of the folder
 - Class of the folder
+- Number of the nested folders
+- Number of the nested files
+- Creation date and time of the oldest file
+- Last update date and time of the newest file
 
 The following numeric data must be recalculated along the entire hierarchy if the context folder is not the target folder:
 
@@ -364,66 +356,56 @@ The following numeric data must be recalculated along the entire hierarchy if th
 
 The data collected during the scanning must be stored in memory and used for navigation within the target folder.
 
-While a scan is in progress, the following indicators must be updated as required for the scan root:
-- **Total**
-- **Free**
-
 **Result**
 
    **Positive**
 
-   Data on the target folder and the descendants is collected.
+   - Data on the target folder and the descendants is collected.
+   - Scanning finished organically.
 
    **Negative**
 
-   Data is not collected because of the termination.
+   - Scanning was terminated.
 
 **Postrequisites**
 
-The overall use case proceeds.
+Control returns to the overall use case.
 
 
 ### Diving Into a Subfolder
 
 **Prerequisites**
 
-- A treemap is displayed complete.
+A treemap is displayed complete.
 
 **Steps**
 
 1. The user clicks on a tile.
 
-2. The program verifies the tile corresponds to a node subfolder.
+   **System Respose**
 
-3. The program handles the click.
+   Apply the *Checking a Folder of Interest* use case to the subfolder. 
 
-   3.POS — The program displays a subfolder
+   If the subfolder is node:
 
-   **Conditions**
+   - Make the subfolder the context folder. 
+   - Display the treemap for the new context folder. 
+   - Recognize the result as positive.
 
-   The subfolder corresponding to the tile is node.
-
-   **Step Result**
-
-   - The subfolder corresponding to the tile becomes a context folder.
-   - The treemap is updated for the new context folder.
-   - If the **current volume** differs from the volume previously shown, then the following indicators must be updated:
-     - **Total**
-     - **Free**
+   Otherwise, recognize the result as negative.  
 
 **Result**
 
    **Positive**
 
-   New context folder is set.
+   - The subfolder is the context folder now.
+   - The treemap is displayed updated. 
 
    **Negative**
 
-   The click is ignored.
+   The click has no effect. 
 
 **Postrequisites**
-
-The following use cases are available to the user:
 
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
@@ -443,38 +425,51 @@ The user navigates the folder hierarchy upward.
 
 **Prerequisites**
 
-- A treemap is displayed complete,  
-  AND  
+All of the following conditions are met:
+
+- A treemap is displayed complete.
 - The context folder is not the target folder.
 
 **Steps**
 
-1. The user clicks the **Up** button or presses **Backspace** key.
+1. The user selects the **Inspect → Up** command.
 
-   **Step Result**
+   **System Response**
 
-   - The superfolder becomes the context folder.
-   - The treemap is updated for the new context folder.
-   - If the **current volume** changes compared to the previous context folder, then the following indicators must be updated:
-     - **Total**
-     - **Free**
+   Apply the *Checking a Folder of Interest* use case to the superfolder. 
 
+   Make the superfolder the context folder.
+   Display the treemap for the new context folder. 
+  
 **Result**
 
-The treemap is displayed for the superfolder.
+   **Positive**
+
+   - The superfolder is the context folder now.
+   - The treemap is displayed updated.
+
+   **Negative**
+
+   The treemap is displayed unset. 
 
 **Postrequisites**
 
-The following use cases are available to the user:
+   **Positive**
 
-- *Choosing a Target Folder*
-- *Updating the Context Folder*
-- *Diving Into a Subfolder*
-- *Returning to a Superfolder*
-- *Exploring the Context Folder*
-- *Exploring a Subfolder*
-- *Displaying the Program Information*
-- *Quitting the Current Session*
+   - *Choosing a Target Folder*
+   - *Updating the Context Folder*
+   - *Diving Into a Subfolder*
+   - *Returning to a Superfolder*
+   - *Exploring the Context Folder*
+   - *Exploring a Subfolder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
+
+   **Negative**
+
+   - *Choosing a Target Folder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
 
 
 ### Exploring the Context Folder
@@ -489,28 +484,45 @@ The user wants to open the context folder in the system file manager.
 
 **Steps**
 
-1. The user clicks the **Explore** button.
+1. The user selects the  **Inspect → Explore** button.
 
-   **Step Result**
+   **System Response**
 
-   A system file manager window opens for the context folder.
+   Apply the *Checking a Folder of Interest* use case to the context folder. 
+
+   Open the system file manager window for the context folder.
+
+   Recognize the result as positive.
 
 **Result**
 
-The context folder is opened in the system file manager.
+   **Positive**
+
+   The context folder is opened in the system file manager.
+
+   **Negative**
+
+   The treemap is unset.
 
 **Postrequisites**
 
-The following use cases are available to the user:
+   **Positive**
 
-- *Choosing a Target Folder*
-- *Updating the Context Folder*
-- *Diving Into a Subfolder*
-- *Returning to a Superfolder*
-- *Exploring the Context Folder*
-- *Exploring a Subfolder*
-- *Displaying the Program Information*
-- *Quitting the Current Session*
+   - *Choosing a Target Folder*
+   - *Updating the Context Folder*
+   - *Diving Into a Subfolder*
+   - *Returning to a Superfolder*
+   - *Exploring the Context Folder*
+   - *Exploring a Subfolder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
+
+   **Negative**
+
+   - *Choosing a Target Folder*
+   - *Displaying the Program Information*
+   - *Quitting the Current Session*
+
 
 
 ### Exploring a Subfolder
@@ -521,29 +533,35 @@ The user wants to open a subfolder in the system file manager.
 
 **Prerequisites**
 
-- A treemap is displayed complete.
+A treemap is displayed complete.
 
 **Steps**
 
 1. The user right-clicks a tile.
 
-   **Step Result**
+   **System Response**
 
-   A context menu opens.
+  Display a context meny for the tile. .
 
-2. The user selects the **Inspect → Explore** command.
+2. The user selects the **Explore** command.
 
-   **Step Result**
+   **System Response**
 
-   A system file manager window opens for the subfolder.
+   -Apply the *Checking a Folder of Interest* use case to the subfolder. 
+   - Open the system file manager window for the context folder.
+   - Recognize the result as positive.
 
 **Result**
 
-The selected subfolder is opened in the system file manager.
+   **Positive**
+
+   The subfolder is available in the system file manager.
+
+   **Negative**
+
+   None. 
 
 **Postrequisites**
-
-The following use cases are available to the user:
 
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
@@ -555,31 +573,36 @@ The following use cases are available to the user:
 - *Quitting the Current Session*
 
 
-### Quitting the Current Session
+### Checking a Folder of Interest
 
 **Context**
 
-The user finishes working with the program.
+Any use case in which the user tries to perform some operation against the folder of interest.
 
-**Prerequisites**
+**Parameters**
 
-The program is not scanning folders.
+The full path to the folder of interest. 
 
 **Steps**
 
-1. The user selects the **File → Exit** command.
-
-   **Step Result**
-
-   The program exits.
+1. If the folder exist, recognize the result as positive, othervise as negative.
 
 **Result**
 
-The session is finished.
+   **Positive**
+
+   The overall use case proceeds normally. 
+
+   **Negative**
+
+   - Rise the `#004` error. 
+   - Display an error alert.    
+   - Recognize the result of the overal use ase as negative.
+   - Terminate the overall use case. 
 
 **Postrequisites**
 
-None.
+Control returns to the overall use case.
 
 
 ### Displaying the Program Information
@@ -629,6 +652,33 @@ The following use cases are available to the user:
 - *Exploring a Subfolder*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
+
+
+### Quitting the Current Session
+
+**Context**
+
+The user finishes working with the program.
+
+**Prerequisites**
+
+The program is not scanning folders.
+
+**Steps**
+
+1. The user selects the **File → Exit** command.
+
+   **Step Result**
+
+   The program exits.
+
+**Result**
+
+The session is finished.
+
+**Postrequisites**
+
+None.
 
 
 ## User Interface
@@ -861,7 +911,7 @@ A fancy tile must show a label consisting of the following lines.
 |---------------|------------------|---------------------------|
 | Folder name   | `Folder Name`    | Plain text                |
 | Folder size   | `Folder Details` | File object size          |
-| Volume share   | `Folder Details` | One fractional digit; `%` |
+| Volume share  | `Folder Details` | One fractional digit; `%` |
 
 The file object size must include the following items: 
 
@@ -927,7 +977,7 @@ The table below lists the value of each property for every defined failure.
 | `001` | The user chose a folder that cannot be used as the scan root. | The folder could not be opened for scanning. Check that it still exists and that you have permission to read it. |
 | `002` | Scanning did not finish successfully for a technical reason. | Scanning stopped because of an error. The treemap may be incomplete or empty. |
 | `003` | The folder could not be opened in the system file manager. | The folder could not be opened in File Explorer. |
-
+| `004` | The folder of interest does not exist. | The folder `%folder path%` is not found. Might you have deleted it in the meantime? |
 
 ### Error Alert
 
