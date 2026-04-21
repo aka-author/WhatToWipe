@@ -12,15 +12,15 @@
         }
       },
       {
-        "scope": "punctuation.definition.bold.markdown, punctuation.definition.italic.markdown, punctuation.definition.list.begin.markdown, punctuation.definition.quote.begin.markdown",
+        "scope": "text.html.markdown markup.quote.markdown, text.html.markdown markup.quote.markdown meta.paragraph.markdown, text.html.markdown markup.quote.markdown markup.bold.markdown, text.html.markdown markup.quote.markdown markup.italic.markdown, text.html.markdown markup.quote.markdown punctuation.definition.quote.markdown",
         "settings": {
-          "foreground": "#6e7681"
+          "foreground": "#a7b5c4"
         }
       },
       {
-        "scope": "text.html.markdown markup.quote.markdown, text.html.markdown markup.quote.markdown meta.paragraph.markdown, text.html.markdown markup.quote.markdown markup.bold.markdown, text.html.markdown markup.quote.markdown markup.italic.markdown, text.html.markdown markup.quote.markdown punctuation.definition.quote.begin.markdown, text.html.markdown markup.quote.markdown punctuation.definition.bold.markdown, text.html.markdown markup.quote.markdown punctuation.definition.italic.markdown",
+        "scope": "text.html.markdown markup.quote.markdown punctuation.definition.bold.markdown, text.html.markdown markup.quote.markdown punctuation.definition.italic.markdown, text.html.markdown markup.quote.markdown punctuation.definition.quote.begin.markdown",
         "settings": {
-          "foreground": "#a7b5c4"
+          "foreground": "#6e7681"
         }
       }
     ]

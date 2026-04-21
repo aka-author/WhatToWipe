@@ -57,7 +57,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Target folder:* A folder that has been chosen by the user as a root.
 
-*Tile:* One region of the treemap; each tile represents one immediate child of the context folder in the layout—either a subfolder or a clump tile.
+*Tile:* One region of the treemap; it represents one file system object or one clump, per treemap rules under User Interface.
 
 *Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders and clumps, including their sizes and volume shares.
 
@@ -863,122 +863,73 @@ The button must display the volume free space. When the user clicks on the butto
 
 #### Layout
 
-The treemap must always be stretched over the client area. The treemap must get resized accordingly when the user resizes the main window.
+The treemap fills the client area and rescales when the main window is resized.
 
+#### Tiles
 
-#### Representation
+Let N be the count of nested file system objects immediately under the context folder (each file and each folder at that level counts as one).
 
-Each tile of the treemap must represent one immediate child of the context folder in the layout: a subfolder or a clump tile.
+- The treemap shows at most `treemap.maxTiles` tiles.
+- Each tile is for a file, a folder, or a clump.
 
-The size of a tile must correspond to the volume share of the subfolder or clump that the tile represents.
+If N ≤ treemap.maxTiles, there is one tile per nested file system object.
 
+If N > treemap.maxTiles, there is one tile for each of the treemap.maxTiles − 1 largest nested file system objects by *size of a file system object*, and one tile for a clump that represents all remaining nested file system objects at that level together.
 
-#### Tile Colors
+Among nested file system objects with the same size, ordering is implementation-defined.
 
-Tiles that represent node subfolders must be displayed colored. The colors that are allowed for painting tiles are listed below. 
+#### Areas
 
-| Color Name   | sRGB Hex  |
-|--------------|-----------|
-| Atoll        | `#AFE9DE` |
-| Blush        | `#EFBFD4` |
-| Foxglove     | `#DCC8F2` |
-| Nectarine    | `#FFD4BF` |
-| Peridot      | `#C9ECC5` |
-| Quince       | `#F2E2B3` |
-| Stratosphere | `#B8DFF7` |
+Each tile’s area is proportional to the volume share of the file system object or *clump* that tile represents.
 
-Tiles that represent leaf subfolders must be displayed grayscale.
+#### Colors
 
+Background and text colors come only from Treemap Configuration Parameters (`treemap.*BgColor`, `treemap.*TextColor`). No separate fixed palette is specified here.
 
-#### Fonts 
+#### Fonts
 
-The **Headline font** shall be `Segoe UI`.
-
+The tile font is the typeface given by `treemap.tileFontName` (Treemap Configuration Parameters). Where this section refers to the Headline font, it means that tile font.
 
 #### Metrics
 
-The following metrics are defined for a tile:
+For each tile:
 
-* Extended length
-* Horizontal unit
-* Vertical unit
+- Extended length is the character count of the primary label text (see Tile Labels) plus two.
+- Horizontal unit (hu) is the tile width in points divided by extended length.
+- Vertical unit (vu) is the font size of the Headline font at which `M` is as wide as one horizontal unit.
 
-The **extended length** is the number of characters in the folder name plus two.
-
-The **horizontal unit (hu)** is the width of the tile in points divided by the extended length.
-
-The **vertical unit (vu)** is the **Headline font** size at which the character `M` is as wide as one horizontal unit.
-
-A vertical unit is not allowed to be larger that 45 points. If any calculation yields a larger value, then the vertical unit must be clamped to this limit.
-
+The vertical unit must not exceed 45 points; larger computed values are clamped to 45 points.
 
 #### Styles
 
-The following styles are recognized:
+The `Folder Name` style is the primary label line. The `Folder Details` style is used for the size and share lines.
 
-* `Folder Name`
-* `Folder Details`
+For `Folder Name`: indent above 0; font family from `treemap.tileFontName`; font size 1 vu; not bold; not italic.
 
-The following properties are defined for the `Folder Name`.
+For `Folder Details`: indent above 0.5 vu; font family from `treemap.tileFontName`; font size 0.8 vu; not bold; not italic.
 
-| Property     | Value        |
-|--------------|--------------|
-| Indent above | 0            |
-| Font name    | Headline font |
-| Font size    | 1 vu         |
-| Bold         | No           |
-| Italic       | No           |
+#### Tile classes
 
-The following properties are defined for the `Folder Details`.
+A tile is fancy when its vertical unit is at least 10 points and its height is at least 5 vertical units. Otherwise the tile is shabby.
 
-| Property     | Value         |
-|--------------|---------------|
-| Indent above | 0.5 vu        |
-| Font name    | Headline font |
-| Font size    | 0.8 vu        |
-| Bold         | No            |
-| Italic       | No            |
+#### Tile labels
 
+A fancy tile shows three lines:
 
-#### Tile Classes
+- Object name in `Folder Name` style, plain text.
+- Object size in `Folder Details` style, file object size format.
+- Volume share in `Folder Details` style, one fractional digit and `%`.
 
-The following classes of tiles are recognized:
+File object size format:
 
-* Fancy
-* Shabby
+- One fractional digit, one space, one suffix `TB`, `GB`, `MB`, or `KB` (largest unit that fits).
+- Zero → `0.0 KB`.
 
-The tile is **fancy** if the following conditions are true for it at the same time: 
-
-* Its vertical unit is not less than 10 points. 
-* Its height is not less than 5 vertical units. 
-
-Otherwise the tile is **shabby**. 
-
-
-#### Tile Labels
-
-A fancy tile must show a label consisting of the following lines.
-
-| Data          | Style            | Format                    |
-|---------------|------------------|---------------------------|
-| Folder name   | `Folder Name`    | Normal text               |
-| Folder size   | `Folder Details` | File object size          |
-| Volume share  | `Folder Details` | One fractional digit; `%` |
-
-The file object size must include the following items: 
-
-- One fractional digit
-- White space 
-- One suffix `TB`, `GB`, `MB`, or `KB`; pick largest fitting unit. 
-
-Zero must give `0.0 KB` for a file object size.
-
-A shabby tile must show the same three-line label (same data and formats as in the table above). **Folder Name** must use **10 points**. **Folder Details** must use **8 points** (0.8 × 10 per the style table). Text that would extend past the tile is clipped at the tile boundary.
-
+Shabby tiles use the same three lines; `Folder Name` at 10 pt, `Folder Details` at 8 pt (0.8 × 10). Text clips at the tile edge.
 
 #### Tooltips
 
-Shabby tiles already show the three-line on-tile label (see **Tile Labels**). **Hover tooltips for shabby tiles are not required in the current product build** (they were removed to avoid treemap repaint artifacts). A future build may restore optional shabby hover tooltips that repeat the same three lines.
+Shabby tiles already show the three-line on-tile label (see Tile Labels). Hover tooltips for shabby tiles are not required in the current product build (they were removed to avoid treemap repaint artifacts). A future build may restore optional shabby hover tooltips that repeat the same three lines.
 
 
 ### Status Bar
