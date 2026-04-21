@@ -21,7 +21,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Current volume:* The volume that contains the context folder.
 
-*Subfolder:* If not specified, a folder within the context folder.
+*Subfolder:* If not specified, a folder directly within the context folder.
 
 *Node subfolder:* A subfolder that contains nested folders.
 
@@ -65,10 +65,10 @@ The program must support the following use cases:
 
 - *Starting a New Session*
 - *Choosing a Target Folder*
-- *Scanning the Context Folder*
 - *Updating the Context Folder*
+- *Scanning the Context Folder*
 - *Diving Into a Subfolder*
-- *Returning to a Superfolder*
+- *Returning to the Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
 - *Checking a Folder of Interest*
@@ -107,7 +107,7 @@ The user decides to clean up volumes on their devices.
 
 **Context**
 
-The user has to choose a folder that they will treat as a target folder.
+The user has to choose a folder that they will treat as the target folder.
 
 **Prerequisites**
 
@@ -128,13 +128,15 @@ All of the following conditions are met:
 
    **System Response**
 
+   Identufy the current volume. 
+
    Update the volume indicators.
    
-   Display the treemap unset.
+   Display the treemap as unset.
 
    If the folder is available for scanning:
    
-   - Set the selected folder the both the target and the context folder.
+   - Set the folder the both the target and the context folder.
    - Apply the *Scanning the Context Folder* use case.
 
    If the folder is not available for scanning:
@@ -155,15 +157,15 @@ All of the following conditions are met:
    - Recognize the result as negative.
    - Terminate the use case. 
 
-   If the scanning has finished successfuly: 
+   If scanning has finished successfully: 
 
-   - Display the treemap complete.
+   - Display the treemap as complete.
    - Recognize the result as positive.
 
-   If the scanning has terminated: 
+   If scanning has been interrupted: 
    
    - Keep the treemap unset.
-   - Display a termination alert.
+   - Display an interruption alert.
    - Recognize the result as negative.
    
 **Rules**
@@ -176,12 +178,12 @@ Otherwise, the folder is available for scanning.
 
    **Positive**
 
-   - The data on the target folder content is collected. 
-   - The treemap is displayed complete.
+   - The treemap data is collected. 
+   - The treemap is displayed as complete.
    
    **Negative**
 
-   The treemap is displayed unset.
+   The treemap is displayed as unset.
 
 **Postrequisites**
 
@@ -222,16 +224,15 @@ All of the following conditions are met:
 
    **System Response**
 
-   - Declare the context folder *anchored*.
-   - Apply *Scanning the Context Folder* use case.
+   Apply *Scanning the Context Folder* use case.
 
-3. The user waits when the scanning has finished. 
+3. The user waits until scanning has finished. 
 
    **System Response**
 
-   If the context folder does not exist:
+   If the context folder does not exist anymore:
 
-   - Display the treemap unset.
+   - Display the treemap as unset.
    - Rise the `#004` error.
    - Display an error alert.    
    - Recognize the result as incomplete.
@@ -240,28 +241,28 @@ All of the following conditions are met:
    If the scanning has finished successfully: 
 
    - Update the treemap data. 
-   - Display the treemap complete for the context folder.
+   - Display the treemap for the context folder as complete.
    - Recognize the result as positive.
 
-   If the scanning has terminated: 
+   If the scanning has been interrupted: 
    
    - Keep the treemap and treemap data unchanged. 
-   - Display the scanning termination alert.
+   - Display a termination alert.
    - Recognize the result as negative.
 
 **Result**
 
    **Positive**
 
-   The treemap is displayed complete. 
+   The treemap is displayed as complete. 
 
    **Incomplete**
 
-   The treemap is displayed unchanged.
+   The treemap is displayed as unchanged.
 
    **Negative**
 
-   The treemap is displayed unset. 
+   The treemap is displayed as unset. 
 
 **Rules**
 
@@ -314,16 +315,15 @@ Any of the following conditions is met:
    - Recognize the result as negative. 
    - Terminate the use case.
 
-
    If the scanning becomes impossible for technical reasons:
 
    - Stop scanning. 
    - Recognize the result as negative.
    - Terminate the use case.
  
-   Otherwise, if scanning has finished organically:
+   Otherwise, if scanning has finished successfully:
 
-   - Recognize the result positive. 
+   - Recognize the result as positive. 
 
 3. Reconfigure the user interface. 
 
@@ -365,7 +365,7 @@ The data collected during the scanning must be stored in memory and used for nav
 
    **Negative**
 
-   - Scanning was terminated.
+   - Scanning has been interrupted.
 
 **Postrequisites**
 
@@ -376,7 +376,10 @@ Control returns to the overall use case.
 
 **Prerequisites**
 
-A treemap is displayed complete.
+All of the following conditions are met:
+
+- A treemap is displayed as complete.
+- Neither modal dialog box is open. 
 
 **Steps**
 
@@ -389,7 +392,7 @@ A treemap is displayed complete.
    If the subfolder is node:
 
    - Make the subfolder the context folder. 
-   - Display the treemap for the new context folder. 
+   - Display the treemap for the new context folder as complete. 
    - Recognize the result as positive.
 
    Otherwise, recognize the result as negative.  
@@ -399,7 +402,7 @@ A treemap is displayed complete.
    **Positive**
 
    - The subfolder is the context folder now.
-   - The treemap is displayed updated. 
+   - The treemap is updated accordingly. 
 
    **Negative**
 
@@ -427,8 +430,9 @@ The user navigates the folder hierarchy upward.
 
 All of the following conditions are met:
 
-- A treemap is displayed complete.
+- A treemap is displayed as complete.
 - The context folder is not the target folder.
+- Neither modal dialog box is open.
 
 **Steps**
 
@@ -439,14 +443,15 @@ All of the following conditions are met:
    Apply the *Checking a Folder of Interest* use case to the superfolder. 
 
    Make the superfolder the context folder.
-   Display the treemap for the new context folder. 
+
+   Display the treemap for the new context folder as complete. 
   
 **Result**
 
    **Positive**
 
    - The superfolder is the context folder now.
-   - The treemap is displayed updated.
+   - The treemap is updated accordingly.
 
    **Negative**
 
@@ -480,19 +485,21 @@ The user wants to open the context folder in the system file manager.
 
 **Prerequisites**
 
-- A context folder is set.
+All of the following conditions are met:
+
+- A treemap is displayed as complete.
+- Neither modal dialog box is open.
 
 **Steps**
 
-1. The user selects the  **Inspect → Explore** button.
+1. The user selects the  **Inspect → Explore** command.
 
    **System Response**
 
-   Apply the *Checking a Folder of Interest* use case to the context folder. 
-
-   Open the system file manager window for the context folder.
-
-   Recognize the result as positive.
+   - Apply the *Checking a Folder of Interest* use case to the context folder. 
+   - Open the system file manager window for the context folder.
+   - Keep the mouse pointer in the busy state for two seconds.
+   - Recognize the result as positive.
 
 **Result**
 
@@ -502,7 +509,7 @@ The user wants to open the context folder in the system file manager.
 
    **Negative**
 
-   The treemap is unset.
+   The treemap is displayed as unset.
 
 **Postrequisites**
 
@@ -524,7 +531,6 @@ The user wants to open the context folder in the system file manager.
    - *Quitting the Current Session*
 
 
-
 ### Exploring a Subfolder
 
 **Context**
@@ -533,7 +539,8 @@ The user wants to open a subfolder in the system file manager.
 
 **Prerequisites**
 
-A treemap is displayed complete.
+- A treemap is displayed as complete.
+- Neither modal dialog box is open.
 
 **Steps**
 
@@ -547,8 +554,9 @@ A treemap is displayed complete.
 
    **System Response**
 
-   -Apply the *Checking a Folder of Interest* use case to the subfolder. 
+   - Apply the *Checking a Folder of Interest* use case to the subfolder. 
    - Open the system file manager window for the context folder.
+   - Keep the mouse pointer in the busy state for two seconds.
    - Recognize the result as positive.
 
 **Result**
@@ -613,25 +621,25 @@ The user wants to see information about the program.
 
 **Prerequisites**
 
-None.
+Neither modal dialog box is open.
 
 **Steps**
 
 1. The user selects the **Help → About** command.
 
-   **Step Result**
+   **System Response**
 
-   The **About** dialog opens.
+   Display the **About** dialog box.
 
-2. The user closes the About dialog.
+2. The user closes the **About** dialog box.
 
-   **Step Result**
+   **System Response**
 
-   The **About** dialog closes.
+   Close the **About** dialog box.
 
 **Rules**
 
-While the **About** dialog is open, the following text must be visible:
+While the **About** dialog box is open, the following text must be visible:
 
 - The product name **WhatToWipe**.
 - The application version as a single dotted string **Major.Minor.Patch.Build**, where Major, Minor, Patch, and Build are decimal integers and the string is identical to the **File version** value shown in Windows File Explorer for the running executable (Properties → Details).
@@ -662,19 +670,19 @@ The user finishes working with the program.
 
 **Prerequisites**
 
-The program is not scanning folders.
+Neither modal dialog box is open.
 
 **Steps**
 
 1. The user selects the **File → Exit** command.
 
-   **Step Result**
+   **System Response**
 
-   The program exits.
+   Quit the program.
 
 **Result**
 
-The session is finished.
+The session is over.
 
 **Postrequisites**
 
