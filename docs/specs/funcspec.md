@@ -7,7 +7,56 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 ## Concepts and Terms
 
+*Archive:* A file that contains compressed file system objects.
+
+*Clump:* A set of file system objects perceived as a single unit.
+
+*Clump tile:* A tile that represents the smallest file system objects within the context folder that are too small to be shown individually.
+
+*Complete treemap:* A treemap representing a successfully scanned folder.
+
+*Context folder:* A folder that the user is currently viewing.
+
+*Current volume:* The volume that contains the context folder.
+
+*File system object:* A file or a folder, including the root folder of a volume.
+
+*Folder class:* The indicator telling whether the folder is node or leaf.
+
+*Leaf folder:* A folder that does not contain nested folders.
+
+*Navigation:* The user moves up and down the folder hierarchy in the program interface by changing the context folder to bring a folder of interest into focus.
+
+*Node folder:* A folder that contains nested folders.
+
+*Plain:* A file system object or a clump that is not compressed.
+
 *Program:* If not specified, the WhatToWipe utility.
+
+*Scanning a folder:* An automatic activity during which the program collects data on the folder, its nested folders, and files recursively.
+
+*Size of a clump:* The combined size of the file system objects that the clump represents.
+
+*Size of a file system object:* The total size of a file or, for a folder, the total size of all contained files calculated recursively.
+
+*Subfolder:* A folder directly within the context folder.
+
+*Success:* For scanning a folder, indicates that scanning was not interrupted by the user voluntarily or by the program for technical reasons.
+
+> **NOTE**
+> If the program fails to collect data on some inner folders or files because of insufficient permissions, but finishes scanning organically without interruptions, it's still success.
+
+*Superfolder:* A folder that directly contains the context folder.
+
+*Target folder:* A folder that has been chosen by the user as a root.
+
+*Tile:* One region of the treemap; each tile represents one immediate child of the context folder in the layout—either a subfolder or a clump tile.
+
+*Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders and clumps, including their sizes and volume shares.
+
+*Treemap data:* The data on the target folder and its content that has been collected during the latest successful scanning.
+
+*Unset treemap:* A treemap that is not complete.
 
 *Volume:* A storage unit recognized by the operating system as a single accessible location, such as a physical drive, logical drive, partition, or mounted storage, excluding network locations.
 
@@ -15,46 +64,17 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Volume free space:* Free space on the current volume.
 
-*Target folder:* A folder that has been chosen by the user as a root.
+*Volume indicators:* The indicators that display properties of the current volume.
 
-*Context folder:* A folder that the user is currently viewing.
+*Volume share of a clump:* The share of the clump size compared to the total capacity of the volume.
 
-*Current volume:* The volume that contains the context folder.
+*Volume share of a file system object:* The share of the file system object size compared to the total capacity of the volume.
 
-*Subfolder:* If not specified, a folder directly within the context folder.
+*Zipped clump:* An archive that contains multiple file system objects.
 
-*Node subfolder:* A subfolder that contains nested folders.
+*Zipped file:* An archive that contains a single file.
 
-*Leaf subfolder:* A subfolder that does not contain nested folders.
-
-*Superfolder:* If not specified, a folder that directly contains the context folder.
-
-*Folder class:* The indicator telling whether the folder is node or leaf.
-
-*Size of the folder:* The aggregated size of all the files inside the folder, calculated recursively.
-
-*Volume share of the folder:* The share of the folder size compared to the total capacity of the volume.
-
-*Scanning a folder:* An automatic activity during which the program collects data on the folder, its nested folders, and files recursively.
-
-*Success:* Applied to scanning a folder, means that the scanning was not interrupted by the user voluntarily or by the program for technical reasons.
-
-> **NOTE**
-> If the program fails to collect data on some inner folders or files because of insufficient permissions, but finishes scanning organically without interruptions, it's still success.   
-
-*Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders, including their sizes and volume shares.
-
-*Treemap data:* The data on the target folder and its content that has been collected during the latest successful scanning.
-
-*Complete treemap:* A treemap representing a successfully scanned folder.
-
-**Unset treemap:* A treemap that is not complete. 
-
-*Tile:* One region of the treemap; each tile represents a subfolder of the context folder.
-
-*Navigation:* The user moves up and down the folder hierarchy in the program interface by changing the context folder to bring a folder of interest into focus.
-
-*Volime indicators:* The indicators that display properties of the current volume. 
+*Zipped folder:* An archive that contains a single folder.
 
 
 ## Use Cases
@@ -93,6 +113,7 @@ The user decides to clean up volumes on their devices.
 **Result**
 
 - The program is ready to work.
+- The settings are loaded. 
 - The treemap is unset.
 - The volume indicators are unset.
 
@@ -136,7 +157,7 @@ All of the following conditions are met:
 
    If the folder is available for scanning:
    
-   - Set the folder the both the target and the context folder.
+   - Set the folder as both the target and the context folder.
    - Apply the *Scanning the Context Folder* use case.
 
    If the folder is not available for scanning:
@@ -385,7 +406,7 @@ All of the following conditions are met:
 
 1. The user clicks on a tile.
 
-   **System Respose**
+   **System Response**
 
    Apply the *Checking a Folder of Interest* use case to the subfolder. 
 
@@ -599,7 +620,7 @@ The full path to the folder of interest.
 
    **Positive**
 
-   The overall use case proceeds normally. 
+   The overall use case proceeds plainly. 
 
    **Negative**
 
@@ -691,18 +712,6 @@ None.
 
 ## User Interface
 
-### Main Window
-
-The main window must contain the following elements:
-
-- Main menu
-- Toolbar
-- Treemap
-- Status bar
-
-The main window must have a unique icon.
-
-
 ### Commands
 
 The following commands must be available for the user in the main window.
@@ -756,7 +765,21 @@ The phrase *command disappears* refers to the follwoing effects arising at the s
 The phrase *command appears* means that the effects listed above cease at the same time. 
 
 
-### Menu
+### Main Window
+
+#### Main Window Elements
+
+The main window must contain the following elements:
+
+- Main menu
+- Toolbar
+- Treemap
+- Status bar
+
+The main window must have a unique icon.
+
+
+#### Main Menu
 
 The menu must have the following structure.
 
@@ -774,9 +797,7 @@ The menu must have the following structure.
   - **About**
 
 
-### Toolbar
-
-#### Toolbar Elements
+#### Toolbar
 
 The toolbar must contain the following elements.
 
@@ -790,29 +811,20 @@ The toolbar must contain the following elements.
 | **Total**   | Indicator | Volume capacity    | `Total capacity of the volume` | `Total at X:` |
 | **Free**    | Indicator | Volume free space  | `Free space on the volume`     | `Free at X:`  |
 
-The **Total** and **Free** indicators are the *volume indicators* together.
-
-
-#### Indicator **Total** 
+Toolbar button icons must be rasterized at 24×24 pixels in the toolbar’s image list at 96 DPI. The implementation scales this nominal size with the toolbar host DPI so icons remain sharp on high-DPI displays. Icons must remain visually distinct and legible at that size.
 
 The **Total** element must be implemented as a static text. The static text must be `Total at X:`. The `X` stands for the volume label (**current volume** letter or name); the text must also show total capacity for that volume.
-
-
-#### Indicator **Free** 
 
 The **Free** element must be implemented as a compound that contains the following nested elements:
 
 - Static label
 - Button 
 
+The **Total** and **Free** indicators are the *volume indicators* together.
+
 The static label must be *Free at X:*. The *X* stands for the current volume letter or name. 
 
 The button must display the volume free space. When the user clicks on the button the volume free space updates. 
-
-
-#### Icons
-
-Toolbar button icons must be rasterized at 24×24 pixels in the toolbar’s image list at 96 DPI. The implementation scales this nominal size with the toolbar host DPI so icons remain sharp on high-DPI displays. Icons must remain visually distinct and legible at that size.
 
 
 ### Treemap
@@ -917,7 +929,7 @@ A fancy tile must show a label consisting of the following lines.
 
 | Data          | Style            | Format                    |
 |---------------|------------------|---------------------------|
-| Folder name   | `Folder Name`    | Plain text                |
+| Folder name   | `Folder Name`    | Normal text               |
 | Folder size   | `Folder Details` | File object size          |
 | Volume share  | `Folder Details` | One fractional digit; `%` |
 
@@ -957,7 +969,7 @@ The open folder dialog box must include the following buttons:
 > Button Create New Folder is irrelevant.
 
 
-## Handling Errors
+## Handling Errors and Issues
 
 ### Reasons for Handling Errors
 
@@ -986,6 +998,7 @@ The table below lists the value of each property for every defined failure.
 | `002` | Scanning did not finish successfully for a technical reason. | Scanning stopped because of an error. The treemap may be incomplete or empty. |
 | `003` | The folder could not be opened in the system file manager. | The folder could not be opened in File Explorer. |
 | `004` | The folder of interest does not exist. | The folder `%folder path%` is not found. Might you have deleted it in the meantime? |
+
 
 ### Error Alert
 
@@ -1040,3 +1053,54 @@ An interruption alert must get closed when the user performs one of the followin
 - Presses one of the following keys:
    - **Enter**
    - **Esc**
+
+
+## Program Setup Configuration
+
+### Storing and Applying Configuration
+
+Program configuration includes a set of parameters that describe the behavior and appearance of a certain program installation. 
+
+Values of the configuration parameters must be stored in a configuration file.
+
+A configuration file must be a human-readable text file. 
+
+Each configuration parameter has the following properties:
+
+- Name
+- Description
+- Value
+
+Configuration parameters are split into groups. 
+
+The groups of configuration parameters are described below in this section.
+
+
+### Treemap Configuration Parameters
+
+| Name                            | Description                         | Default   | User |
+|---------------------------------|-------------------------------------|-----------|------|
+| `treemap.maxTiles`              | Maximum number of tiles             |        25 |  +   | 
+| `treemap.plainFolderBgColor`    | Plain folder tile background color  | #80ef80 |  +   |         
+| `treemap.plainFolderTextColor`  | Plain folder tile text color        | #000000 |  +   |
+| `treemap.zippedFolderBgColor`   | Zipped folder tile background color | #06402b |  +   |
+| `treemap.zippedFolderTextColor` | Zipped folder tile text color       | #ffffff |  +   |
+| `treemap.plainFileBgColor`      | Plain file tile background color    | #ffb09c |  +   |
+| `treemap.plainFileTextColor`    | Plain file tile text color          | #000000 |  +   |
+| `treemap.zippedFileBgColor`     | Zipped file tile background color   | #900000 |  +   |
+| `treemap.zippedFileTextColor`   | Zipped file tile text color         | #ffffff |  +   |
+| `treemap.plainClumpBgColor`     | Plain clumb tile background color   | #aaaaaa |  +   |
+| `treemap.plainClumpTextColor`   | Plain clumb tile text color         | #000000 |  +   |
+| `treemap.zippedClumpBgColor`    | Zipped сlumb tile background color  | #323232 |  +   |
+| `treemap.zippedClumpTextColor`  | Zipped сlumb tile text color        | #ffffff |  +   |
+| `treemap.tileFontName`          | Tile text font                      | Segoe UI  |  +   |
+| `treemap.tileFontSizeLarge`     | Large tile text font size           |     18 pt |  +   |
+| `treemap.tileFontSizeMedium`    | Madium text font size               |     14 pt |  +   |
+| `treemap.tileFontSizeSmall`     | Small texi font size                |     10 pt |  +   |
+| `treemap.beforeSize`            | Interval before the FSO size        |     10 pt |  +   |
+| `Treemap.beforeShare`           | Interval before the FSO share       |      5 pt |  +   |
+
+
+## Related Links
+
+[Treemapping]: https://en.wikipedia.org/wiki/Treemapping "Treemapping. Wikipedia."
