@@ -1015,3 +1015,28 @@ An error alert must get closed when the user performs one of the following actio
 - Presses one of the following keys:
    - **Enter**
    - **Esc**
+
+
+### Interruption Alert
+
+An interruption alert must be a modal dialog box.
+
+An interruption alert must contain the following elements:
+
+- Interruption alert icon
+- Interruption info block
+- **OK** button
+
+The interruption alert icon must be a blue rectangle with a white lowercase letter `i` centered inside. It must not reuse the error alert icon.
+
+An interruption info block must provide the interruption message. No code is shown.
+
+The **OK** button must hold the focus.
+
+An interruption alert must get closed when the user performs one of the following actions:
+
+- Closes the interruption alert using the standard operating system method
+- Clicks on the **OK** button.
+- Presses one of the following keys:
+   - **Enter**
+   - **Esc**
