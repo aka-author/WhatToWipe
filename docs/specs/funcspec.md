@@ -7,7 +7,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 ## Concepts and Terms
 
-*Archive:* A file that contains compressed file system objects.
+*Archive:* A file that packages other files and folders as entries according to an archive container format.
 
 *Clump:* A set of file system objects perceived as a single unit.
 
@@ -15,29 +15,36 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Complete treemap:* A treemap representing a successfully scanned folder.
 
+*Packing type:* How a file system object is stored relative to an archive container; the values used in this specification are in the NOTE below.
+
+> **NOTE**  
+> In this specification, the packing types are native (on the volume, not inside an archive), packed file, packed folder, and packed clump.
+
 *Context folder:* A folder that the user is currently viewing.
 
 *Current volume:* The volume that contains the context folder.
 
+*Empty folder:* A folder that contains no file system objects. 
+
 *File system object:* A file or a folder, including the root folder of a volume.
 
-*Folder class:* The indicator telling whether the folder is node or leaf.
+*Folder hierarchy descriptor:* A data structure in computer memory that provides information about the folder of interest and all file system objects within it recursively.
 
-*Leaf folder:* A folder that does not contain nested folders.
+*Leaf folder:* A folder that contains no nested folders and is not an empty folder.
+
+*Native:* A file system object or a clump that exists on the volume outside an archive container.
 
 *Navigation:* The user moves up and down the folder hierarchy in the program interface by changing the context folder to bring a folder of interest into focus.
 
-*Node folder:* A folder that contains nested folders.
-
-*Plain:* A file system object or a clump that is not compressed.
+*Node folder:* A folder that contains at least one nested folder.
 
 *Program:* If not specified, the WhatToWipe utility.
 
-*Scanning a folder:* An automatic activity during which the program collects data on the folder, its nested folders, and files recursively.
+*Scanning a folder:* An automatic activity during which the program collects data on the folder and all inner file system objects recursively.
 
 *Size of a clump:* The combined size of the file system objects that the clump represents.
 
-*Size of a file system object:* The total size of a file or, for a folder, the total size of all contained files calculated recursively.
+*Size of a file system object:* For a file, its total size. For a folder, the total of the sizes of all inner file system objects, calculated recursively.
 
 *Subfolder:* A folder directly within the context folder.
 
@@ -54,7 +61,12 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders and clumps, including their sizes and volume shares.
 
-*Treemap data:* The data on the target folder and its content that has been collected during the latest successful scanning.
+*Treemap data:* A folder hierarchy descriptor together with auxiliary data items. 
+
+> **NOTE**  
+> Auxiliary items are reserved for future use; this specification does not define them.
+
+*Tree role:* Whether a folder is a node folder, a leaf folder, or an empty folder.
 
 *Unset treemap:* A treemap that is not complete.
 
@@ -70,11 +82,31 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Volume share of a file system object:* The share of the file system object size compared to the total capacity of the volume.
 
-*Zipped clump:* An archive that contains multiple file system objects.
+*Packed clump:* An archive that contains multiple file system objects.
 
-*Zipped file:* An archive that contains a single file.
+*Packed file:* An archive that directly contains a single file, not enclosed in a folder.
 
-*Zipped folder:* An archive that contains a single folder.
+*Packed folder:* An archive that contains a single folder.
+
+
+## Data Structures and Models 
+
+### Folder Hierarchy Descriptor
+
+A folder hierarchy descriptor provides the following data on the folder and each file system object within this folder recursively:
+
+- Name
+- Full path
+- Folder size
+- Volume share of the folder
+- Number of nested folders
+- Number of nested files
+- Creation date and time of the oldest file
+- Last update date and time of the newest file
+- Type (file or folder)
+- List of nested file system objects
+- Packing type (native, packed file, packed folder, packed clump)
+- Tree role (node, leaf, or empty)
 
 
 ## Use Cases
@@ -354,7 +386,7 @@ Any of the following conditions is met:
 
 **Rules**
 
-All nested folders and files must be scanned recursively from the context folder down to leaf folders and files.
+All inner file system objects must be scanned recursively from the context folder downward through the hierarchy.
 
 During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent disgusting blinking the program must update the status bar each 0.5 seconds.
 
@@ -364,7 +396,7 @@ The following data must be collected or updated for the context folder and for e
 - Full path
 - Folder size
 - Volume share of the folder
-- Class of the folder
+- Tree role (node, leaf, or empty)
 - Number of the nested folders
 - Number of the nested files
 - Creation date and time of the oldest file
@@ -836,9 +868,9 @@ The treemap must always be stretched over the client area. The treemap must get 
 
 #### Representation
 
-Each tile of the treemap must represent a subfolder.
+Each tile of the treemap must represent one immediate child of the context folder in the layout: a subfolder or a clump tile.
 
-The size of the tile must correspond to the volume share of the subfolder.
+The size of a tile must correspond to the volume share of the subfolder or clump that the tile represents.
 
 
 #### Tile Colors
@@ -1081,18 +1113,18 @@ The groups of configuration parameters are described below in this section.
 | Name                            | Description                         | Default   | User |
 |---------------------------------|-------------------------------------|-----------|------|
 | `treemap.maxTiles`              | Maximum number of tiles             |        25 |  +   | 
-| `treemap.plainFolderBgColor`    | Plain folder tile background color  | #80ef80 |  +   |         
-| `treemap.plainFolderTextColor`  | Plain folder tile text color        | #000000 |  +   |
-| `treemap.zippedFolderBgColor`   | Zipped folder tile background color | #06402b |  +   |
-| `treemap.zippedFolderTextColor` | Zipped folder tile text color       | #ffffff |  +   |
-| `treemap.plainFileBgColor`      | Plain file tile background color    | #ffb09c |  +   |
-| `treemap.plainFileTextColor`    | Plain file tile text color          | #000000 |  +   |
-| `treemap.zippedFileBgColor`     | Zipped file tile background color   | #900000 |  +   |
-| `treemap.zippedFileTextColor`   | Zipped file tile text color         | #ffffff |  +   |
-| `treemap.plainClumpBgColor`     | Plain clumb tile background color   | #aaaaaa |  +   |
-| `treemap.plainClumpTextColor`   | Plain clumb tile text color         | #000000 |  +   |
-| `treemap.zippedClumpBgColor`    | Zipped сlumb tile background color  | #323232 |  +   |
-| `treemap.zippedClumpTextColor`  | Zipped сlumb tile text color        | #ffffff |  +   |
+| `treemap.nativeFolderBgColor`   | Native folder tile background color | #80ef80 |  +   |
+| `treemap.nativeFolderTextColor` | Native folder tile text color       | #000000 |  +   |
+| `treemap.packedFolderBgColor`   | Packed folder tile background color | #06402b |  +   |
+| `treemap.packedFolderTextColor` | Packed folder tile text color       | #ffffff |  +   |
+| `treemap.nativeFileBgColor`     | Native file tile background color   | #ffb09c |  +   |
+| `treemap.nativeFileTextColor`   | Native file tile text color         | #000000 |  +   |
+| `treemap.packedFileBgColor`     | Packed file tile background color   | #900000 |  +   |
+| `treemap.packedFileTextColor`   | Packed file tile text color         | #ffffff |  +   |
+| `treemap.nativeClumpBgColor`    | Native clump tile background color  | #aaaaaa |  +   |
+| `treemap.nativeClumpTextColor`  | Native clump tile text color        | #000000 |  +   |
+| `treemap.packedClumpBgColor`    | Packed clump tile background color  | #323232 |  +   |
+| `treemap.packedClumpTextColor`  | Packed clump tile text color        | #ffffff |  +   |
 | `treemap.tileFontName`          | Tile text font                      | Segoe UI  |  +   |
 | `treemap.tileFontSizeLarge`     | Large tile text font size           |     18 pt |  +   |
 | `treemap.tileFontSizeMedium`    | Madium text font size               |     14 pt |  +   |
