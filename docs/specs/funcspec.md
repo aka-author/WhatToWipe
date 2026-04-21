@@ -1044,7 +1044,7 @@ An interruption alert must get closed when the user performs one of the followin
 
 Program configuration includes a set of parameters that describe the behavior and appearance of a certain program installation. 
 
-Values of the configuration parameters must be stored in a configuration file.
+Values of the configuration parameters must be stored in a configuration file named **`WhatToWipe.config.txt`**, in **the same directory as the running executable** (`WhatToWipe.exe`). The program must read and write that file only; it must not resolve the path from the process working directory, `%AppData%`, or any other location.
 
 A configuration file must be a human-readable text file. 
 

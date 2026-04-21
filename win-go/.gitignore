@@ -1,0 +1,5 @@
+# Only artifacts dropped in the module root — not dist/ (bundle lives there).
+/WhatToWipe.exe
+/WhatToWipe.config.txt
+# Ignore the binary in dist/ only; keep WhatToWipe.config.txt visible next to the exe.
+dist/*.exe

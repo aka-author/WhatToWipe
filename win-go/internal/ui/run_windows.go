@@ -19,6 +19,7 @@ import (
 	. "github.com/lxn/walk/declarative"
 
 	"whatrwipe/win-go/internal/art"
+	"whatrwipe/win-go/internal/config"
 	"whatrwipe/win-go/internal/format"
 	"whatrwipe/win-go/internal/layout"
 	"whatrwipe/win-go/internal/model"
@@ -83,7 +84,7 @@ type app struct {
 	chartDirty      bool
 	treemapComplete bool
 
-	labelFonts map[int]*walk.Font
+	labelFonts map[string]*walk.Font
 
 	scanCtx    context.Context
 	scanCancel context.CancelFunc
@@ -95,6 +96,8 @@ type app struct {
 
 	tooltipsOnce sync.Once
 
+	treemapCfg config.Treemap
+
 	// Throttle status bar path updates during scan (latest path, at most once per second).
 	scanProgMu      sync.Mutex
 	scanProgLatest  string
@@ -103,9 +106,14 @@ type app struct {
 
 // Run starts the WhatToWipe main window (FS + techspec shell).
 func Run() error {
+	tc, cfgErr := config.LoadOrInitTreemap()
+	if cfgErr != nil {
+		tc = config.DefaultTreemap()
+	}
 	a := &app{
 		inspectHit: -1,
-		labelFonts: make(map[int]*walk.Font),
+		labelFonts: make(map[string]*walk.Font),
+		treemapCfg: tc,
 	}
 
 	if err := a.loadToolbarArt(); err != nil {
@@ -156,9 +164,9 @@ func Run() error {
 					},
 					Action{
 						AssignTo:    &a.manageAction,
-						Text:        "&Manage",
+						Text:        "&Explore",
 						Image:       a.manageBmp,
-						Shortcut:    Shortcut{walk.ModControl, walk.KeyM},
+						Shortcut:    Shortcut{walk.ModControl, walk.KeyE},
 						Enabled:     false,
 						OnTriggered: a.onManage,
 					},
@@ -328,7 +336,15 @@ func (a *app) onInspectContext() {
 	if a.inspectHit < 0 || a.inspectHit >= len(a.blocks) {
 		return
 	}
-	a.openInExplorer(a.blocks[a.inspectHit].Path)
+	p := a.blocks[a.inspectHit].Path
+	if p == "" {
+		if cur := a.resolveCurrent(); cur != nil {
+			p = cur.Path
+		}
+	}
+	if p != "" {
+		a.openInExplorer(p)
+	}
 }
 
 func (a *app) loadToolbarArt() error {
@@ -590,7 +606,7 @@ func (a *app) setScanChrome(scanning bool) {
 		a.tooltipsOnce.Do(func() {
 			_ = a.openAction.SetToolTip("Open a folder")
 			_ = a.upAction.SetToolTip("Go up")
-			_ = a.manageAction.SetToolTip("Open in file manager")
+			_ = a.manageAction.SetToolTip("Open in file manager (Explore)")
 			_ = a.updateMenu.SetToolTip("Update the folder data")
 			_ = a.stopMenu.SetToolTip("Stop scanning folders")
 		})
@@ -718,7 +734,7 @@ func (a *app) rebuildTreemap() {
 		return
 	}
 
-	if len(cur.Kids) == 0 {
+	if len(cur.Kids) == 0 && len(cur.Files) == 0 {
 		a.items = nil
 		a.blocks = nil
 		a.chartDirty = true
@@ -728,7 +744,7 @@ func (a *app) rebuildTreemap() {
 		return
 	}
 
-	a.items = scan.BuildTreeItems(cur.Kids)
+	a.items = scan.BuildTreemapItems(cur, a.driveTotal, a.treemapCfg)
 	a.blocks = nil
 	a.chartDirty = true
 	if a.chart != nil {
@@ -922,11 +938,12 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 		_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop|walk.TextWordEllipsis)
 		y += lh
 	}
-	drawLine(b.Name, nameFont, nameLH, walk.RGB(18, 18, 22))
+	fg := rgbaToWalkColor(b.TextColor)
+	drawLine(b.Name, nameFont, nameLH, fg)
 	// FS § Styles: Folder Details indent above 0.5 vu (vu = Folder Name font size in points).
 	y += int(0.5*float64(namePt)*float64(dpi)/72.0 + 0.5)
-	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, walk.RGB(35, 35, 40))
-	drawLine(fmtPercent(b.DriveShare), metaFont, metaLH, walk.RGB(55, 55, 62))
+	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, fg)
+	drawLine(fmtPercent(b.DriveShare), metaFont, metaLH, fg)
 }
 
 func (a *app) hitTest(x, y int) int {
@@ -944,6 +961,9 @@ func (a *app) hitTest(x, y int) int {
 
 func cloneFolder(n model.FolderNode) model.FolderNode {
 	c := n
+	if len(n.Files) > 0 {
+		c.Files = append([]model.FileEntry(nil), n.Files...)
+	}
 	if len(n.Kids) > 0 {
 		c.Kids = make([]model.FolderNode, len(n.Kids))
 		for i := range n.Kids {
@@ -972,14 +992,19 @@ func (a *app) ensureLabelFont(px int) *walk.Font {
 	if px < 6 {
 		px = 6
 	}
-	if f, ok := a.labelFonts[px]; ok && f != nil {
+	face := a.treemapCfg.TileFontName
+	if face == "" {
+		face = "Segoe UI"
+	}
+	key := fmt.Sprintf("%s:%d", face, px)
+	if f, ok := a.labelFonts[key]; ok && f != nil {
 		return f
 	}
-	f, err := walk.NewFont("Segoe UI", px, 0)
+	f, err := walk.NewFont(face, px, 0)
 	if err != nil {
 		return nil
 	}
-	a.labelFonts[px] = f
+	a.labelFonts[key] = f
 	return f
 }
 
@@ -1034,4 +1059,8 @@ func absf(x float64) float64 {
 		return -x
 	}
 	return x
+}
+
+func rgbaToWalkColor(c color.RGBA) walk.Color {
+	return walk.RGB(byte(c.R), byte(c.G), byte(c.B))
 }

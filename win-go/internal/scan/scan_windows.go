@@ -5,7 +5,6 @@ package scan
 import (
 	"context"
 	"fmt"
-	"image/color"
 	"os"
 	"path/filepath"
 	"sort"
@@ -81,8 +80,13 @@ func scanDir(ctx context.Context, path string, visited map[string]struct{}, errC
 			*errCount++
 			continue
 		}
-		total += info.Size()
+		sz := info.Size()
+		total += sz
+		node.Files = append(node.Files, model.FileEntry{Name: e.Name(), Path: full, Size: sz})
 	}
+	sort.Slice(node.Files, func(i, j int) bool {
+		return node.Files[i].Size > node.Files[j].Size
+	})
 	node.Size = total
 
 	sort.Slice(node.Kids, func(i, j int) bool {
@@ -106,45 +110,6 @@ func AnnotateShares(n *model.FolderNode, drive uint64) {
 	}
 }
 
-// BuildTreeItems prepares treemap tiles for direct children (FS: tile = subfolder).
-// Drive shares must come from AnnotateShares (k.Share) so they match FS hierarchy rules.
-func BuildTreeItems(kids []model.FolderNode) []model.TreeItem {
-	var sum int64
-	for _, k := range kids {
-		sum += max64(k.Size, 0)
-	}
-	if sum <= 0 {
-		return nil
-	}
-	// FS § Treemap → Tile Colors: node fills only these seven sRGB values (names and order match spec table).
-	nodeFills := []color.RGBA{
-		{R: 0xAF, G: 0xE9, B: 0xDE, A: 255}, // Atoll
-		{R: 0xEF, G: 0xBF, B: 0xD4, A: 255}, // Blush
-		{R: 0xDC, G: 0xC8, B: 0xF2, A: 255}, // Foxglove
-		{R: 0xFF, G: 0xD4, B: 0xBF, A: 255}, // Nectarine
-		{R: 0xC9, G: 0xEC, B: 0xC5, A: 255}, // Peridot
-		{R: 0xF2, G: 0xE2, B: 0xB3, A: 255}, // Quince
-		{R: 0xB8, G: 0xDF, B: 0xF7, A: 255}, // Stratosphere
-	}
-	out := make([]model.TreeItem, 0, len(kids))
-	for i, k := range kids {
-		var c model.TreeItem
-		c.Name = k.Name
-		c.Path = k.Path
-		c.Size = k.Size
-		c.IsNode = k.IsNode
-		c.DriveShare = k.Share
-		if k.IsNode {
-			c.Color = nodeFills[i%len(nodeFills)]
-		} else {
-			// FS: leaf tiles achromatic (grayscale fill only).
-			g := uint8(160 + (i%6)*10)
-			c.Color = color.RGBA{R: g, G: g, B: g, A: 255}
-		}
-		out = append(out, c)
-	}
-	return out
-}
 
 func max64(a, b int64) int64 {
 	if a > b {

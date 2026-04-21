@@ -14,22 +14,32 @@ if (Test-Path -LiteralPath $Src) {
 & $go run ./tools/genicons
 & $go generate .
 
-$LocalBin = Join-Path $PSScriptRoot "bin\WhatToWipe.exe"
-# Install tree: <Shitwiper>/codebase/win-go/build.ps1 -> exe lands in <Shitwiper>/bin/win/
+# Single obvious folder under this module (not repo-root /bin/, which may be gitignored).
+$OutDir = Join-Path $PSScriptRoot "dist"
+$Exe = Join-Path $OutDir "WhatToWipe.exe"
+# Optional second copy for install tree: <Shitwiper>/bin/win/
 $CodebaseRoot = Split-Path $PSScriptRoot -Parent
 $ShitwiperRoot = Split-Path $CodebaseRoot -Parent
-$ProperBin = Join-Path $ShitwiperRoot "bin\win\WhatToWipe.exe"
+$ProperDir = Join-Path $ShitwiperRoot "bin\win"
+$ProperBin = Join-Path $ProperDir "WhatToWipe.exe"
 
-New-Item -ItemType Directory -Force -Path (Split-Path $LocalBin) | Out-Null
-New-Item -ItemType Directory -Force -Path (Split-Path $ProperBin) | Out-Null
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+New-Item -ItemType Directory -Force -Path $ProperDir | Out-Null
 
-& $go build -trimpath -ldflags "-H windowsgui" -o $LocalBin .
-if (-not (Test-Path -LiteralPath $LocalBin)) {
-    throw "go build did not produce: $LocalBin"
+# Pure Go + stripped symbols + no VCS path embed: fewer generic AV heuristics than default `go build`.
+$env:CGO_ENABLED = "0"
+& $go build -trimpath -buildvcs=false -ldflags "-s -w -H windowsgui" -o $Exe .
+Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
+if (-not (Test-Path -LiteralPath $Exe)) {
+    throw "go build did not produce: $Exe"
 }
-Copy-Item -LiteralPath $LocalBin -Destination $ProperBin -Force
+& $go run ./tools/seedconfig $OutDir
+Copy-Item -LiteralPath $Exe -Destination $ProperBin -Force
+& $go run ./tools/seedconfig $ProperDir
 if (-not (Test-Path -LiteralPath $ProperBin)) {
     throw "Copy failed; expected: $ProperBin"
 }
-Write-Host "Built:  $LocalBin"
+$Cfg = Join-Path $OutDir "WhatToWipe.config.txt"
+Write-Host "Built:  $Exe"
+Write-Host "Config: $Cfg"
 Write-Host "Copied: $ProperBin"

@@ -5,6 +5,13 @@ import (
 	"image/color"
 )
 
+// FileEntry is one file directly inside a folder (not recursive).
+type FileEntry struct {
+	Name string
+	Path string
+	Size int64
+}
+
 // FolderNode is one folder in the scanned hierarchy (arch: treemap model).
 type FolderNode struct {
 	Path   string
@@ -12,18 +19,28 @@ type FolderNode struct {
 	Size   int64
 	Share  float64
 	IsNode bool
+	Files  []FileEntry
 	Kids   []FolderNode
 	Error  string
 }
 
-// TreeItem is one treemap tile (direct child of current context).
+// Treemap item kind (tile represents folder, file, or aggregated clump).
+const (
+	TreemapItemFolder = iota
+	TreemapItemFile
+	TreemapItemClump
+)
+
+// TreeItem is one treemap tile for the current context folder.
 type TreeItem struct {
 	Name       string
 	Path       string
 	Size       int64
 	Color      color.RGBA
+	TextColor  color.RGBA
 	IsNode     bool
 	DriveShare float64
+	Kind       int
 }
 
 // BlockLayout is a laid-out treemap tile in pixel space.
@@ -33,6 +50,8 @@ type BlockLayout struct {
 	Size       int64
 	Rect       image.Rectangle
 	Color      color.RGBA
+	TextColor  color.RGBA
 	IsNode     bool
 	DriveShare float64
+	Kind       int
 }
