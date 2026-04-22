@@ -11,26 +11,19 @@ func Squarified(items []model.TreeItem, area image.Rectangle, minTileW, minTileH
 	if len(items) == 0 {
 		return nil
 	}
-	if minTileW < 1 {
-		minTileW = 1
-	}
-	if minTileH < 1 {
-		minTileH = 1
-	}
-	return squarifyRecursive(items, area, minTileW, minTileH)
+	_ = minTileW
+	_ = minTileH
+	return squarifyRecursive(items, area)
 }
 
-func squarifyRecursive(items []model.TreeItem, area image.Rectangle, minTileW, minTileH int) []model.BlockLayout {
+func squarifyRecursive(items []model.TreeItem, area image.Rectangle) []model.BlockLayout {
 	if len(items) == 0 {
 		return nil
 	}
-	if area.Dx() <= 0 || area.Dy() <= 0 {
-		return []model.BlockLayout{blockFromItem(items[0], area)}
-	}
-	if len(items) > 1 && (area.Dx() <= 1 || area.Dy() <= 1) {
-		return []model.BlockLayout{blockFromItem(items[0], area)}
-	}
 	if len(items) == 1 {
+		return []model.BlockLayout{blockFromItem(items[0], area)}
+	}
+	if area.Dx() <= 0 || area.Dy() <= 0 {
 		return []model.BlockLayout{blockFromItem(items[0], area)}
 	}
 
@@ -39,7 +32,7 @@ func squarifyRecursive(items []model.TreeItem, area image.Rectangle, minTileW, m
 		total += max64(it.Size, 1)
 	}
 	if total <= 0 {
-		return nil
+		total = int64(len(items))
 	}
 
 	leftSum := int64(0)
@@ -71,43 +64,38 @@ func squarifyRecursive(items []model.TreeItem, area image.Rectangle, minTileW, m
 
 	var aRect, bRect image.Rectangle
 	tryVertical := area.Dx() >= area.Dy()
-	if area.Dx() < 2*minTileW {
+	if area.Dx() <= 1 && area.Dy() > 1 {
 		tryVertical = false
 	}
-	if area.Dy() < 2*minTileH {
+	if area.Dy() <= 1 && area.Dx() > 1 {
 		tryVertical = true
-	}
-	if area.Dx() < 2*minTileW && area.Dy() < 2*minTileH {
-		return []model.BlockLayout{blockFromItem(items[0], area)}
 	}
 
 	if tryVertical {
 		wA := int((int64(area.Dx()) * aSum) / total)
-		if wA < minTileW {
-			wA = minTileW
+		if wA < 1 {
+			wA = 1
 		}
-		maxWA := area.Dx() - minTileW
-		if wA > maxWA {
-			wA = maxWA
+		if wA >= area.Dx() {
+			wA = area.Dx() - 1
 		}
 		aRect = image.Rect(area.Min.X, area.Min.Y, area.Min.X+wA, area.Max.Y)
 		bRect = image.Rect(area.Min.X+wA, area.Min.Y, area.Max.X, area.Max.Y)
 	} else {
 		hA := int((int64(area.Dy()) * aSum) / total)
-		if hA < minTileH {
-			hA = minTileH
+		if hA < 1 {
+			hA = 1
 		}
-		maxHA := area.Dy() - minTileH
-		if hA > maxHA {
-			hA = maxHA
+		if hA >= area.Dy() {
+			hA = area.Dy() - 1
 		}
 		aRect = image.Rect(area.Min.X, area.Min.Y, area.Max.X, area.Min.Y+hA)
 		bRect = image.Rect(area.Min.X, area.Min.Y+hA, area.Max.X, area.Max.Y)
 	}
 
 	out := make([]model.BlockLayout, 0, len(items))
-	out = append(out, squarifyRecursive(aItems, aRect, minTileW, minTileH)...)
-	out = append(out, squarifyRecursive(bItems, bRect, minTileW, minTileH)...)
+	out = append(out, squarifyRecursive(aItems, aRect)...)
+	out = append(out, squarifyRecursive(bItems, bRect)...)
 	return out
 }
 

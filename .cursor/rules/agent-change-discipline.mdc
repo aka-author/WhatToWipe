@@ -45,3 +45,23 @@ Never implement anything unless the user gives a direct implementation command i
 If the user asks for review, analysis, clarification, confirmation, or "is it clear?", stay in discussion mode only. In those cases, do not edit files, do not run build/test commands, and do not perform implicit implementation steps.
 
 If there is any ambiguity, ask one short clarifying question and wait. Default behavior is no implementation.
+
+## Conversation-state guardrails (additional restrictions)
+
+The implementation permission is single-use and message-scoped. A previous "implement" command does not authorize edits for later messages.
+
+When the user sends a question (for example: "can you", "why", "is it clear", "will it work"), treat it as read/discussion only unless the same message also includes an explicit implementation command.
+
+If the user says they are asking only for confirmation or asks why rules were not followed, do not edit anything in that turn. Respond briefly and wait for a fresh explicit implementation command.
+
+Before any edit/build/test command, restate in one short sentence which exact words in the current user message authorize implementation. If such words are absent, do not edit.
+
+If the user reports frustration or says "stop", "wait", "don't change", or equivalent, immediately enter no-edit mode for that turn, acknowledge, and ask at most one clarifying question only if needed.
+
+## Mega hard trigger rule
+
+Only one directive authorizes implementation: the exact word "implement" in the current user message.
+
+Any other wording does not authorize implementation, including but not limited to: fix, change, update, apply, do it, proceed, make, build, code, patch, or implied intent.
+
+If the current message does not contain the exact directive "implement", do not edit files, do not run build/test commands, and do not perform any workspace-changing action.

@@ -90,6 +90,7 @@ type app struct {
 	inspectHit        int
 
 	tooltipsOnce sync.Once
+	lastChartTip string
 
 	treemapCfg config.Treemap
 
@@ -322,6 +323,19 @@ func (a *app) chartChildren() []Widget {
 				}
 				a.navPath = append(a.navPath, a.blocks[h].Path)
 				a.rebuildTreemap()
+			},
+			OnMouseMove: func(x, y int, _ walk.MouseButton) {
+				h := a.hitTest(x, y)
+				if h < 0 || h >= len(a.blocks) {
+					a.setChartTooltip("")
+					return
+				}
+				b := a.blocks[h]
+				if a.tileHasLabel(b) {
+					a.setChartTooltip("")
+					return
+				}
+				a.setChartTooltip(tileTooltipText(b))
 			},
 		},
 	}
@@ -770,8 +784,7 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 			area := image.Rect(0, 0, bounds.Width, bounds.Height)
 			minW := int(win.MulDiv(int32(a.treemapCfg.MinTileWidthPt), int32(dpi), 72))
 			minH := int(win.MulDiv(int32(a.treemapCfg.MinTileHeightPt), int32(dpi), 72))
-			viewItems := a.itemsForViewport(bounds.Width, bounds.Height, minW, minH)
-			a.blocks = layout.Squarified(viewItems, area, minW, minH)
+			a.blocks = a.blocksForViewport(area, minW, minH)
 			for _, b := range a.blocks {
 				fillRect(img, b.Rect, b.Color)
 				strokeRect(img, b.Rect, color.RGBA{40, 40, 45, 255})
@@ -817,7 +830,19 @@ func (a *app) drawBlockLabels(canvas *walk.Canvas) {
 	}
 }
 
-func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
+type labelMode int
+
+const (
+	labelModeHidden labelMode = iota
+	labelModeFit
+	labelModeClip
+)
+
+func (a *app) tileLabelPolicy(b model.BlockLayout) (labelMode, model.BlockLayout, int) {
+	b = a.withExternalRect(b)
+	if b.Rect.Empty() {
+		return labelModeHidden, b, 0
+	}
 	maxPt := a.treemapCfg.HeadingMaxFontSizePt
 	minPt := a.treemapCfg.HeadingMinFontSizePt
 	if maxPt <= 0 {
@@ -832,13 +857,81 @@ func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
 	if minPt > maxPt {
 		minPt = maxPt
 	}
+	minW, minH := a.minTilePx()
+	if b.Rect.Dx() < minW || b.Rect.Dy() < minH {
+		return labelModeHidden, b, minPt
+	}
 	for pt := maxPt; pt >= minPt; pt-- {
 		if a.tileLabelFits(b, pt) {
-			a.drawTreemapTileLabel(canvas, b, a.chart.DPI(), pt)
-			return
+			return labelModeFit, b, pt
 		}
 	}
-	a.drawTreemapTileLabel(canvas, b, a.chart.DPI(), minPt)
+	return labelModeClip, b, minPt
+}
+
+func (a *app) tileHasLabel(b model.BlockLayout) bool {
+	mode, _, _ := a.tileLabelPolicy(b)
+	return mode != labelModeHidden
+}
+
+func tileTooltipText(b model.BlockLayout) string {
+	shareText, showShare := formatShareLine(b.DriveShare)
+	if showShare {
+		return fmt.Sprintf("%s\n%s\n%s", b.Name, format.ObjectSize(b.Size), shareText)
+	}
+	return fmt.Sprintf("%s\n%s", b.Name, format.ObjectSize(b.Size))
+}
+
+func (a *app) setChartTooltip(text string) {
+	if a.chart == nil {
+		return
+	}
+	if text == a.lastChartTip {
+		return
+	}
+	_ = a.chart.SetToolTipText(text)
+	a.lastChartTip = text
+}
+
+func (a *app) minTilePx() (int, int) {
+	dpi := 96
+	if a.chart != nil {
+		dpi = a.chart.DPI()
+	}
+	minW := int(win.MulDiv(int32(a.treemapCfg.MinTileWidthPt), int32(dpi), 72))
+	minH := int(win.MulDiv(int32(a.treemapCfg.MinTileHeightPt), int32(dpi), 72))
+	if minW < 1 {
+		minW = 1
+	}
+	if minH < 1 {
+		minH = 1
+	}
+	return minW, minH
+}
+
+func (a *app) externalTileRect(b model.BlockLayout) image.Rectangle {
+	if a.chart == nil {
+		return b.Rect
+	}
+	bounds := a.chart.ClientBoundsPixels()
+	if bounds.Width <= 0 || bounds.Height <= 0 {
+		return b.Rect
+	}
+	chartRect := image.Rect(0, 0, bounds.Width, bounds.Height)
+	return b.Rect.Intersect(chartRect)
+}
+
+func (a *app) withExternalRect(b model.BlockLayout) model.BlockLayout {
+	b.Rect = a.externalTileRect(b)
+	return b
+}
+
+func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
+	mode, vb, pt := a.tileLabelPolicy(b)
+	if mode == labelModeHidden {
+		return
+	}
+	a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt)
 }
 
 // drawTreemapTileLabel draws the three-line tile label (Folder Name + gap + two Folder Details lines).
@@ -856,6 +949,12 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	innerW := b.Rect.Dx() - 2*padX
 	nameLH := int(float64(namePt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
 	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && nameLH < h+2 {
+		nameLH = h + 2
+	}
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", metaFont); ok && h > 0 && metaLH < h+2 {
+		metaLH = h + 2
+	}
 	y := b.Rect.Min.Y + padY
 	drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
 		if y+lh > b.Rect.Max.Y {
@@ -868,9 +967,6 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	fg := rgbaToWalkColor(b.TextColor)
 	shareText, showShare := formatShareLine(b.DriveShare)
 	drawLine(b.Name, nameFont, nameLH, fg)
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && nameLH > h {
-		y -= (nameLH - h)
-	}
 	y += int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.5)*float64(dpi)/72.0 + 0.5)
 	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, fg)
 	if showShare {
@@ -901,11 +997,13 @@ func (a *app) tileLabelFits(b model.BlockLayout, headingPt int) bool {
 	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
 	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.5)*float64(dpi)/72.0 + 0.5)
 	shareText, showShare := formatShareLine(b.DriveShare)
-	nameH := nameLH
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && h < nameLH {
-		nameH = h
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && nameLH < h+2 {
+		nameLH = h + 2
 	}
-	totalH := padY + nameH + gap + metaLH
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", metaFont); ok && h > 0 && metaLH < h+2 {
+		metaLH = h + 2
+	}
+	totalH := padY + nameLH + gap + metaLH
 	if showShare {
 		totalH += metaLH
 	}
@@ -1011,8 +1109,9 @@ func fillBG(img *image.RGBA, c color.RGBA) {
 	}
 }
 
-func (a *app) itemsForViewport(w, h, minW, minH int) []model.TreeItem {
-	if len(a.items) == 0 {
+func (a *app) blocksForViewport(area image.Rectangle, minW, minH int) []model.BlockLayout {
+	nonClumps, baseClump := a.viewportItems()
+	if len(nonClumps) == 0 && baseClump == nil {
 		return nil
 	}
 	if minW < 1 {
@@ -1021,68 +1120,166 @@ func (a *app) itemsForViewport(w, h, minW, minH int) []model.TreeItem {
 	if minH < 1 {
 		minH = 1
 	}
-	capacity := 0
-	if w > 0 && h > 0 {
-		capacity = (w / minW) * (h / minH)
+	// Recompute full viewport state every paint so resize always rebuilds tile/clump balance.
+	targetSlots := len(a.items)
+	if targetSlots <= 0 {
+		targetSlots = len(nonClumps)
+		if baseClump != nil {
+			targetSlots++
+		}
+	}
+	viewportCapacity := (area.Dx() / minW) * (area.Dy() / minH)
+	if viewportCapacity < 1 {
+		viewportCapacity = 1
+	}
+	if targetSlots > viewportCapacity {
+		targetSlots = viewportCapacity
+	}
+	if targetSlots <= 0 {
+		return nil
+	}
+	clumpNeeded := baseClump != nil || len(nonClumps) > targetSlots
+	nonSlots := targetSlots
+	if clumpNeeded {
+		nonSlots--
+	}
+	if nonSlots < 0 {
+		nonSlots = 0
+	}
+	if nonSlots > len(nonClumps) {
+		nonSlots = len(nonClumps)
 	}
 
+	visibleNon := append([]model.TreeItem(nil), nonClumps[:nonSlots]...)
+	hidden := append([]model.TreeItem(nil), nonClumps[nonSlots:]...)
+	clump := a.aggregateClump(hidden, baseClump)
+
+	renderItems := make([]model.TreeItem, 0, len(visibleNon)+1)
+	renderItems = append(renderItems, visibleNon...)
+	if clump != nil {
+		renderItems = append(renderItems, *clump)
+	}
+	if len(renderItems) == 0 {
+		return nil
+	}
+
+	blocks := layout.Squarified(renderItems, area, minW, minH)
+	if clump == nil {
+		return blocks
+	}
+	br := bottomRightBlockIndex(blocks, area)
+	clumpIdx := indexOfClumpBlock(blocks)
+	if br >= 0 && clumpIdx >= 0 && br != clumpIdx {
+		host := treeItemFromBlock(blocks[br])
+		blocks[br] = blockFromTreeItem(*clump, blocks[br].Rect)
+		blocks[clumpIdx] = blockFromTreeItem(host, blocks[clumpIdx].Rect)
+	}
+	return blocks
+}
+
+func (a *app) viewportItems() ([]model.TreeItem, *model.TreeItem) {
 	var baseClump *model.TreeItem
 	nonClumps := make([]model.TreeItem, 0, len(a.items))
 	for _, it := range a.items {
-		if it.Kind == model.TreemapItemClump {
-			if baseClump == nil {
-				c := it
-				baseClump = &c
-			} else {
-				baseClump.Size += it.Size
-				baseClump.DriveShare += it.DriveShare
-			}
+		if it.Kind != model.TreemapItemClump {
+			nonClumps = append(nonClumps, it)
 			continue
 		}
-		nonClumps = append(nonClumps, it)
-	}
-
-	visibleSlots := capacity
-	if baseClump != nil {
-		visibleSlots--
-	} else if len(nonClumps) > capacity && capacity > 0 {
-		// No clump yet: reserve one slot for a new clump tile.
-		// This means two non-clump tiles leave visibility at the threshold.
-		visibleSlots--
-	}
-	if visibleSlots < 0 {
-		visibleSlots = 0
-	}
-	if visibleSlots > len(nonClumps) {
-		visibleSlots = len(nonClumps)
-	}
-
-	visible := append([]model.TreeItem(nil), nonClumps[:visibleSlots]...)
-	hidden := nonClumps[visibleSlots:]
-
-	if len(hidden) > 0 {
 		if baseClump == nil {
-			c := model.TreeItem{
-				Name:      "Other",
-				Kind:      model.TreemapItemClump,
-				Color:     a.treemapCfg.NativeClumpBg,
-				TextColor: a.treemapCfg.NativeClumpText,
-			}
+			c := it
 			baseClump = &c
+		} else {
+			baseClump.Size += it.Size
+			baseClump.DriveShare += it.DriveShare
 		}
-		for _, h := range hidden {
-			baseClump.Size += h.Size
-			baseClump.DriveShare += h.DriveShare
-			if isPackedVisual(h, a.treemapCfg) {
-				baseClump.Color = a.treemapCfg.PackedClumpBg
-				baseClump.TextColor = a.treemapCfg.PackedClumpText
-			}
-		}
+	}
+	return nonClumps, baseClump
+}
+
+func (a *app) aggregateClump(hidden []model.TreeItem, baseClump *model.TreeItem) *model.TreeItem {
+	if baseClump == nil && len(hidden) == 0 {
+		return nil
+	}
+	clump := model.TreeItem{
+		Name:      "Other",
+		Kind:      model.TreemapItemClump,
+		Color:     a.treemapCfg.NativeClumpBg,
+		TextColor: a.treemapCfg.NativeClumpText,
 	}
 	if baseClump != nil {
-		visible = append(visible, *baseClump)
+		clump = *baseClump
 	}
-	return visible
+	if clump.Name == "" {
+		clump.Name = "Other"
+	}
+	clump.Kind = model.TreemapItemClump
+	clump.Path = ""
+	clump.IsNode = false
+	for _, it := range hidden {
+		clump.Size += it.Size
+		clump.DriveShare += it.DriveShare
+		if isPackedVisual(it, a.treemapCfg) {
+			clump.Color = a.treemapCfg.PackedClumpBg
+			clump.TextColor = a.treemapCfg.PackedClumpText
+		}
+	}
+	return &clump
+}
+
+func bottomRightBlockIndex(blocks []model.BlockLayout, area image.Rectangle) int {
+	if len(blocks) == 0 {
+		return -1
+	}
+	corner := image.Pt(area.Max.X-1, area.Max.Y-1)
+	for i, b := range blocks {
+		if corner.In(b.Rect) {
+			return i
+		}
+	}
+	best := 0
+	for i := 1; i < len(blocks); i++ {
+		bi, bb := blocks[i], blocks[best]
+		if bi.Rect.Max.Y > bb.Rect.Max.Y || (bi.Rect.Max.Y == bb.Rect.Max.Y && bi.Rect.Max.X > bb.Rect.Max.X) {
+			best = i
+		}
+	}
+	return best
+}
+
+func indexOfClumpBlock(blocks []model.BlockLayout) int {
+	for i, b := range blocks {
+		if b.Kind == model.TreemapItemClump {
+			return i
+		}
+	}
+	return -1
+}
+
+func treeItemFromBlock(b model.BlockLayout) model.TreeItem {
+	return model.TreeItem{
+		Name:       b.Name,
+		Path:       b.Path,
+		Size:       b.Size,
+		Color:      b.Color,
+		TextColor:  b.TextColor,
+		IsNode:     b.IsNode,
+		DriveShare: b.DriveShare,
+		Kind:       b.Kind,
+	}
+}
+
+func blockFromTreeItem(it model.TreeItem, r image.Rectangle) model.BlockLayout {
+	return model.BlockLayout{
+		Name:       it.Name,
+		Path:       it.Path,
+		Size:       it.Size,
+		Rect:       r,
+		Color:      it.Color,
+		TextColor:  it.TextColor,
+		IsNode:     it.IsNode,
+		DriveShare: it.DriveShare,
+		Kind:       it.Kind,
+	}
 }
 
 func isPackedVisual(it model.TreeItem, cfg config.Treemap) bool {

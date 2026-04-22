@@ -976,6 +976,9 @@ The clump tile must exist in the treemap if the clump exists. The clump tile is 
 
 A non-clump tile is allowed to disappear when the user makes the main window smaller. In this case, the corresponding file system object goes to the clump. The clump tile must appear if it was not visible before. The properties of the clump must be calculated or recalculated accordingly. The label of the clump title must get updated.  
 
+> **IMPORTANT**  
+> If we have no clump tile yet, you have to remove two tiles to show a clump tile. 
+
 A non-clump tile is allowed to appear if the user makes the main window larger. In this case, the corresponding file system object goes out of the clump. The properties of the clump must be recalculated accordingly. The label of the clump tite must get updated. If there is no clump anymore, then the clump tile must disappear.  
 
 
@@ -1117,7 +1120,11 @@ The groups of configuration parameters are described below in this section.
 
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
-| `treemap.maxTiles`                | Maximum number of tiles                      |        25 |  +   | 
+| `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   | 
+| `treemap.tilePaddingLeft`         | Left padding in a tile                       |     10 pt |  +   |
+| `treemap.tilePaddingTop`          | Top padding in a tile                        |     10 pt |  +   |
+| `treemap.tilePaddingRight`        | Right padding in a tile                      |     10 pt |  +   |
+| `treemap.tilePaddingBottom`       | Bottom padding in a tile                     |     10 pt |  +   |
 | `treemap.minTileWidth`            | Minimum tile width                           |     50 pt |  +   |
 | `treemap.minTileHeight`           | Minimum tile height                          |     50 pt |  +   |
 | `treemap.nativeFolderBgColor`     | Native folder tile background color          | #80ef80 |  +   |
