@@ -9,14 +9,14 @@ import (
 	"image/color"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode/utf8"
 
-	"github.com/lxn/win"
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 
 	"whatrwipe/win-go/internal/art"
 	"whatrwipe/win-go/internal/config"
@@ -28,12 +28,7 @@ import (
 	"whatrwipe/win-go/internal/winver"
 )
 
-// maxTreemapVerticalUnitPt is FS § Treemap → Metrics: vertical unit (vu) must not exceed 45 points.
 const maxTreemapVerticalUnitPt = 45
-
-// shabbyLabelFolderNamePt / shabbyLabelFolderDetailsPt: fixed sizes for shabby-tile on-tile labels (FS § Tile Labels).
-const shabbyLabelFolderNamePt = 10
-const shabbyLabelFolderDetailsPt = 8 // 0.8 × 10 pt per Folder Details style table
 
 type scanKind int
 
@@ -55,15 +50,15 @@ type app struct {
 	openAction   *walk.Action
 	upAction     *walk.Action
 	manageAction *walk.Action
-	updateMenu  *walk.Action
-	stopMenu    *walk.Action
-	openBtn     *walk.ToolButton
-	upBtn       *walk.ToolButton
-	manageBtn   *walk.ToolButton
-	scanBtn     *walk.ToolButton
-	volTotalLbl *walk.Label
-	volFreeBtn  *walk.PushButton
-	aboutAction *walk.Action
+	updateMenu   *walk.Action
+	stopMenu     *walk.Action
+	openBtn      *walk.ToolButton
+	upBtn        *walk.ToolButton
+	manageBtn    *walk.ToolButton
+	scanBtn      *walk.ToolButton
+	volTotalLbl  *walk.Label
+	volFreeBtn   *walk.PushButton
+	aboutAction  *walk.Action
 
 	openBmp   *walk.Bitmap
 	upBmp     *walk.Bitmap
@@ -684,8 +679,8 @@ func (a *app) refreshVolumeToolbar() {
 		return
 	}
 	a.driveTotal, a.driveFree = tot, fr
-	_ = a.volTotalLbl.SetText("Total at "+letter+" "+format.ObjectSize(int64(tot)))
-	_ = a.volFreeBtn.SetText("Free at "+letter+" "+format.ObjectSize(int64(fr)))
+	_ = a.volTotalLbl.SetText("Total at " + letter + " " + format.ObjectSize(int64(tot)))
+	_ = a.volFreeBtn.SetText("Free at " + letter + " " + format.ObjectSize(int64(fr)))
 }
 
 func (a *app) statusForContext() string {
@@ -771,8 +766,11 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 		fillBG(img, color.RGBA{250, 250, 252, 255})
 
 		if len(a.items) > 0 {
+			dpi := a.chart.DPI()
 			area := image.Rect(0, 0, bounds.Width, bounds.Height)
-			a.blocks = layout.Squarified(a.items, area, a.treemapCfg.MinTileWidthPx, a.treemapCfg.MinTileHeightPx)
+			minW := int(win.MulDiv(int32(a.treemapCfg.MinTileWidthPt), int32(dpi), 72))
+			minH := int(win.MulDiv(int32(a.treemapCfg.MinTileHeightPt), int32(dpi), 72))
+			a.blocks = layout.Squarified(a.items, area, minW, minH)
 			for _, b := range a.blocks {
 				fillRect(img, b.Rect, b.Color)
 				strokeRect(img, b.Rect, color.RGBA{40, 40, 45, 255})
@@ -813,114 +811,41 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 }
 
 func (a *app) drawBlockLabels(canvas *walk.Canvas) {
-	dpi := 96
-	if a.chart != nil {
-		dpi = a.chart.DPI()
-	}
 	for _, b := range a.blocks {
-		if a.tileIsFancy(b, dpi, canvas) {
-			a.drawFancyTile(canvas, b, dpi)
-		} else {
-			a.drawShabbyTile(canvas, b, dpi)
+		a.drawTileLabelAuto(canvas, b)
+	}
+}
+
+func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
+	maxPt := a.treemapCfg.HeadingMaxFontSizePt
+	minPt := a.treemapCfg.HeadingMinFontSizePt
+	if maxPt <= 0 {
+		maxPt = 30
+	}
+	if minPt <= 0 {
+		minPt = 10
+	}
+	if maxPt > maxTreemapVerticalUnitPt {
+		maxPt = maxTreemapVerticalUnitPt
+	}
+	if minPt > maxPt {
+		minPt = maxPt
+	}
+	for pt := maxPt; pt >= minPt; pt-- {
+		if a.tileLabelFits(b, pt) {
+			a.drawTreemapTileLabel(canvas, b, a.chart.DPI(), pt)
+			return
 		}
 	}
-}
-
-// treemapClampedFontSizes maps FS vertical unit (pt) to Folder Name / Folder Details point sizes.
-func (a *app) treemapClampedFontSizes(vuPt float64) (vu, meta int) {
-	vu = int(vuPt + 0.5)
-	if vu > maxTreemapVerticalUnitPt {
-		vu = maxTreemapVerticalUnitPt
-	}
-	if vu < 6 {
-		vu = 6
-	}
-	meta = int(float64(vu)*0.8 + 0.5)
-	if meta > maxTreemapVerticalUnitPt {
-		meta = maxTreemapVerticalUnitPt
-	}
-	if meta < 6 {
-		meta = 6
-	}
-	return vu, meta
-}
-
-// treemapLabelMinHeightPx is the minimum tile height (px) for the FS fancy label stack:
-// pad, Folder Name (1 vu), indent 0.5 vu before Folder Details, then two 0.8 vu lines.
-func (a *app) treemapLabelMinHeightPx(dpi, vu, meta int) int {
-	if a.chart == nil {
-		return 1 << 30
-	}
-	nameFont := a.ensureLabelFont(vu)
-	metaFont := a.ensureLabelFont(meta)
-	if nameFont == nil || metaFont == nil {
-		return 1 << 30
-	}
-	nameLH := textLineHeightPx(a.chart, nameFont)
-	metaLH := textLineHeightPx(a.chart, metaFont)
-	gap := int(0.5*float64(vu)*float64(dpi)/72.0 + 0.5) // FS: Folder Details indent above 0.5 vu
-	const padY = 6
-	return padY + nameLH + gap + metaLH + metaLH
-}
-
-func (a *app) tileIsFancy(b model.BlockLayout, dpi int, canvas *walk.Canvas) bool {
-	if a.chart == nil {
-		return false
-	}
-	vuPt := a.verticalUnitPt(b, dpi, canvas)
-	if vuPt < 10 {
-		return false
-	}
-	vu, meta := a.treemapClampedFontSizes(vuPt)
-	return b.Rect.Dy() >= a.treemapLabelMinHeightPx(dpi, vu, meta)
-}
-
-func (a *app) verticalUnitPt(b model.BlockLayout, dpi int, canvas *walk.Canvas) float64 {
-	wPx := b.Rect.Dx()
-	ext := utf8.RuneCountInString(b.Name) + 2
-	if ext < 1 {
-		ext = 1
-	}
-	wPt := float64(wPx) * 72.0 / float64(dpi)
-	hu := wPt / float64(ext)
-
-	var best float64 = 8
-	bestDiff := 1e9
-	// Only font sizes ≤ maxTreemapVerticalUnitPt are legal for vu (FS); never search above it.
-	for s := 4; s <= maxTreemapVerticalUnitPt; s++ {
-		font := a.ensureLabelFont(s)
-		if font == nil {
-			continue
-		}
-		bounds, _, err := canvas.MeasureTextPixels("M", font, walk.Rectangle{Width: 4000, Height: 400}, walk.TextCalcRect|walk.TextSingleLine)
-		if err != nil {
-			continue
-		}
-		mPt := float64(bounds.Width) * 72.0 / float64(dpi)
-		d := absf(mPt - hu)
-		if d < bestDiff {
-			bestDiff = d
-			best = float64(s)
-		}
-	}
-	if best > maxTreemapVerticalUnitPt {
-		return float64(maxTreemapVerticalUnitPt)
-	}
-	return best
-}
-
-func (a *app) drawFancyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
-	vu, metaPt := a.treemapClampedFontSizes(a.verticalUnitPt(b, dpi, canvas))
-	a.drawTreemapTileLabel(canvas, b, dpi, vu, metaPt)
-}
-
-func (a *app) drawShabbyTile(canvas *walk.Canvas, b model.BlockLayout, dpi int) {
-	a.drawTreemapTileLabel(canvas, b, dpi, shabbyLabelFolderNamePt, shabbyLabelFolderDetailsPt)
+	a.drawTreemapTileLabel(canvas, b, a.chart.DPI(), minPt)
 }
 
 // drawTreemapTileLabel draws the three-line tile label (Folder Name + gap + two Folder Details lines).
-// namePt is the Folder Name font size in points; metaPt is Folder Details (0.8 × vu in FS, passed explicitly).
-func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt, metaPt int) {
+func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt int) {
+	metaPt := int(float64(namePt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
+	if metaPt < 1 {
+		metaPt = 1
+	}
 	nameFont := a.ensureLabelFont(namePt)
 	metaFont := a.ensureLabelFont(metaPt)
 	if nameFont == nil || metaFont == nil {
@@ -928,23 +853,82 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	}
 	padX, padY := 6, 6
 	innerW := b.Rect.Dx() - 2*padX
-	nameLH := textLineHeightPx(a.chart, nameFont)
-	metaLH := textLineHeightPx(a.chart, metaFont)
+	nameLH := int(float64(namePt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
+	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
 	y := b.Rect.Min.Y + padY
 	drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
 		if y+lh > b.Rect.Max.Y {
 			return
 		}
 		rc := walk.Rectangle{X: b.Rect.Min.X + padX, Y: y, Width: innerW, Height: lh}
-		_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop|walk.TextWordEllipsis)
+		_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop)
 		y += lh
 	}
 	fg := rgbaToWalkColor(b.TextColor)
+	shareText, showShare := formatShareLine(b.DriveShare)
 	drawLine(b.Name, nameFont, nameLH, fg)
-	// FS § Styles: Folder Details indent above 0.5 vu (vu = Folder Name font size in points).
-	y += int(0.5*float64(namePt)*float64(dpi)/72.0 + 0.5)
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && nameLH > h {
+		y -= (nameLH - h)
+	}
+	y += int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.5)*float64(dpi)/72.0 + 0.5)
 	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, fg)
-	drawLine(fmtPercent(b.DriveShare), metaFont, metaLH, fg)
+	if showShare {
+		drawLine(shareText, metaFont, metaLH, fg)
+	}
+}
+
+func (a *app) tileLabelFits(b model.BlockLayout, headingPt int) bool {
+	if a.chart == nil {
+		return false
+	}
+	dpi := a.chart.DPI()
+	metaPt := int(float64(headingPt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
+	if metaPt < 1 {
+		metaPt = 1
+	}
+	padX, padY := 6, 6
+	innerW := b.Rect.Dx() - 2*padX
+	if innerW <= 0 {
+		return false
+	}
+	nameFont := a.ensureLabelFont(headingPt)
+	metaFont := a.ensureLabelFont(metaPt)
+	if nameFont == nil || metaFont == nil {
+		return false
+	}
+	nameLH := int(float64(headingPt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
+	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
+	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.5)*float64(dpi)/72.0 + 0.5)
+	shareText, showShare := formatShareLine(b.DriveShare)
+	nameH := nameLH
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && h < nameLH {
+		nameH = h
+	}
+	totalH := padY + nameH + gap + metaLH
+	if showShare {
+		totalH += metaLH
+	}
+	if totalH > b.Rect.Dy() {
+		return false
+	}
+	nameW, ok := measureTextWidthPx(a.chart, b.Name, nameFont)
+	if !ok {
+		return false
+	}
+	sizeW, ok := measureTextWidthPx(a.chart, format.ObjectSize(b.Size), metaFont)
+	if !ok {
+		return false
+	}
+	if showShare {
+		shareW, ok := measureTextWidthPx(a.chart, shareText, metaFont)
+		if !ok {
+			return false
+		}
+		if shareW > innerW {
+			return false
+		}
+	}
+	return nameW <= innerW && sizeW <= innerW
 }
 
 func (a *app) hitTest(x, y int) int {
@@ -972,21 +956,6 @@ func cloneFolder(n model.FolderNode) model.FolderNode {
 		}
 	}
 	return c
-}
-
-func textLineHeightPx(widget walk.Widget, font *walk.Font) int {
-	dpi := 96
-	if widget != nil {
-		dpi = widget.DPI()
-	}
-	if font == nil {
-		return 14
-	}
-	px := int(win.MulDiv(int32(font.PointSize()), int32(dpi), 72))
-	if px < 8 {
-		px = 8
-	}
-	return px + maxInt(4, px/4)
 }
 
 func (a *app) ensureLabelFont(px int) *walk.Font {
@@ -1041,25 +1010,60 @@ func fillBG(img *image.RGBA, c color.RGBA) {
 	}
 }
 
-func fmtPercent(share float64) string {
+func formatShareLine(share float64) (string, bool) {
 	if share < 0 {
 		share = 0
 	}
-	return fmt.Sprintf("%.1f%%", share*100)
+	pct := share * 100
+	s1 := fmt.Sprintf("%.1f", pct)
+	if s1 == "0.0" {
+		s2 := fmt.Sprintf("%.2f", pct)
+		if s2 == "0.00" {
+			return "", false
+		}
+		return s2 + "%", true
+	}
+	s1 = strings.TrimSuffix(s1, ".0")
+	return s1 + "%", true
 }
 
-func maxInt(a, b int) int {
-	if a > b {
-		return a
+func (a *app) ratioOr(v, def float64) float64 {
+	if v <= 0 {
+		return def
 	}
-	return b
+	return v
 }
 
-func absf(x float64) float64 {
-	if x < 0 {
-		return -x
+func measureTextWidthPx(widget walk.Widget, text string, font *walk.Font) (int, bool) {
+	if widget == nil || font == nil {
+		return 0, false
 	}
-	return x
+	c, err := widget.CreateCanvas()
+	if err != nil {
+		return 0, false
+	}
+	defer c.Dispose()
+	b, _, err := c.MeasureTextPixels(text, font, walk.Rectangle{Width: 4000, Height: 400}, walk.TextCalcRect|walk.TextSingleLine)
+	if err != nil {
+		return 0, false
+	}
+	return b.Width, true
+}
+
+func measureTextHeightPx(widget walk.Widget, text string, font *walk.Font) (int, bool) {
+	if widget == nil || font == nil {
+		return 0, false
+	}
+	c, err := widget.CreateCanvas()
+	if err != nil {
+		return 0, false
+	}
+	defer c.Dispose()
+	b, _, err := c.MeasureTextPixels(text, font, walk.Rectangle{Width: 4000, Height: 400}, walk.TextCalcRect|walk.TextSingleLine)
+	if err != nil {
+		return 0, false
+	}
+	return b.Height, true
 }
 
 func rgbaToWalkColor(c color.RGBA) walk.Color {

@@ -8,31 +8,32 @@ import (
 
 // Treemap holds treemap-related defaults (funcspec § Treemap Configuration Parameters).
 type Treemap struct {
-	MaxTiles int
-	MinTileWidthPx  int
-	MinTileHeightPx int
+	MaxTiles        int
+	MinTileWidthPt  int
+	MinTileHeightPt int
 
-	NativeFolderBg, NativeFolderText   color.RGBA
+	NativeFolderBg, NativeFolderText color.RGBA
 	PackedFolderBg, PackedFolderText color.RGBA
-	NativeFileBg, NativeFileText       color.RGBA
+	NativeFileBg, NativeFileText     color.RGBA
 	PackedFileBg, PackedFileText     color.RGBA
 	NativeClumpBg, NativeClumpText   color.RGBA
 	PackedClumpBg, PackedClumpText   color.RGBA
 
 	TileFontName string
 
-	TileFontSizeLargePt  int
-	TileFontSizeMediumPt int
-	TileFontSizeSmallPt  int
-	BeforeSizePt         int
-	BeforeSharePt        int
+	HeadingMaxFontSizePt int
+	HeadingMinFontSizePt int
+	HeadingLineHeight    float64
+	DetailsFontSizeRatio float64
+	DetailsLineHeight    float64
+	AboveDetailsRatio    float64
 }
 
 func DefaultTreemap() Treemap {
 	return Treemap{
 		MaxTiles:        25,
-		MinTileWidthPx:  16,
-		MinTileHeightPx: 16,
+		MinTileWidthPt:  50,
+		MinTileHeightPt: 50,
 
 		NativeFolderBg:   hexRGBA("#80ef80"),
 		NativeFolderText: hexRGBA("#000000"),
@@ -49,11 +50,12 @@ func DefaultTreemap() Treemap {
 
 		TileFontName: "Segoe UI",
 
-		TileFontSizeLargePt:  18,
-		TileFontSizeMediumPt: 14,
-		TileFontSizeSmallPt:  10,
-		BeforeSizePt:         10,
-		BeforeSharePt:        5,
+		HeadingMaxFontSizePt: 30,
+		HeadingMinFontSizePt: 10,
+		HeadingLineHeight:    1.2,
+		DetailsFontSizeRatio: 0.8,
+		DetailsLineHeight:    1.5,
+		AboveDetailsRatio:    1.5,
 	}
 }
 

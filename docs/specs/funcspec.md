@@ -852,11 +852,6 @@ The button must display the volume free space. When the user clicks on the butto
 
 ### Treemap
 
-#### Layout
-
-The treemap fills the client area and rescales when the main window is resized. 
-
-
 #### Content
 
 ##### Treemap Representation Principles
@@ -929,7 +924,9 @@ Size format must be:
 
 Volume share format must be: 
 
-- Up to 3 fractional digits, `%`
+- Up to 1 fractional digits, `%`.
+- If it appears as `0.0%`, then give it one more fractional digit.
+- If it is still `0.0%` or `0.00%`, then remove the percentage line at all.
 
 
 #### Label Layout
@@ -964,6 +961,22 @@ The following colors must be applied to the packing type of the corresponding fi
 | File     | Packed file   | `treemap.packedFileBgColor`   | `treemap.packedFileTextColor`    |
 | Clump    | Native        | `treemap.nativeClumpBgColor`  | `treemap.nativeClumpTextColor`   |
 | Clump    | Packed clump  | `treemap.packedClumpBgColor`  | `treemap.packedClumpTextColor`   |
+
+
+#### Layout
+
+##### Treemap Size
+
+The treemap fills the client area and rescales when the main window is resized. 
+
+
+##### Handling the Main Window Resize
+
+The clump tile must exist in the treemap if the clump exists. The clump tile is not allowed to exist if there is no clump.
+
+A non-clump tile is allowed to disappear when the user makes the main window smaller. In this case, the corresponding file system object goes to the clump. The clump tile must appear if it was not visible before. The properties of the clump must be calculated or recalculated accordingly. The label of the clump title must get updated.  
+
+A non-clump tile is allowed to appear if the user makes the main window larger. In this case, the corresponding file system object goes out of the clump. The properties of the clump must be recalculated accordingly. The label of the clump tite must get updated. If there is no clump anymore, then the clump tile must disappear.  
 
 
 ### Status Bar
@@ -1105,8 +1118,8 @@ The groups of configuration parameters are described below in this section.
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
 | `treemap.maxTiles`                | Maximum number of tiles                      |        25 |  +   | 
-| `treemap.minTileWidth`            | Minimum tile width                           |     20 pt |  +   |
-| `treemap.minTileHeight`           | Minimum tile height                          |     20 pt |  +   |
+| `treemap.minTileWidth`            | Minimum tile width                           |     50 pt |  +   |
+| `treemap.minTileHeight`           | Minimum tile height                          |     50 pt |  +   |
 | `treemap.nativeFolderBgColor`     | Native folder tile background color          | #80ef80 |  +   |
 | `treemap.nativeFolderTextColor`   | Native folder tile text color                | #000000 |  +   |
 | `treemap.packedFolderBgColor`     | Packed folder tile background color          | #06402b |  +   |

@@ -82,8 +82,8 @@ func SaveTreemap(path string, t Treemap) error {
 	var b strings.Builder
 	w := func(key, val string) { fmt.Fprintf(&b, "%s = %s\n", key, val) }
 	w("treemap.maxTiles", strconv.Itoa(nonzeroOr(t.MaxTiles, 25)))
-	w("treemap.minTileWidth", fmtPx(nonzeroOr(t.MinTileWidthPx, 16)))
-	w("treemap.minTileHeight", fmtPx(nonzeroOr(t.MinTileHeightPx, 16)))
+	w("treemap.minTileWidth", fmtPt(nonzeroOr(t.MinTileWidthPt, 50)))
+	w("treemap.minTileHeight", fmtPt(nonzeroOr(t.MinTileHeightPt, 50)))
 	w("treemap.nativeFolderBgColor", formatHex(t.NativeFolderBg))
 	w("treemap.nativeFolderTextColor", formatHex(t.NativeFolderText))
 	w("treemap.packedFolderBgColor", formatHex(t.PackedFolderBg))
@@ -101,11 +101,12 @@ func SaveTreemap(path string, t Treemap) error {
 		face = "Segoe UI"
 	}
 	w("treemap.tileFontName", face)
-	w("treemap.tileFontSizeLarge", fmtPt(nonzeroOr(t.TileFontSizeLargePt, 18)))
-	w("treemap.tileFontSizeMedium", fmtPt(nonzeroOr(t.TileFontSizeMediumPt, 14)))
-	w("treemap.tileFontSizeSmall", fmtPt(nonzeroOr(t.TileFontSizeSmallPt, 10)))
-	w("treemap.beforeSize", fmtPt(nonzeroOr(t.BeforeSizePt, 10)))
-	w("treemap.beforeShare", fmtPt(nonzeroOr(t.BeforeSharePt, 5)))
+	w("treemap.headingMaxFontSize", fmtPt(nonzeroOr(t.HeadingMaxFontSizePt, 30)))
+	w("treemap.headingMinFontSize", fmtPt(nonzeroOr(t.HeadingMinFontSizePt, 10)))
+	w("treemap.headingLineHeight", fmtRatio(t.HeadingLineHeight, 1.2))
+	w("treemap.detailsFontSizeRatio", fmtRatio(t.DetailsFontSizeRatio, 0.8))
+	w("treemap.detailsLineHeight", fmtRatio(t.DetailsLineHeight, 1.5))
+	w("treemap.aboveDetailsHeightRatio", fmtRatio(t.AboveDetailsRatio, 1.5))
 	fmt.Fprintf(&b, "\nscanning.updateInterval = %s\n", ScanPathUpdateIntervalFileValue)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
@@ -118,7 +119,12 @@ func nonzeroOr(v, def int) int {
 }
 
 func fmtPt(pt int) string { return fmt.Sprintf("%d pt", pt) }
-func fmtPx(px int) string { return fmt.Sprintf("%d px", px) }
+func fmtRatio(v, def float64) string {
+	if v <= 0 {
+		v = def
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
 
 func formatHex(c color.RGBA) string {
 	return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
@@ -146,12 +152,12 @@ func applyTreemapLines(d *Treemap, data []byte) {
 				d.MaxTiles = n
 			}
 		case "treemap.mintilewidth":
-			if n, ok := parsePx(val); ok {
-				d.MinTileWidthPx = n
+			if n, ok := parsePt(val); ok {
+				d.MinTileWidthPt = n
 			}
 		case "treemap.mintileheight":
-			if n, ok := parsePx(val); ok {
-				d.MinTileHeightPx = n
+			if n, ok := parsePt(val); ok {
+				d.MinTileHeightPt = n
 			}
 		case "treemap.nativefolderbgcolor":
 			d.NativeFolderBg = hexRGBA(val)
@@ -179,25 +185,29 @@ func applyTreemapLines(d *Treemap, data []byte) {
 			d.PackedClumpText = hexRGBA(val)
 		case "treemap.tilefontname":
 			d.TileFontName = val
-		case "treemap.tilefontsizelarge":
+		case "treemap.headingmaxfontsize":
 			if n, ok := parsePt(val); ok {
-				d.TileFontSizeLargePt = n
+				d.HeadingMaxFontSizePt = n
 			}
-		case "treemap.tilefontsizemedium":
+		case "treemap.headingminfontsize":
 			if n, ok := parsePt(val); ok {
-				d.TileFontSizeMediumPt = n
+				d.HeadingMinFontSizePt = n
 			}
-		case "treemap.tilefontsizesmall":
-			if n, ok := parsePt(val); ok {
-				d.TileFontSizeSmallPt = n
+		case "treemap.headinglineheight":
+			if f, ok := parseRatio(val); ok {
+				d.HeadingLineHeight = f
 			}
-		case "treemap.beforesize":
-			if n, ok := parsePt(val); ok {
-				d.BeforeSizePt = n
+		case "treemap.detailsfontsizeratio":
+			if f, ok := parseRatio(val); ok {
+				d.DetailsFontSizeRatio = f
 			}
-		case "treemap.beforeshare":
-			if n, ok := parsePt(val); ok {
-				d.BeforeSharePt = n
+		case "treemap.detailslineheight":
+			if f, ok := parseRatio(val); ok {
+				d.DetailsLineHeight = f
+			}
+		case "treemap.abovedetailsheightratio":
+			if f, ok := parseRatio(val); ok {
+				d.AboveDetailsRatio = f
 			}
 		}
 	}
@@ -214,13 +224,11 @@ func parsePt(s string) (int, bool) {
 	return n, true
 }
 
-func parsePx(s string) (int, bool) {
+func parseRatio(s string) (float64, bool) {
 	s = strings.TrimSpace(strings.ToLower(s))
-	s = strings.TrimSuffix(s, "px")
-	s = strings.TrimSpace(s)
-	n, err := strconv.Atoi(s)
-	if err != nil || n <= 0 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil || f <= 0 {
 		return 0, false
 	}
-	return n, true
+	return f, true
 }

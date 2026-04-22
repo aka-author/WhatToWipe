@@ -1,5 +1,5 @@
-// seedconfig writes canonical WhatToWipe.config.txt into a directory (treemap from existing file or defaults, plus scanning.updateInterval).
-// build.ps1 runs this after every build so dist/ and bin/win always list scanning.updateInterval.
+// seedconfig writes canonical WhatToWipe.config.txt into a directory from current spec defaults.
+// build.ps1 runs this after every build so dist/ and bin/win always match default config values.
 package main
 
 import (
@@ -17,21 +17,12 @@ func main() {
 	}
 	dir := os.Args[1]
 	path := filepath.Join(dir, config.ConfigFileName)
-
-	t := config.DefaultTreemap()
-	if _, err := os.Stat(path); err == nil {
-		var err error
-		t, err = config.LoadTreemapFromPath(path)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if !os.IsNotExist(err) {
+	if _, err := os.Stat(path); err != nil && !os.IsNotExist(err) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	if err := config.SaveTreemap(path, t); err != nil {
+	if err := config.SaveTreemap(path, config.DefaultTreemap()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

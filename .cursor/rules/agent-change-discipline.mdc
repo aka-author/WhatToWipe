@@ -37,3 +37,11 @@ Follow the user-selected task mode strictly, without mixing modes:
 - If the user says to code, do code implementation only.
 
 Do not run build/test/format/lint or perform unrelated edits unless the user explicitly asks for those actions in the same request.
+
+## Implementation gate (hard stop)
+
+Never implement anything unless the user gives a direct implementation command in the current message (for example: "implement", "apply this", "do it now", "make this change").
+
+If the user asks for review, analysis, clarification, confirmation, or "is it clear?", stay in discussion mode only. In those cases, do not edit files, do not run build/test commands, and do not perform implicit implementation steps.
+
+If there is any ambiguity, ask one short clarifying question and wait. Default behavior is no implementation.
