@@ -770,7 +770,8 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 			area := image.Rect(0, 0, bounds.Width, bounds.Height)
 			minW := int(win.MulDiv(int32(a.treemapCfg.MinTileWidthPt), int32(dpi), 72))
 			minH := int(win.MulDiv(int32(a.treemapCfg.MinTileHeightPt), int32(dpi), 72))
-			a.blocks = layout.Squarified(a.items, area, minW, minH)
+			viewItems := a.itemsForViewport(bounds.Width, bounds.Height, minW, minH)
+			a.blocks = layout.Squarified(viewItems, area, minW, minH)
 			for _, b := range a.blocks {
 				fillRect(img, b.Rect, b.Color)
 				strokeRect(img, b.Rect, color.RGBA{40, 40, 45, 255})
@@ -1008,6 +1009,86 @@ func fillBG(img *image.RGBA, c color.RGBA) {
 			img.SetRGBA(x, y, c)
 		}
 	}
+}
+
+func (a *app) itemsForViewport(w, h, minW, minH int) []model.TreeItem {
+	if len(a.items) == 0 {
+		return nil
+	}
+	if minW < 1 {
+		minW = 1
+	}
+	if minH < 1 {
+		minH = 1
+	}
+	capacity := 0
+	if w > 0 && h > 0 {
+		capacity = (w / minW) * (h / minH)
+	}
+
+	var baseClump *model.TreeItem
+	nonClumps := make([]model.TreeItem, 0, len(a.items))
+	for _, it := range a.items {
+		if it.Kind == model.TreemapItemClump {
+			if baseClump == nil {
+				c := it
+				baseClump = &c
+			} else {
+				baseClump.Size += it.Size
+				baseClump.DriveShare += it.DriveShare
+			}
+			continue
+		}
+		nonClumps = append(nonClumps, it)
+	}
+
+	visibleSlots := capacity
+	if baseClump != nil {
+		visibleSlots--
+	} else if len(nonClumps) > capacity && capacity > 0 {
+		// No clump yet: reserve one slot for a new clump tile.
+		// This means two non-clump tiles leave visibility at the threshold.
+		visibleSlots--
+	}
+	if visibleSlots < 0 {
+		visibleSlots = 0
+	}
+	if visibleSlots > len(nonClumps) {
+		visibleSlots = len(nonClumps)
+	}
+
+	visible := append([]model.TreeItem(nil), nonClumps[:visibleSlots]...)
+	hidden := nonClumps[visibleSlots:]
+
+	if len(hidden) > 0 {
+		if baseClump == nil {
+			c := model.TreeItem{
+				Name:      "Other",
+				Kind:      model.TreemapItemClump,
+				Color:     a.treemapCfg.NativeClumpBg,
+				TextColor: a.treemapCfg.NativeClumpText,
+			}
+			baseClump = &c
+		}
+		for _, h := range hidden {
+			baseClump.Size += h.Size
+			baseClump.DriveShare += h.DriveShare
+			if isPackedVisual(h, a.treemapCfg) {
+				baseClump.Color = a.treemapCfg.PackedClumpBg
+				baseClump.TextColor = a.treemapCfg.PackedClumpText
+			}
+		}
+	}
+	if baseClump != nil {
+		visible = append(visible, *baseClump)
+	}
+	return visible
+}
+
+func isPackedVisual(it model.TreeItem, cfg config.Treemap) bool {
+	return (it.Color == cfg.PackedFileBg && it.TextColor == cfg.PackedFileText) ||
+		(it.Color == cfg.PackedFolderBg && it.TextColor == cfg.PackedFolderText) ||
+		(it.Color == cfg.PackedClumpBg && it.TextColor == cfg.PackedClumpText)
 }
 
 func formatShareLine(share float64) (string, bool) {
