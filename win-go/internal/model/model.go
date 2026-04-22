@@ -5,11 +5,22 @@ import (
 	"image/color"
 )
 
+// PackingType is how a file is classified for archives (funcspec glossary / Treemap colors).
+type PackingType int8
+
+const (
+	PackingNative PackingType = iota
+	PackingPackedFile
+	PackingPackedFolder
+	PackingPackedClump
+)
+
 // FileEntry is one file directly inside a folder (not recursive).
 type FileEntry struct {
-	Name string
-	Path string
-	Size int64
+	Name    string
+	Path    string
+	Size    int64
+	Packing PackingType
 }
 
 // FolderNode is one folder in the scanned hierarchy (arch: treemap model).

@@ -9,6 +9,8 @@ import (
 // Treemap holds treemap-related defaults (funcspec § Treemap Configuration Parameters).
 type Treemap struct {
 	MaxTiles int
+	MinTileWidthPx  int
+	MinTileHeightPx int
 
 	NativeFolderBg, NativeFolderText   color.RGBA
 	PackedFolderBg, PackedFolderText color.RGBA
@@ -28,7 +30,9 @@ type Treemap struct {
 
 func DefaultTreemap() Treemap {
 	return Treemap{
-		MaxTiles: 25,
+		MaxTiles:        25,
+		MinTileWidthPx:  16,
+		MinTileHeightPx: 16,
 
 		NativeFolderBg:   hexRGBA("#80ef80"),
 		NativeFolderText: hexRGBA("#000000"),

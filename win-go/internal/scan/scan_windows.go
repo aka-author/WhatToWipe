@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"whatrwipe/win-go/internal/model"
@@ -82,7 +83,12 @@ func scanDir(ctx context.Context, path string, visited map[string]struct{}, errC
 		}
 		sz := info.Size()
 		total += sz
-		node.Files = append(node.Files, model.FileEntry{Name: e.Name(), Path: full, Size: sz})
+		pack := model.PackingNative
+		ext := strings.ToLower(filepath.Ext(e.Name()))
+		if ext == ".zip" || ext == ".rar" {
+			pack = ArchivePackingForPath(full)
+		}
+		node.Files = append(node.Files, model.FileEntry{Name: e.Name(), Path: full, Size: sz, Packing: pack})
 	}
 	sort.Slice(node.Files, func(i, j int) bool {
 		return node.Files[i].Size > node.Files[j].Size
@@ -109,7 +115,6 @@ func AnnotateShares(n *model.FolderNode, drive uint64) {
 		AnnotateShares(&n.Kids[i], drive)
 	}
 }
-
 
 func max64(a, b int64) int64 {
 	if a > b {

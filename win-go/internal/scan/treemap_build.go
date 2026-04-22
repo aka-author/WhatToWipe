@@ -8,13 +8,15 @@ import (
 )
 
 type treemapCand struct {
-	name     string
-	path     string
-	size     int64
-	isFolder bool
-	isNode   bool
-	share    float64
-	clump    bool
+	name           string
+	path           string
+	size           int64
+	isFolder       bool
+	isNode         bool
+	share          float64
+	clump          bool
+	packing        model.PackingType
+	clumpNonNative bool
 }
 
 // BuildTreemapItems builds tiles for the current context folder (nested file system objects
@@ -32,6 +34,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	for _, k := range cur.Kids {
 		cands = append(cands, treemapCand{
 			name: k.Name, path: k.Path, size: k.Size, isFolder: true, isNode: k.IsNode, share: k.Share,
+			packing: model.PackingNative,
 		})
 	}
 	for _, f := range cur.Files {
@@ -41,6 +44,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 		}
 		cands = append(cands, treemapCand{
 			name: f.Name, path: f.Path, size: f.Size, isFolder: false, isNode: false, share: sh,
+			packing: f.Packing,
 		})
 	}
 	if len(cands) == 0 {
@@ -63,8 +67,12 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 		}
 		picked = append(picked, cands[:head]...)
 		var sum int64
+		anyNonNative := false
 		for _, c := range cands[head:] {
 			sum += c.size
+			if !c.isFolder && c.packing != model.PackingNative {
+				anyNonNative = true
+			}
 		}
 		clShare := 0.0
 		if driveTotal > 0 {
@@ -72,6 +80,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 		}
 		picked = append(picked, treemapCand{
 			name: "Other", path: "", size: sum, isFolder: false, isNode: false, share: clShare, clump: true,
+			clumpNonNative: anyNonNative,
 		})
 	}
 
@@ -84,16 +93,33 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 		switch {
 		case c.clump:
 			ti.Kind = model.TreemapItemClump
-			ti.Color = cfg.NativeClumpBg
-			ti.TextColor = cfg.NativeClumpText
+			if c.clumpNonNative {
+				ti.Color = cfg.PackedClumpBg
+				ti.TextColor = cfg.PackedClumpText
+			} else {
+				ti.Color = cfg.NativeClumpBg
+				ti.TextColor = cfg.NativeClumpText
+			}
 		case c.isFolder:
 			ti.Kind = model.TreemapItemFolder
 			ti.Color = cfg.NativeFolderBg
 			ti.TextColor = cfg.NativeFolderText
 		default:
 			ti.Kind = model.TreemapItemFile
-			ti.Color = cfg.NativeFileBg
-			ti.TextColor = cfg.NativeFileText
+			switch c.packing {
+			case model.PackingPackedFile:
+				ti.Color = cfg.PackedFileBg
+				ti.TextColor = cfg.PackedFileText
+			case model.PackingPackedFolder:
+				ti.Color = cfg.PackedFolderBg
+				ti.TextColor = cfg.PackedFolderText
+			case model.PackingPackedClump:
+				ti.Color = cfg.PackedClumpBg
+				ti.TextColor = cfg.PackedClumpText
+			default:
+				ti.Color = cfg.NativeFileBg
+				ti.TextColor = cfg.NativeFileText
+			}
 		}
 		out = append(out, ti)
 	}

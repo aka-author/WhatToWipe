@@ -105,8 +105,8 @@ A folder hierarchy descriptor provides the following data on the folder and each
 - Last update date and time of the newest file
 - Type (file or folder)
 - List of nested file system objects
-- Packing type (native, packed file, packed folder, packed clump)
-- Tree role (node, leaf, or empty)
+- Packing type
+- Tree role
 
 
 ## Use Cases
@@ -388,26 +388,17 @@ Any of the following conditions is met:
 
 All inner file system objects must be scanned recursively from the context folder downward through the hierarchy.
 
-During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent disgusting blinking the program must update the status bar each 0.5 seconds.
+The folder hierarchy descriptor must be assembled or updated for the context folder. The folder hierarchy descriptor for the target folder must be updated.
 
-The following data must be collected or updated for the context folder and for each folder within it:
+The program must examine the files of the following types:
 
-- Name
-- Full path
-- Folder size
-- Volume share of the folder
-- Tree role (node, leaf, or empty)
-- Number of the nested folders
-- Number of the nested files
-- Creation date and time of the oldest file
-- Last update date and time of the newest file
+- rar
+- zip
 
-The following numeric data must be recalculated along the entire hierarchy if the context folder is not the target folder:
+If the file is an archive and the catalog of the archive is available, then the packing type of the file must be detected. Otherwise the file must be classified as a packed clump. 
 
-- Folder sizes
-- Volume shares of the folders
+During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent disgusting blinking the program must update the status bar each `scanning.updateInterval` seconds.
 
-The data collected during the scanning must be stored in memory and used for navigation within the target folder.
 
 **Result**
 
@@ -863,73 +854,116 @@ The button must display the volume free space. When the user clicks on the butto
 
 #### Layout
 
-The treemap fills the client area and rescales when the main window is resized.
+The treemap fills the client area and rescales when the main window is resized. 
 
-#### Tiles
 
-Let N be the count of nested file system objects immediately under the context folder (each file and each folder at that level counts as one).
+#### Content
 
-- The treemap shows at most `treemap.maxTiles` tiles.
-- Each tile is for a file, a folder, or a clump.
+##### Treemap Representation Principles
 
-If N ≤ treemap.maxTiles, there is one tile per nested file system object.
+A treemap is a flat space-filling diagram built from one vector of values.
 
-If N > treemap.maxTiles, there is one tile for each of the treemap.maxTiles − 1 largest nested file system objects by *size of a file system object*, and one tile for a clump that represents all remaining nested file system objects at that level together.
+The treemap must start from one enclosing rectangle whose full area represents the total size of all represented values.
 
-Among nested file system objects with the same size, ordering is implementation-defined.
+Values that are zero, negative, or non-finite are excluded from the diagram and do not contribute to `sum(v)`.
 
-#### Areas
+For each represented value `v_i`, the program must compute an area share `v_i / sum(v)` and assign a tile area equal to that share of the enclosing rectangle.
 
-Each tile’s area is proportional to the volume share of the file system object or *clump* that tile represents.
+If a computed tile area falls below a minimum threshold (implementation-defined), the corresponding value may be merged into a residual tile (for example, `other (N items)`), where `N` is the count of merged values.
 
-#### Colors
+Each tile must correspond to exactly one represented value, and all tiles must be at the same level (no nesting in this view).
 
-Background and text colors come only from Treemap Configuration Parameters (`treemap.*BgColor`, `treemap.*TextColor`). No separate fixed palette is specified here.
+Tile positions are determined by the layout algorithm (specified separately) and have no semantic meaning beyond packing; area is the primary quantitative encoding.
 
-#### Fonts
+The layout algorithm should minimize tiles with extreme aspect ratios (for example, width-to-height ratio above `5:1`) because such shapes reduce readability and interaction quality.
 
-The tile font is the typeface given by `treemap.tileFontName` (Treemap Configuration Parameters). Where this section refers to the Headline font, it means that tile font.
+Visual attributes of tiles (for example color and label) encode additional properties, as specified below.
 
-#### Metrics
+Treemap diagrams are broadly used and described in widely available sources [Laubheimer], [Treemapping].
 
-For each tile:
 
-- Extended length is the character count of the primary label text (see Tile Labels) plus two.
-- Horizontal unit (hu) is the tile width in points divided by extended length.
-- Vertical unit (vu) is the font size of the Headline font at which `M` is as wide as one horizontal unit.
+##### Descriptor-to-Treemap Mapping
 
-The vertical unit must not exceed 45 points; larger computed values are clamped to 45 points.
+The treemap is derived from descriptor entries for file system objects nested immediately under the current context folder.
 
-#### Styles
+Let `N` be the count of those entries.
 
-The `Folder Name` style is the primary label line. The `Folder Details` style is used for the size and share lines.
+The treemap shows at most `treemap.maxTiles` tiles.
 
-For `Folder Name`: indent above 0; font family from `treemap.tileFontName`; font size 1 vu; not bold; not italic.
+If `N` is not greater than `treemap.maxTiles`, each entry is represented by one tile.
 
-For `Folder Details`: indent above 0.5 vu; font family from `treemap.tileFontName`; font size 0.8 vu; not bold; not italic.
+If `N` is greater than `treemap.maxTiles`, the treemap must show:
 
-#### Tile classes
+- one tile for each of the `treemap.maxTiles - 1` largest entries by size;
+- one clump tile that represents all remaining entries.
 
-A tile is fancy when its vertical unit is at least 10 points and its height is at least 5 vertical units. Otherwise the tile is shabby.
+For equal sizes, ordering is implementation-defined.
 
-#### Tile labels
+Each tile’s area is proportional to the volume share of the represented entry (or represented clump sum).
 
-A fancy tile shows three lines:
+File tiles must use the packing type recorded in the descriptor for the represented entry.
 
-- Object name in `Folder Name` style, plain text.
-- Object size in `Folder Details` style, file object size format.
-- Volume share in `Folder Details` style, one fractional digit and `%`.
+If a computed tile width is below `treemap.minTileWidth` or a computed tile height is below `treemap.minTileHeight`, the tile must be expanded to at least `treemap.minTileWidth × treemap.minTileHeight`.
 
-File object size format:
+
+#### Tile Layout
+
+##### Label Content
+
+Every tile must show a label. A label must contain the following blocks:
+
+- Heading
+- Details block
+
+A heading must contain the name of the corresponding file system object.
+
+The details block must contain the following lines on the corresponding file system oblect: 
+
+- Size
+- Volume share
+
+Size format must be:
 
 - One fractional digit, one space, one suffix `TB`, `GB`, `MB`, or `KB` (largest unit that fits).
-- Zero → `0.0 KB`.
+- Zero gives `0.0 KB`.
 
-Shabby tiles use the same three lines; `Folder Name` at 10 pt, `Folder Details` at 8 pt (0.8 × 10). Text clips at the tile edge.
+Volume share format must be: 
 
-#### Tooltips
+- Up to 3 fractional digits, `%`
 
-Shabby tiles already show the three-line on-tile label (see Tile Labels). Hover tooltips for shabby tiles are not required in the current product build (they were removed to avoid treemap repaint artifacts). A future build may restore optional shabby hover tooltips that repeat the same three lines.
+
+#### Label Layout
+
+The following linear sizes must apply to the parts of the tile label. 
+
+| Property                         | Value                                                 |
+|----------------------------------|-------------------------------------------------------|
+| Font                             | `treemap.tileFontName`                                |
+| Heading font size                | Must be detected according to the font size rule      |
+| Heading line height              | Heading font size * `treemap.headingLineHeight`       |
+| Details font size                | Heading font size * `treemap.detailsFontSizeRatio`    |
+| Details line height              | Details font size * `treemap.detailsLineHeight`       |
+| Interval above the details block | Details font size * `treemap.aboveDetailsHeightRatio` |
+
+A label fits the tile if it can be displayed within the tile without being clipped.
+
+The following font size rule must be applied to a label to determine the correct heading font size for it. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize`. Stop as soon as the label fits the tile and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
+
+
+##### Colors
+
+Background and text colors must come **only** from Treemap Configuration Parameters (`treemap.*BgColor`, `treemap.*TextColor`). No separate fixed palette is specified outside that table.
+
+The following colors must be applied to the packing type of the corresponding file system object.
+
+| FSO Type | Packing Type  | Background Color              | Text Color                       |
+|----------|---------------|-------------------------------|----------------------------------|
+| Folder   | Native        | `treemap.nativeFolderBgColor` | `treemap.nativeFolderTextColor`  |
+| Folder   | Packed folder | `treemap.packedFolderBgColor` | `treemap.packedFolderTextColor`  |
+| File     | Native        | `treemap.nativeFileBgColor`   | `treemap.nativeFileTextColor`    |
+| File     | Packed file   | `treemap.packedFileBgColor`   | `treemap.packedFileTextColor`    |
+| Clump    | Native        | `treemap.nativeClumpBgColor`  | `treemap.nativeClumpTextColor`   |
+| Clump    | Packed clump  | `treemap.packedClumpBgColor`  | `treemap.packedClumpTextColor`   |
 
 
 ### Status Bar
@@ -1059,31 +1093,43 @@ Configuration parameters are split into groups.
 The groups of configuration parameters are described below in this section.
 
 
+### Scanning Configuration Parameters
+
+| Name                      | Description                               | Default   | User |
+|---------------------------|-------------------------------------------|-----------|------|
+| `scanning.updateInterval` | How often the scanned path is updated     |   0.5 sec |  -   | 
+
+
 ### Treemap Configuration Parameters
 
-| Name                            | Description                         | Default   | User |
-|---------------------------------|-------------------------------------|-----------|------|
-| `treemap.maxTiles`              | Maximum number of tiles             |        25 |  +   | 
-| `treemap.nativeFolderBgColor`   | Native folder tile background color | #80ef80 |  +   |
-| `treemap.nativeFolderTextColor` | Native folder tile text color       | #000000 |  +   |
-| `treemap.packedFolderBgColor`   | Packed folder tile background color | #06402b |  +   |
-| `treemap.packedFolderTextColor` | Packed folder tile text color       | #ffffff |  +   |
-| `treemap.nativeFileBgColor`     | Native file tile background color   | #ffb09c |  +   |
-| `treemap.nativeFileTextColor`   | Native file tile text color         | #000000 |  +   |
-| `treemap.packedFileBgColor`     | Packed file tile background color   | #900000 |  +   |
-| `treemap.packedFileTextColor`   | Packed file tile text color         | #ffffff |  +   |
-| `treemap.nativeClumpBgColor`    | Native clump tile background color  | #aaaaaa |  +   |
-| `treemap.nativeClumpTextColor`  | Native clump tile text color        | #000000 |  +   |
-| `treemap.packedClumpBgColor`    | Packed clump tile background color  | #323232 |  +   |
-| `treemap.packedClumpTextColor`  | Packed clump tile text color        | #ffffff |  +   |
-| `treemap.tileFontName`          | Tile text font                      | Segoe UI  |  +   |
-| `treemap.tileFontSizeLarge`     | Large tile text font size           |     18 pt |  +   |
-| `treemap.tileFontSizeMedium`    | Madium text font size               |     14 pt |  +   |
-| `treemap.tileFontSizeSmall`     | Small texi font size                |     10 pt |  +   |
-| `treemap.beforeSize`            | Interval before the FSO size        |     10 pt |  +   |
-| `Treemap.beforeShare`           | Interval before the FSO share       |      5 pt |  +   |
+| Name                              | Description                                  | Default   | User |
+|-----------------------------------|----------------------------------------------|-----------|------|
+| `treemap.maxTiles`                | Maximum number of tiles                      |        25 |  +   | 
+| `treemap.minTileWidth`            | Minimum tile width                           |     20 pt |  +   |
+| `treemap.minTileHeight`           | Minimum tile height                          |     20 pt |  +   |
+| `treemap.nativeFolderBgColor`     | Native folder tile background color          | #80ef80 |  +   |
+| `treemap.nativeFolderTextColor`   | Native folder tile text color                | #000000 |  +   |
+| `treemap.packedFolderBgColor`     | Packed folder tile background color          | #06402b |  +   |
+| `treemap.packedFolderTextColor`   | Packed folder tile text color                | #ffffff |  +   |
+| `treemap.nativeFileBgColor`       | Native file tile background color            | #ffb09c |  +   |
+| `treemap.nativeFileTextColor`     | Native file tile text color                  | #000000 |  +   |
+| `treemap.packedFileBgColor`       | Packed file tile background color            | #900000 |  +   |
+| `treemap.packedFileTextColor`     | Packed file tile text color                  | #ffffff |  +   |
+| `treemap.nativeClumpBgColor`      | Native clump tile background color           | #aaaaaa |  +   |
+| `treemap.nativeClumpTextColor`    | Native clump tile text color                 | #000000 |  +   |
+| `treemap.packedClumpBgColor`      | Packed clump tile background color           | #323232 |  +   |
+| `treemap.packedClumpTextColor`    | Packed clump tile text color                 | #ffffff |  +   |
+| `treemap.tileFontName`            | Tile text font                               | Segoe UI  |  +   |
+| `treemap.headingMaxFontSize`      | Maximal size of a label heading              |     30 pt |  +   |
+| `treemap.headingMinFontSize`      | Minimal size of a label heading              |     10 pt |  +   |
+| `treemap.headingLineHeight`       | Line height / font size in the heading       |       1.2 |  +   |
+| `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
+| `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
+| `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |       1.5 |  +   |
 
 
 ## Related Links
+
+[Laubheimer]: https://www.nngroup.com/articles/treemaps/ "Page Laubheimer. Treemaps: Data Visualization of Complex Hierarchies"
 
 [Treemapping]: https://en.wikipedia.org/wiki/Treemapping "Treemapping. Wikipedia."

@@ -98,7 +98,7 @@ type app struct {
 
 	treemapCfg config.Treemap
 
-	// Throttle status bar path updates during scan (latest path, at most once per second).
+	// Throttle status bar path updates during scan (funcspec: scanning.updateInterval, not in config file).
 	scanProgMu      sync.Mutex
 	scanProgLatest  string
 	scanProgShownAt time.Time
@@ -373,11 +373,12 @@ func (a *app) setStatus(s string) {
 	}
 }
 
-// noteScanProgress updates the status path at most once per second (always shows the latest path).
+// noteScanProgress updates the status path at most every scanning.updateInterval (funcspec default 0.5 sec; not user-configurable).
 func (a *app) noteScanProgress(scanID uint64, path string) {
+	minGap := config.ScanPathStatusUpdate
 	a.scanProgMu.Lock()
 	a.scanProgLatest = path
-	ready := a.scanProgShownAt.IsZero() || time.Since(a.scanProgShownAt) >= time.Second
+	ready := a.scanProgShownAt.IsZero() || time.Since(a.scanProgShownAt) >= minGap
 	a.scanProgMu.Unlock()
 	if !ready {
 		return
@@ -771,7 +772,7 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 
 		if len(a.items) > 0 {
 			area := image.Rect(0, 0, bounds.Width, bounds.Height)
-			a.blocks = layout.Squarified(a.items, area)
+			a.blocks = layout.Squarified(a.items, area, a.treemapCfg.MinTileWidthPx, a.treemapCfg.MinTileHeightPx)
 			for _, b := range a.blocks {
 				fillRect(img, b.Rect, b.Color)
 				strokeRect(img, b.Rect, color.RGBA{40, 40, 45, 255})

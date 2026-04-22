@@ -7,11 +7,12 @@ import (
 )
 
 // Squarified lays out treemap tiles from child metrics (samples squarify, adapted to model types).
-func Squarified(items []model.TreeItem, area image.Rectangle) []model.BlockLayout {
+func Squarified(items []model.TreeItem, area image.Rectangle, minTileW, minTileH int) []model.BlockLayout {
 	if len(items) == 0 {
 		return nil
 	}
-	return squarifyRecursive(items, area)
+	blocks := squarifyRecursive(items, area)
+	return forceMinRectSize(blocks, area, minTileW, minTileH)
 }
 
 func squarifyRecursive(items []model.TreeItem, area image.Rectangle) []model.BlockLayout {
@@ -108,4 +109,48 @@ func max64(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// forceMinRectSize expands each tile to at least minTileW x minTileH when possible.
+func forceMinRectSize(blocks []model.BlockLayout, area image.Rectangle, minTileW, minTileH int) []model.BlockLayout {
+	if len(blocks) == 0 {
+		return blocks
+	}
+	if minTileW < 1 {
+		minTileW = 1
+	}
+	if minTileH < 1 {
+		minTileH = 1
+	}
+	for i := range blocks {
+		r := blocks[i].Rect
+		w := r.Dx()
+		h := r.Dy()
+		if w < minTileW {
+			extra := minTileW - w
+			r.Max.X += extra
+			if r.Max.X > area.Max.X {
+				shift := r.Max.X - area.Max.X
+				r.Max.X -= shift
+				r.Min.X -= shift
+				if r.Min.X < area.Min.X {
+					r.Min.X = area.Min.X
+				}
+			}
+		}
+		if h < minTileH {
+			extra := minTileH - h
+			r.Max.Y += extra
+			if r.Max.Y > area.Max.Y {
+				shift := r.Max.Y - area.Max.Y
+				r.Max.Y -= shift
+				r.Min.Y -= shift
+				if r.Min.Y < area.Min.Y {
+					r.Min.Y = area.Min.Y
+				}
+			}
+		}
+		blocks[i].Rect = r
+	}
+	return blocks
 }

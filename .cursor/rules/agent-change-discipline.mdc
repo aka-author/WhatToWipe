@@ -23,3 +23,17 @@ Ask one short question before editing, or default to **no edits** and describe w
 ## Exceptions
 
 None unless the user explicitly names an exception for that message (e.g. emergency security patch they authorize).
+
+## Prose and markdown
+
+Do not overuse bold in user-facing replies, in documentation you add or edit, or in commit or PR descriptions. Reserve bold for rare emphasis only; prefer clear sentences, headings, lists, and code citations or backticks for identifiers instead of decorating whole phrases.
+
+## Mode discipline
+
+Follow the user-selected task mode strictly, without mixing modes:
+
+- If the user says to write, do writing/doc edits only.
+- If the user says to read, do read-only analysis only.
+- If the user says to code, do code implementation only.
+
+Do not run build/test/format/lint or perform unrelated edits unless the user explicitly asks for those actions in the same request.
