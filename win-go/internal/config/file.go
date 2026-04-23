@@ -111,6 +111,13 @@ func SaveTreemap(path string, t Treemap) error {
 	w("treemap.detailsFontSizeRatio", fmtRatio(t.DetailsFontSizeRatio, 0.8))
 	w("treemap.detailsLineHeight", fmtRatio(t.DetailsLineHeight, 1.5))
 	w("treemap.aboveDetailsHeightRatio", fmtRatio(t.AboveDetailsRatio, 1.0))
+	wf := strings.TrimSpace(t.WinExeFiles)
+	if wf == "" {
+		wf = DefaultTreemap().WinExeFiles
+	}
+	w("treemap.win.exeFiles", wf)
+	w("treemap.linux.exeFiles", strings.TrimSpace(t.LinuxExeFiles))
+	w("treemap.macos.exeFiles", strings.TrimSpace(t.MacOSExeFiles))
 	fmt.Fprintf(&b, "\nscanning.updateInterval = %s\n", ScanPathUpdateIntervalFileValue)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
@@ -229,6 +236,12 @@ func applyTreemapLines(d *Treemap, data []byte) {
 			if f, ok := parseRatio(val); ok {
 				d.AboveDetailsRatio = f
 			}
+		case "treemap.win.exefiles":
+			d.WinExeFiles = val
+		case "treemap.linux.exefiles":
+			d.LinuxExeFiles = val
+		case "treemap.macos.exefiles":
+			d.MacOSExeFiles = val
 		}
 	}
 }

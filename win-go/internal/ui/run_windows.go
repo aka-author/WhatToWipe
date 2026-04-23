@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -55,6 +56,7 @@ type app struct {
 	manageBtn    *walk.ToolButton
 	scanBtn      *walk.ToolButton
 	volTotalLbl  *walk.Label
+	volFreeLbl   *walk.Label
 	volFreeBtn   *walk.PushButton
 	aboutAction  *walk.Action
 
@@ -86,6 +88,8 @@ type app struct {
 	labelSolveNext                          int
 	labelSolving                            bool
 	labelSolveSeq                           uint64
+	measureCanvas                           *walk.Canvas
+	textMeasureCache                        map[string]int
 
 	scanCtx    context.Context
 	scanCancel context.CancelFunc
@@ -113,9 +117,10 @@ func Run() error {
 		tc = config.DefaultTreemap()
 	}
 	a := &app{
-		inspectHit: -1,
-		labelFonts: make(map[string]*walk.Font),
-		treemapCfg: tc,
+		inspectHit:       -1,
+		labelFonts:       make(map[string]*walk.Font),
+		textMeasureCache: make(map[string]int),
+		treemapCfg:       tc,
 	}
 
 	if err := a.loadToolbarArt(); err != nil {
@@ -166,7 +171,7 @@ func Run() error {
 					},
 					Action{
 						AssignTo:    &a.manageAction,
-						Text:        "&Explore",
+						Text:        "&Explore\u2026",
 						Image:       a.manageBmp,
 						Shortcut:    Shortcut{walk.ModControl, walk.KeyE},
 						Enabled:     false,
@@ -195,7 +200,7 @@ func Run() error {
 				Items: []MenuItem{
 					Action{
 						AssignTo:    &a.aboutAction,
-						Text:        "&About",
+						Text:        "&About\u2026",
 						OnTriggered: a.onAbout,
 					},
 				},
@@ -257,17 +262,27 @@ func (a *app) chartChildren() []Widget {
 				},
 				Label{
 					AssignTo:    &a.volTotalLbl,
-					Text:        "Total: —",
+					Text:        "Total at —: —",
 					MaxSize:     Size{Width: 520, Height: 0},
-					ToolTipText: "Total capacity of the drive that contains the current target folder. Read-only. Until you open a folder, no drive is shown (multiple drives are possible).",
+					ToolTipText: "Total capacity of the volume",
 				},
-				PushButton{
-					AssignTo:    &a.volFreeBtn,
-					Text:        "Free: —",
-					Enabled:     false,
-					ToolTipText: "Free space on that same drive. After you open a target folder, click to refresh if files change outside the app.",
-					OnClicked: func() {
-						a.onVolBarFreeRefresh()
+				Composite{
+					Layout: HBox{Margins: Margins{}, Spacing: 4},
+					Children: []Widget{
+						Label{
+							AssignTo:    &a.volFreeLbl,
+							Text:        "Free at —:",
+							ToolTipText: "Free space on the volume",
+						},
+						PushButton{
+							AssignTo:    &a.volFreeBtn,
+							Text:        "—",
+							Enabled:     false,
+							ToolTipText: "Free space on the volume. Click to refresh.",
+							OnClicked: func() {
+								a.onVolBarFreeRefresh()
+							},
+						},
 					},
 				},
 				HSpacer{},
@@ -282,12 +297,6 @@ func (a *app) chartChildren() []Widget {
 			// Avoid erasing the whole client each paint (reduces flicker when overlaying labels / tooltip on hover).
 			ClearsBackground: false,
 			PaintPixels:      a.paintTreemap,
-			ContextMenuItems: []MenuItem{
-				Action{
-					Text:        "Inspect",
-					OnTriggered: a.onInspectContext,
-				},
-			},
 			OnBoundsChanged: func() {
 				a.chartDirty = true
 				if a.chart != nil {
@@ -306,12 +315,7 @@ func (a *app) chartChildren() []Widget {
 			},
 			OnMouseDown: func(x, y int, button walk.MouseButton) {
 				if button == walk.RightButton {
-					h := a.hitTest(x, y)
-					if h >= 0 && h < len(a.blocks) {
-						a.inspectHit = h
-					} else {
-						a.inspectHit = -1
-					}
+					a.runTreemapContextMenu(x, y)
 					return
 				}
 				if button != walk.LeftButton {
@@ -372,10 +376,55 @@ func (a *app) onInspectContext() {
 		if b.IsExecFile {
 			return
 		}
-		a.openFileInDefaultApp(p)
+		a.openAssociatedOrAlert(p)
 		return
 	}
-	a.openInExplorer(p)
+	a.explorePathInShell(p, false)
+}
+
+func (a *app) runTreemapContextMenu(clientX, clientY int) {
+	if a.chart == nil || a.scanning.Load() || !a.treemapComplete {
+		a.inspectHit = -1
+		return
+	}
+	h := a.hitTest(clientX, clientY)
+	a.inspectHit = h
+	if h < 0 || h >= len(a.blocks) {
+		return
+	}
+	b := a.blocks[h]
+
+	menu, err := walk.NewMenu()
+	if err != nil {
+		return
+	}
+	defer menu.Dispose()
+
+	switch b.Kind {
+	case model.TreemapItemFolder:
+		act := walk.NewAction()
+		_ = act.SetText("Explore\u2026")
+		act.Triggered().Attach(func() { a.onInspectContext() })
+		if err := menu.Actions().Add(act); err != nil {
+			return
+		}
+	case model.TreemapItemFile:
+		act := walk.NewAction()
+		_ = act.SetText("Open\u2026")
+		_ = act.SetEnabled(!b.IsExecFile)
+		act.Triggered().Attach(func() {
+			if b.IsExecFile {
+				return
+			}
+			a.onInspectContext()
+		})
+		if err := menu.Actions().Add(act); err != nil {
+			return
+		}
+	default:
+		return
+	}
+	menu.RunAtClient(a.chart, clientX, clientY)
 }
 
 func (a *app) loadToolbarArt() error {
@@ -481,7 +530,7 @@ func (a *app) onManage() {
 	if cur == nil {
 		return
 	}
-	a.openInExplorer(cur.Path)
+	a.explorePathInShell(cur.Path, true)
 }
 
 func (a *app) onAbout() {
@@ -498,19 +547,98 @@ func (a *app) onAbout() {
 	showAboutDialog(a.mw, ver)
 }
 
-func (a *app) openInExplorer(path string) {
-	cmd := exec.Command("explorer", path)
-	if err := cmd.Start(); err != nil {
-		walk.MsgBox(a.mw, "WhatToWipe", "Could not open file manager:\n"+err.Error(), walk.MsgBoxIconError)
+func (a *app) unsetTreemapToInitial() {
+	a.pendingUpdateSnap = nil
+	a.rootNode = model.FolderNode{}
+	a.navPath = nil
+	a.items = nil
+	a.blocks = nil
+	a.targetPath = ""
+	a.volBarRoot = ""
+	a.driveTotal, a.driveFree = 0, 0
+	a.treemapComplete = false
+	a.chartDirty = true
+	a.invalidateLabelCache()
+	if a.chart != nil {
+		a.chart.Invalidate()
 	}
+	a.setStatus("Choose a target folder")
+	a.refreshVolumeToolbar()
+	a.setScanChrome(a.scanning.Load())
 }
 
-func (a *app) openFileInDefaultApp(path string) {
-	// Use explorer directly to avoid spawning a transient console window from cmd /c start.
+func (a *app) busyPointerTwoSeconds() {
+	if a.mw == nil {
+		return
+	}
+	prev := a.mw.Cursor()
+	a.mw.SetCursor(walk.CursorWait())
+	time.AfterFunc(2*time.Second, func() {
+		if a.mw == nil {
+			return
+		}
+		a.mw.Synchronize(func() {
+			if prev != nil {
+				a.mw.SetCursor(prev)
+			} else {
+				a.mw.SetCursor(nil)
+			}
+		})
+	})
+}
+
+// explorePathInShell implements *Checking a Folder of Interest* then opening the folder in the
+// shell (funcspec: Exploring the Context Folder / Exploring a Subfolder). unsetOnFailure mirrors
+// negative outcome for Inspect → Explore (treemap unset); tile Explore leaves the treemap unchanged.
+func (a *app) explorePathInShell(path string, unsetTreemapOnFailure bool) {
+	if a.mw == nil {
+		return
+	}
+	path = filepath.Clean(path)
+	fi, err := os.Stat(path)
+	if err != nil || !fi.IsDir() {
+		a.showErrorAlert("004", SpecErr004Message(path))
+		if unsetTreemapOnFailure {
+			a.unsetTreemapToInitial()
+		}
+		return
+	}
 	cmd := exec.Command("explorer", path)
 	if err := cmd.Start(); err != nil {
-		walk.MsgBox(a.mw, "WhatToWipe", "Could not open file:\n"+err.Error(), walk.MsgBoxIconError)
+		a.showErrorAlert("003", specErr003)
+		if unsetTreemapOnFailure {
+			a.unsetTreemapToInitial()
+		}
+		return
 	}
+	a.busyPointerTwoSeconds()
+}
+
+// openAssociatedOrAlert opens a file via the default association (explorer hand-off on Windows).
+func (a *app) openAssociatedOrAlert(path string) {
+	if a.mw == nil {
+		return
+	}
+	path = filepath.Clean(path)
+	fi, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			a.showErrorAlert("004", SpecErr004Message(path))
+		} else {
+			a.showErrorAlert("003", specErr003)
+		}
+		return
+	}
+	if fi.IsDir() {
+		a.showErrorAlert("003", specErr003)
+		return
+	}
+	cmd := exec.Command("explorer", path)
+	if err := cmd.Start(); err != nil {
+		a.showErrorAlert("003", specErr003)
+		return
+	}
+	a.busyPointerTwoSeconds()
 }
 
 func (a *app) startScan(folder string, kind scanKind) {
@@ -575,7 +703,11 @@ func (a *app) startScan(folder string, kind scanKind) {
 					a.treemapComplete = true
 					a.rebuildTreemap()
 					a.setStatus(a.statusForContext())
+					a.showInterruptionAlert(specInterruptionScanningInterrupted)
 					return
+				}
+				if sk == scanOpen || sk == scanUpdate {
+					a.showInterruptionAlert(specInterruptionScanningInterrupted)
 				}
 				a.pendingUpdateSnap = nil
 				a.rootNode = model.FolderNode{}
@@ -606,7 +738,7 @@ func (a *app) startScan(folder string, kind scanKind) {
 					}
 					a.rebuildTreemap()
 					a.setStatus(a.statusForContext())
-					walk.MsgBox(a.mw, "WhatToWipe", "Could not read folder:\n"+node.Error, walk.MsgBoxIconError)
+					a.showErrorAlert("001", specErr001)
 					return
 				}
 				a.pendingUpdateSnap = nil
@@ -621,8 +753,16 @@ func (a *app) startScan(folder string, kind scanKind) {
 					a.chart.Invalidate()
 				}
 				a.setStatus("Choose a target folder")
-				walk.MsgBox(a.mw, "WhatToWipe", "Could not read folder:\n"+node.Error, walk.MsgBoxIconError)
+				a.showErrorAlert("001", specErr001)
 				return
+			}
+
+			if sk == scanOpen && a.targetPath != "" {
+				if _, err := os.Stat(a.targetPath); err != nil && os.IsNotExist(err) {
+					a.showErrorAlert("004", SpecErr004Message(a.targetPath))
+					a.unsetTreemapToInitial()
+					return
+				}
 			}
 
 			scan.AnnotateShares(&node, a.driveTotal)
@@ -711,20 +851,29 @@ func (a *app) refreshVolumeToolbar() {
 		return
 	}
 	if a.volBarRoot == "" || a.targetPath == "" {
-		_ = a.volTotalLbl.SetText("Total: —")
-		_ = a.volFreeBtn.SetText("Free: —")
+		_ = a.volTotalLbl.SetText("Total at —: —")
+		if a.volFreeLbl != nil {
+			_ = a.volFreeLbl.SetText("Free at —:")
+		}
+		_ = a.volFreeBtn.SetText("—")
 		return
 	}
 	letter := volume.DriveLabel(a.volBarRoot)
 	tot, fr, err := volume.DiskSpace(a.volBarRoot)
 	if err != nil {
-		_ = a.volTotalLbl.SetText("Total at " + letter + " —")
-		_ = a.volFreeBtn.SetText("Free at " + letter + " —")
+		_ = a.volTotalLbl.SetText("Total at " + letter + ": —")
+		if a.volFreeLbl != nil {
+			_ = a.volFreeLbl.SetText("Free at " + letter + ":")
+		}
+		_ = a.volFreeBtn.SetText("—")
 		return
 	}
 	a.driveTotal, a.driveFree = tot, fr
-	_ = a.volTotalLbl.SetText("Total at " + letter + " " + format.ObjectSize(int64(tot)))
-	_ = a.volFreeBtn.SetText("Free at " + letter + " " + format.ObjectSize(int64(fr)))
+	_ = a.volTotalLbl.SetText("Total at " + letter + ": " + format.ObjectSize(int64(tot)))
+	if a.volFreeLbl != nil {
+		_ = a.volFreeLbl.SetText("Free at " + letter + ":")
+	}
+	_ = a.volFreeBtn.SetText(format.ObjectSize(int64(fr)))
 }
 
 func (a *app) statusForContext() string {
@@ -903,6 +1052,7 @@ func (a *app) invalidateLabelCache() {
 	a.labelCacheW, a.labelCacheH, a.labelCacheDPI = 0, 0, 0
 	a.labelSolveNext = 0
 	a.labelSolving = false
+	a.textMeasureCache = make(map[string]int)
 }
 
 func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
@@ -1002,13 +1152,15 @@ func (a *app) startLabelSolve() {
 				}
 				start := time.Now()
 				changed := false
-				for a.labelSolveNext < len(a.blocks) && time.Since(start) < 4*time.Millisecond {
-					i := a.labelSolveNext
-					a.labelCache[i] = a.resolveTileLabel(a.blocks[i])
-					a.labelSolved[i] = true
-					a.labelSolveNext++
-					changed = true
-				}
+				a.withMeasureCanvas(func() {
+					for a.labelSolveNext < len(a.blocks) && time.Since(start) < 4*time.Millisecond {
+						i := a.labelSolveNext
+						a.labelCache[i] = a.resolveTileLabel(a.blocks[i])
+						a.labelSolved[i] = true
+						a.labelSolveNext++
+						changed = true
+					}
+				})
 				if changed && a.chart != nil {
 					a.chart.Invalidate()
 				}
@@ -1023,6 +1175,88 @@ func (a *app) startLabelSolve() {
 			time.Sleep(1 * time.Millisecond)
 		}
 	}()
+}
+
+func (a *app) withMeasureCanvas(fn func()) {
+	if fn == nil {
+		return
+	}
+	if a.chart == nil {
+		fn()
+		return
+	}
+	c, err := a.chart.CreateCanvas()
+	if err != nil {
+		fn()
+		return
+	}
+	prev := a.measureCanvas
+	a.measureCanvas = c
+	fn()
+	a.measureCanvas = prev
+	c.Dispose()
+}
+
+func fontCacheKey(f *walk.Font) string {
+	return fmt.Sprintf("%p", f)
+}
+
+func (a *app) measureTextWidthCached(text string, font *walk.Font) (int, bool) {
+	if a.chart == nil || font == nil {
+		return 0, false
+	}
+	key := "w|" + fontCacheKey(font) + "|" + text
+	if v, ok := a.textMeasureCache[key]; ok {
+		return v, true
+	}
+	c := a.measureCanvas
+	owned := false
+	if c == nil {
+		var err error
+		c, err = a.chart.CreateCanvas()
+		if err != nil {
+			return 0, false
+		}
+		owned = true
+	}
+	b, _, err := c.MeasureTextPixels(text, font, walk.Rectangle{Width: 4000, Height: 400}, walk.TextCalcRect|walk.TextSingleLine)
+	if owned {
+		c.Dispose()
+	}
+	if err != nil {
+		return 0, false
+	}
+	a.textMeasureCache[key] = b.Width
+	return b.Width, true
+}
+
+func (a *app) measureTextHeightCached(text string, font *walk.Font) (int, bool) {
+	if a.chart == nil || font == nil {
+		return 0, false
+	}
+	key := "h|" + fontCacheKey(font) + "|" + text
+	if v, ok := a.textMeasureCache[key]; ok {
+		return v, true
+	}
+	c := a.measureCanvas
+	owned := false
+	if c == nil {
+		var err error
+		c, err = a.chart.CreateCanvas()
+		if err != nil {
+			return 0, false
+		}
+		owned = true
+	}
+	b, _, err := c.MeasureTextPixels(text, font, walk.Rectangle{Width: 4000, Height: 400}, walk.TextCalcRect|walk.TextSingleLine)
+	if owned {
+		c.Dispose()
+	}
+	if err != nil {
+		return 0, false
+	}
+	a.textMeasureCache[key] = b.Height
+	return b.Height, true
 }
 
 func (a *app) tileNeedsTooltipAt(index int) bool {
@@ -1041,8 +1275,7 @@ func (a *app) tileNeedsTooltipAt(index int) bool {
 	if ch.mode == labelModeHidden {
 		return true
 	}
-	// Requirement extension: tiles that display only "..." must still show tooltip.
-	return ch.heading == "..."
+	return strings.Contains(ch.heading, "...")
 }
 
 func tileTooltipText(b model.BlockLayout) string {
@@ -1131,6 +1364,15 @@ func (a *app) withExternalRect(b model.BlockLayout) model.BlockLayout {
 
 func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout, choice labelChoice) {
 	if choice.mode == labelModeHidden {
+		vb := a.withExternalRect(b)
+		pt := choice.pt
+		if pt <= 0 {
+			pt = a.treemapCfg.HeadingMinFontSizePt
+			if pt <= 0 {
+				pt = 8
+			}
+		}
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), "...", pt, false)
 		return
 	}
 	vb := a.withExternalRect(b)
@@ -1197,10 +1439,10 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi int, heading string, n
 	}
 	lay.nameLH = int(float64(namePt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
 	lay.metaLH = int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", lay.nameFont); ok && h > 0 && lay.nameLH < h+2 {
+	if h, ok := a.measureTextHeightCached("Agjpyq", lay.nameFont); ok && h > 0 && lay.nameLH < h+2 {
 		lay.nameLH = h + 2
 	}
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", lay.metaFont); ok && h > 0 && lay.metaLH < h+2 {
+	if h, ok := a.measureTextHeightCached("Agjpyq", lay.metaFont); ok && h > 0 && lay.metaLH < h+2 {
 		lay.metaLH = h + 2
 	}
 	lay.gap = int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.0)*float64(dpi)/72.0 + 0.5)
@@ -1208,14 +1450,14 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi int, heading string, n
 	if !withDetails {
 		lay.showShare = false
 	}
-	nameW, ok := measureTextWidthPx(a.chart, heading, lay.nameFont)
+	nameW, ok := a.measureTextWidthCached(heading, lay.nameFont)
 	if !ok {
 		return lay, false
 	}
 	lay.contentW = nameW
 	lay.contentH = lay.nameLH
 	if withDetails {
-		sizeW, ok := measureTextWidthPx(a.chart, format.ObjectSize(b.Size), lay.metaFont)
+		sizeW, ok := a.measureTextWidthCached(format.ObjectSize(b.Size), lay.metaFont)
 		if !ok {
 			return lay, false
 		}
@@ -1224,7 +1466,7 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi int, heading string, n
 		}
 		lay.contentH += lay.gap + lay.metaLH
 		if lay.showShare {
-			shareW, ok := measureTextWidthPx(a.chart, lay.shareText, lay.metaFont)
+			shareW, ok := a.measureTextWidthCached(lay.shareText, lay.metaFont)
 			if !ok {
 				return lay, false
 			}
@@ -1364,186 +1606,10 @@ func fillBG(img *image.RGBA, c color.RGBA) {
 }
 
 func (a *app) blocksForViewport(area image.Rectangle, minW, minH int) []model.BlockLayout {
-	nonClumps, baseClump := a.viewportItems()
-	if len(nonClumps) == 0 && baseClump == nil {
+	if len(a.items) == 0 {
 		return nil
 	}
-	if minW < 1 {
-		minW = 1
-	}
-	if minH < 1 {
-		minH = 1
-	}
-	// Recompute full viewport state every paint so resize always rebuilds tile/clump balance.
-	targetSlots := len(a.items)
-	if targetSlots <= 0 {
-		targetSlots = len(nonClumps)
-		if baseClump != nil {
-			targetSlots++
-		}
-	}
-	viewportCapacity := (area.Dx() / minW) * (area.Dy() / minH)
-	if viewportCapacity < 1 {
-		viewportCapacity = 1
-	}
-	if targetSlots > viewportCapacity {
-		targetSlots = viewportCapacity
-	}
-	if targetSlots <= 0 {
-		return nil
-	}
-	clumpNeeded := baseClump != nil || len(nonClumps) > targetSlots
-	nonSlots := targetSlots
-	if clumpNeeded {
-		nonSlots--
-	}
-	if nonSlots < 0 {
-		nonSlots = 0
-	}
-	if nonSlots > len(nonClumps) {
-		nonSlots = len(nonClumps)
-	}
-
-	visibleNon := append([]model.TreeItem(nil), nonClumps[:nonSlots]...)
-	hidden := append([]model.TreeItem(nil), nonClumps[nonSlots:]...)
-	clump := a.aggregateClump(hidden, baseClump)
-
-	renderItems := make([]model.TreeItem, 0, len(visibleNon)+1)
-	renderItems = append(renderItems, visibleNon...)
-	if clump != nil {
-		renderItems = append(renderItems, *clump)
-	}
-	if len(renderItems) == 0 {
-		return nil
-	}
-
-	blocks := layout.Squarified(renderItems, area, minW, minH)
-	if clump == nil {
-		return blocks
-	}
-	br := bottomRightBlockIndex(blocks, area)
-	clumpIdx := indexOfClumpBlock(blocks)
-	if br >= 0 && clumpIdx >= 0 && br != clumpIdx {
-		host := treeItemFromBlock(blocks[br])
-		blocks[br] = blockFromTreeItem(*clump, blocks[br].Rect)
-		blocks[clumpIdx] = blockFromTreeItem(host, blocks[clumpIdx].Rect)
-	}
-	return blocks
-}
-
-func (a *app) viewportItems() ([]model.TreeItem, *model.TreeItem) {
-	var baseClump *model.TreeItem
-	nonClumps := make([]model.TreeItem, 0, len(a.items))
-	for _, it := range a.items {
-		if it.Kind != model.TreemapItemClump {
-			nonClumps = append(nonClumps, it)
-			continue
-		}
-		if baseClump == nil {
-			c := it
-			baseClump = &c
-		} else {
-			baseClump.Size += it.Size
-			baseClump.DriveShare += it.DriveShare
-		}
-	}
-	return nonClumps, baseClump
-}
-
-func (a *app) aggregateClump(hidden []model.TreeItem, baseClump *model.TreeItem) *model.TreeItem {
-	if baseClump == nil && len(hidden) == 0 {
-		return nil
-	}
-	clump := model.TreeItem{
-		Name:      "Other",
-		Kind:      model.TreemapItemClump,
-		Color:     a.treemapCfg.NativeClumpBg,
-		TextColor: a.treemapCfg.NativeClumpText,
-	}
-	if baseClump != nil {
-		clump = *baseClump
-	}
-	if clump.Name == "" {
-		clump.Name = "Other"
-	}
-	clump.Kind = model.TreemapItemClump
-	clump.Path = ""
-	clump.IsNode = false
-	for _, it := range hidden {
-		clump.Size += it.Size
-		clump.DriveShare += it.DriveShare
-		if isPackedVisual(it, a.treemapCfg) {
-			clump.Color = a.treemapCfg.PackedClumpBg
-			clump.TextColor = a.treemapCfg.PackedClumpText
-		}
-	}
-	return &clump
-}
-
-func bottomRightBlockIndex(blocks []model.BlockLayout, area image.Rectangle) int {
-	if len(blocks) == 0 {
-		return -1
-	}
-	corner := image.Pt(area.Max.X-1, area.Max.Y-1)
-	for i, b := range blocks {
-		if corner.In(b.Rect) {
-			return i
-		}
-	}
-	best := 0
-	for i := 1; i < len(blocks); i++ {
-		bi, bb := blocks[i], blocks[best]
-		if bi.Rect.Max.Y > bb.Rect.Max.Y || (bi.Rect.Max.Y == bb.Rect.Max.Y && bi.Rect.Max.X > bb.Rect.Max.X) {
-			best = i
-		}
-	}
-	return best
-}
-
-func indexOfClumpBlock(blocks []model.BlockLayout) int {
-	for i, b := range blocks {
-		if b.Kind == model.TreemapItemClump {
-			return i
-		}
-	}
-	return -1
-}
-
-func treeItemFromBlock(b model.BlockLayout) model.TreeItem {
-	return model.TreeItem{
-		Name:       b.Name,
-		Path:       b.Path,
-		Size:       b.Size,
-		Color:      b.Color,
-		TextColor:  b.TextColor,
-		IsNode:     b.IsNode,
-		IsEmpty:    b.IsEmpty,
-		IsExecFile: b.IsExecFile,
-		DriveShare: b.DriveShare,
-		Kind:       b.Kind,
-	}
-}
-
-func blockFromTreeItem(it model.TreeItem, r image.Rectangle) model.BlockLayout {
-	return model.BlockLayout{
-		Name:       it.Name,
-		Path:       it.Path,
-		Size:       it.Size,
-		Rect:       r,
-		Color:      it.Color,
-		TextColor:  it.TextColor,
-		IsNode:     it.IsNode,
-		IsEmpty:    it.IsEmpty,
-		IsExecFile: it.IsExecFile,
-		DriveShare: it.DriveShare,
-		Kind:       it.Kind,
-	}
-}
-
-func isPackedVisual(it model.TreeItem, cfg config.Treemap) bool {
-	return (it.Color == cfg.PackedFileBg && it.TextColor == cfg.PackedFileText) ||
-		(it.Color == cfg.PackedFolderBg && it.TextColor == cfg.PackedFolderText) ||
-		(it.Color == cfg.PackedClumpBg && it.TextColor == cfg.PackedClumpText)
+	return layout.Squarified(a.items, area, minW, minH)
 }
 
 func formatShareLine(share float64) (string, bool) {

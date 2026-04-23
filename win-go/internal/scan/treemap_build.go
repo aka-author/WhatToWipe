@@ -1,10 +1,7 @@
 package scan
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 
 	"whatrwipe/win-go/internal/config"
 	"whatrwipe/win-go/internal/model"
@@ -24,28 +21,8 @@ type treemapCand struct {
 	clumpNonNative bool
 }
 
-func isExecutablePath(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	if ext == "" {
-		return false
-	}
-	pathext := os.Getenv("PATHEXT")
-	if pathext == "" {
-		pathext = ".exe;.com;.bat;.cmd;.ps1;.msc;.vbs;.vbe;.js;.jse;.wsf;.wsh;.msi;.msp"
-	}
-	for _, tok := range strings.Split(strings.ToLower(pathext), ";") {
-		tok = strings.TrimSpace(tok)
-		if tok == "" {
-			continue
-		}
-		if tok[0] != '.' {
-			tok = "." + tok
-		}
-		if ext == tok {
-			return true
-		}
-	}
-	return false
+func isExecutablePath(path string, cfg config.Treemap) bool {
+	return config.FileMatchesExeList(path, config.ExeTypeList(cfg))
 }
 
 // BuildTreemapItems builds tiles for the current context folder (nested file system objects
@@ -74,7 +51,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 		}
 		cands = append(cands, treemapCand{
 			name: f.Name, path: f.Path, size: f.Size, isFolder: false, isNode: false, share: sh,
-			isExecFile: isExecutablePath(f.Path),
+			isExecFile: isExecutablePath(f.Path, cfg),
 			packing:    f.Packing,
 		})
 	}

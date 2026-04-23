@@ -611,6 +611,10 @@ The user wants to open a subfolder in the system file manager.
 
   Display a context menu for the tile.
 
+  The context menu must contain the following items: 
+
+   - **Explore...**
+
 2. The user selects the **Explore** command.
 
    **System Response**
@@ -694,11 +698,15 @@ All of the following conditions are met:
 
    **System Response**
 
-   Display a context menu for the tile. 
+   Display a context menu for the tile.
+
+   The context menu must contain the following items: 
+
+   - **Open...** 
 
 2. If the file is executable:
 
-   - Display the **Explore** command disabled.
+   - Display the **Open...** command disabled.
    - Recognize the result as negative.
 
    **Step Result**
@@ -706,7 +714,7 @@ All of the following conditions are met:
    The use case cannot proceed. 
    The file is not opened.
 
-3. The user selects the **Explore** command.
+3. The user selects the **Open...** command.
 
    **System Response**
 
@@ -715,6 +723,16 @@ All of the following conditions are met:
    - Recognize the result as positive.
 
    The file should be opened in the default application associated with its file type, as provided by the operating system.
+
+**Rules**
+
+Whether a file is executable for this use case must be determined using a host-OS-specific configuration parameter that stores the list of executable file types.
+
+| OS      | Parameter Name           |
+|---------|--------------------------|
+| Windows | `treemap.win.exeFiles`   |
+| Linux   | `treemap.linux.exeFiles` |
+| macOS   | `treemap.macos.exeFiles` |
 
 **Result**
 
@@ -827,10 +845,10 @@ The following commands must be available for the user in the main window.
 | **File → Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
 | **File → Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
 | **Inspect → Up**         | **Up**      | **Backspace** | *Returning to the Superfolder*       |
-| **Inspect → Explore**    | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
+| **Inspect → Explore...** | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
 | **Inspect → Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
 | **Inspect → Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
-| **Help → About**         |             |               | *Displaying the Program Information* |
+| **Help → About...**      |             |               | *Displaying the Program Information* |
 
 Selecting menu commands, clicking on toolbar buttons, and pressing hot keys must be treated as equivalent actions according to the table above. 
 
@@ -1066,6 +1084,8 @@ When displaying a label for a tile, the program must test the methods from most 
 
 The method "Label is not displayed" works in all cases.
 
+If the selected method is "Label is not displayed", then the program must nevertheless output a dummy label `...` using font size `treemap.headingMinFontSize`.
+
 The following procedure must be applied to determine whether the label fits the tile and to select appropriate font sizes. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize` with a step of 1. Stop as soon as the label fits within that external rectangle and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
 
 The font-size procedure is scoped to one method at a time.
@@ -1121,7 +1141,7 @@ The following mouse pointer shapes must be used when the mouse pointer moves abo
 
 If a tile does not display a label, then a tooltip must be provided for it.
 
-If a tile displays a heading that is only `...`, then a tooltip must be provided for it.
+If a tile displays a heading that received `...` after heading shortening, then a tooltip must be provided for it.
 
 The tooltip must provide the following data on the file system object:
 
@@ -1300,6 +1320,7 @@ The groups of configuration parameters are described below in this section.
 | `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
 | `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
 | `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |         1 |  +   |
+| `treemap.win.exeFiles`| File types of executable files in Windows  | bat, com, exe, dll, scr, msi |  +   |          
 
 
 ## Related Links

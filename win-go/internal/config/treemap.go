@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"image/color"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -31,6 +33,12 @@ type Treemap struct {
 	DetailsFontSizeRatio float64
 	DetailsLineHeight    float64
 	AboveDetailsRatio    float64
+
+	// Host-OS executable file type lists (comma-separated tokens, with or without leading dot).
+	// Used for treemap interaction; see funcspec Exploring a File and Treemap Configuration Parameters.
+	WinExeFiles   string
+	LinuxExeFiles string
+	MacOSExeFiles string
 }
 
 func DefaultTreemap() Treemap {
@@ -64,6 +72,8 @@ func DefaultTreemap() Treemap {
 		DetailsFontSizeRatio: 0.8,
 		DetailsLineHeight:    1.5,
 		AboveDetailsRatio:    1.0,
+
+		WinExeFiles: "com, exe, dll, scr, msi",
 	}
 }
 
@@ -78,4 +88,55 @@ func hexRGBA(s string) color.RGBA {
 		return color.RGBA{A: 255}
 	}
 	return color.RGBA{R: r, G: g, B: b, A: 255}
+}
+
+// ExeTypeList returns normalized file extensions (lowercase, with a leading dot) used to treat
+// a file as executable for treemap rules, for the host OS (funcspec Exploring a File).
+func ExeTypeList(cfg Treemap) []string {
+	var raw string
+	switch runtime.GOOS {
+	case "windows":
+		raw = cfg.WinExeFiles
+	case "darwin":
+		raw = cfg.MacOSExeFiles
+	default:
+		raw = cfg.LinuxExeFiles
+	}
+	return normalizeExeTokens(raw)
+}
+
+func normalizeExeTokens(csv string) []string {
+	csv = strings.TrimSpace(csv)
+	if csv == "" {
+		return []string{".com", ".exe", ".dll", ".scr", ".msi"}
+	}
+	var out []string
+	for _, tok := range strings.Split(csv, ",") {
+		t := strings.TrimSpace(strings.ToLower(tok))
+		if t == "" {
+			continue
+		}
+		if !strings.HasPrefix(t, ".") {
+			t = "." + t
+		}
+		out = append(out, t)
+	}
+	if len(out) == 0 {
+		return []string{".com", ".exe", ".dll", ".scr", ".msi"}
+	}
+	return out
+}
+
+// FileMatchesExeList reports whether path's extension is one of exts (from ExeTypeList).
+func FileMatchesExeList(path string, exts []string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == "" {
+		return false
+	}
+	for _, e := range exts {
+		if ext == e {
+			return true
+		}
+	}
+	return false
 }
