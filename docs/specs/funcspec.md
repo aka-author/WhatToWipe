@@ -191,7 +191,7 @@ All of the following conditions are met:
 
    **System Response**
 
-   Identufy the current volume. 
+   Identify the current volume.
 
    Update the volume indicators.
    
@@ -204,17 +204,17 @@ All of the following conditions are met:
 
    If the folder is not available for scanning:
    
-   - Rise the `#001` error.
+   - Raise the `#001` error.
    - Display an error alert.
    - Terminate the use case.
 
-3. The user waits when the scanning has finished. 
+3. The user waits until scanning has finished. 
 
    **System Response**
 
    If the target folder does not exist:
 
-   - Rise the `#004` error.
+   - Raise the `#004` error.
    - Display an error alert.
    - Keep the treemap unset.    
    - Recognize the result as negative.
@@ -284,22 +284,22 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **File → Update** command.
+1. The user selects the **Inspect → Update** command.
 
    **System Response**
 
    Apply *Scanning the Context Folder* use case.
 
-3. The user waits until scanning has finished. 
+2. The user waits until scanning has finished. 
 
    **System Response**
 
    If the context folder does not exist anymore:
 
    - Display the treemap as unset.
-   - Rise the `#004` error.
+   - Raise the `#004` error.
    - Display an error alert.    
-   - Recognize the result as incomplete.
+   - Recognize the result as negative.
    - Terminate the use case. 
 
    If the scanning has finished successfully: 
@@ -311,8 +311,8 @@ All of the following conditions are met:
    If the scanning has been interrupted: 
    
    - Keep the treemap and treemap data unchanged. 
-   - Display a termination alert.
-   - Recognize the result as negative.
+   - Display a interruption alert.
+   - Recognize the result as incomplete.
 
 **Result**
 
@@ -334,12 +334,12 @@ The user is allowed to navigate while the use case *Scanning the Context Folder*
 
 **Postrequisites**
 
-   **Positive**
+   **Positive, Incomplete**
 
    - *Choosing a Target Folder*
    - *Updating the Context Folder*
    - *Diving Into a Subfolder*
-   - *Returning to a Superfolder*
+   - *Returning to the Superfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
    - *Exploring a File*
@@ -383,6 +383,8 @@ Any of the following conditions is met:
    If the scanning becomes impossible for technical reasons:
 
    - Stop scanning. 
+   - Raise the `#002` error.
+   - Display an error alert.
    - Recognize the result as negative.
    - Terminate the use case.
  
@@ -409,7 +411,7 @@ The program must examine the files of the following types:
 
 If the file is an archive and the catalog of the archive is available, then the packing type of the file must be detected. Otherwise the file must be classified as a packed clump. 
 
-During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent disgusting blinking the program must update the status bar each `scanning.updateInterval` seconds.
+During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent excessive blinking, the program must update the status bar each `scanning.updateInterval` seconds.
 
 
 **Result**
@@ -469,7 +471,7 @@ All of the following conditions are met:
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
-- *Returning to a Superfolder*
+- *Returning to the Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
 - *Exploring a File*
@@ -477,7 +479,7 @@ All of the following conditions are met:
 - *Quitting the Current Session*
 
 
-### Returning to a Superfolder
+### Returning to the Superfolder
 
 **Context**
 
@@ -521,7 +523,7 @@ All of the following conditions are met:
    - *Choosing a Target Folder*
    - *Updating the Context Folder*
    - *Diving Into a Subfolder*
-   - *Returning to a Superfolder*
+   - *Returning to the Superfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
    - *Exploring a File*
@@ -576,7 +578,7 @@ All of the following conditions are met:
    - *Choosing a Target Folder*
    - *Updating the Context Folder*
    - *Diving Into a Subfolder*
-   - *Returning to a Superfolder*
+   - *Returning to the Superfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
    - *Exploring a File*
@@ -607,14 +609,14 @@ The user wants to open a subfolder in the system file manager.
 
    **System Response**
 
-  Display a context meny for the tile. .
+  Display a context menu for the tile.
 
 2. The user selects the **Explore** command.
 
    **System Response**
 
    - Apply the *Checking a Folder of Interest* use case to the subfolder. 
-   - Open the system file manager window for the context folder.
+   - Open the system file manager window for the subfolder.
    - Keep the mouse pointer in the busy state for two seconds.
    - Recognize the result as positive.
 
@@ -622,7 +624,7 @@ The user wants to open a subfolder in the system file manager.
 
    **Positive**
 
-   The subfolder is available in the system file manager.
+   The subfolder is opened in the system file manager.
 
    **Negative**
 
@@ -633,7 +635,7 @@ The user wants to open a subfolder in the system file manager.
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
-- *Returning to a Superfolder*
+- *Returning to the Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
 - *Exploring a File*
@@ -653,7 +655,7 @@ The full path to the folder of interest.
 
 **Steps**
 
-1. If the folder exist, recognize the result as positive, othervise as negative.
+1. If the folder exists, recognize the result as positive, otherwise as negative.
 
 **Result**
 
@@ -663,9 +665,9 @@ The full path to the folder of interest.
 
    **Negative**
 
-   - Rise the `#004` error. 
+   - Raise the `#004` error. 
    - Display an error alert.    
-   - Recognize the result of the overal use ase as negative.
+   - Recognize the result of the overall use case as negative.
    - Terminate the overall use case. 
 
 **Postrequisites**
@@ -702,13 +704,13 @@ All of the following conditions are met:
    **Step Result**
 
    The use case cannot proceed. 
+   The file is not opened.
 
-2. The user selects the **Explore** command.
+3. The user selects the **Explore** command.
 
    **System Response**
 
-   - Apply the *Checking a Folder of Interest* use case to the subfolder. 
-   - Open the file in the corresponding application. 
+   - Open the file in the associated application. 
    - Keep the mouse pointer in the busy state for two seconds.
    - Recognize the result as positive.
 
@@ -729,7 +731,7 @@ All of the following conditions are met:
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
-- *Returning to a Superfolder*
+- *Returning to the Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
 - *Exploring a File*
@@ -779,7 +781,7 @@ The following use cases are available to the user:
 - *Choosing a Target Folder*
 - *Updating the Context Folder*
 - *Diving Into a Subfolder*
-- *Returning to a Superfolder*
+- *Returning to the Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
 - *Exploring a File*
@@ -824,7 +826,7 @@ The following commands must be available for the user in the main window.
 |--------------------------|-------------|---------------|--------------------------------------|
 | **File → Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
 | **File → Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
-| **Inspect → Up**         | **Up**      | **Backspace** | *Returning to a Superfolder*         |
+| **Inspect → Up**         | **Up**      | **Backspace** | *Returning to the Superfolder*       |
 | **Inspect → Explore**    | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
 | **Inspect → Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
 | **Inspect → Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
@@ -860,7 +862,7 @@ The corresponding hotkeys do not produce the corresponding response.
 
 The phrase *command gets enabled* means that the effects listed above cease at the same time.
 
-The phrase *command disappears* refers to the follwoing effects arising at the same time. 
+The phrase *command disappears* refers to the following effects arising at the same time. 
 
 - The corresponding item disappears from the menu.
 - The corresponding button disappears from the toolbar.
@@ -988,31 +990,14 @@ The padding rectangle is the rectangle inside the tile’s external rectangle wh
 
 The following padding must be provided inside a tile. 
 
-Padding parameters for a tile having a horizontally oriented label.
+| Tile Side      | Configuration Parameter     |
+|----------------|-----------------------------|
+| Left padding   | `treemap.tilePaddingLeft`   |
+| Top padding    | `treemap.tilePaddingTop`    |
+| Right padding  | `treemap.tilePaddingRight`  |
+| Bottom padding | `treemap.tilePaddingBottom` |
 
-| Tile Side | Configuration Parameter   |
-|-----------|---------------------------|
-| Left padding      | `treemap.tilePaddingLeft` |
-| Top padding      | `treemap.tilePaddingTop`  |
-| Bottom padding   | 0                         |
-| Right  padding   | 0                         |
-
-Horizontal content flows from the left top angle of the padding rectangle.
-
-
-Padding parameters for a tile having a vertically oriented label.
-
-| Tile Side | Configuration Parameter     |
-|-----------|-----------------------------|
-| Left padding     | `treemap.tilePaddingLeft`   |
-| Top padding      | 0                           |
-| Bottom padding   | `treemap.tilePaddingBottom` |
-| Right padding    | 0                           |
-
-Horizontal content flows from the left bottom angle of the padding rectangle.
-
-
-When the tile contet gets clipped, it must get clipped by the padding rectangle. 
+When the tile content gets clipped, it must get clipped by the padding rectangle.
 
 
 ##### Label Content
@@ -1042,23 +1027,16 @@ Volume share format must be:
 
 - Up to 1 fractional digits, `%`.
 - If it appears as `0.0%`, then give it one more fractional digit.
-- If it is still `0.0%` or `0.00%`, then remove the percentage line at all.
+- If it is still `0.0%` or `0.00%`, then remove the percentage line.
 
 
 #### Label Layout
 
 ##### Text Orientation
 
-The following text orientations are possible for labels:
+Labels are displayed horizontally.
 
-- Horizontal
-- Vertical
-
-The following requirements apply to a horizontally oriented label:
-
-- The lines of the label follow from top to bottom.
-
-A vertically oriented label must be displayed as if the horizontal label with the same content has been rotated by 90 degrees counterclockwise. The rotation direction is defined in a coordinate system where X increases to the right and Y increases upward.
+The lines of the label follow from top to bottom.
 
 
 ##### Formatting
@@ -1080,17 +1058,31 @@ The possible methods for displaying a label are listed below, from most preferab
 
 - Horizontally, with details
 - Horizontally, without details
-- Vertically, with details (bottom-to-top)
-- Vertically, without details (bottom-to-top)
+- Horizontally, with details and a shortened heading
+- Horizontally, without details and a shortened heading
 - Label is not displayed
 
 When displaying a label for a tile, the program must test the methods from most preferable to least preferable and use the first method that works.
 
 The method "Label is not displayed" works in all cases.
 
-The following procedure must be applied to determine whether the label fits the tile and to select appropriate font sizes. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize`. Stop as soon as the label fits within that external rectangle and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
+The following procedure must be applied to determine whether the label fits the tile and to select appropriate font sizes. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize` with a step of 1. Stop as soon as the label fits within that external rectangle and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
 
 The font-size procedure is scoped to one method at a time.
+
+In methods that use a shortened heading, the program must shorten only the heading text.
+
+The first shortened variant must be produced by removing exactly three consecutive characters from the middle of the original heading and inserting `...` at that position.
+
+If this variant does not fit, the next variants must be generated iteratively as follows:
+
+- Remove one additional character immediately adjacent to `...` on the left side, then check fit.
+- Remove one additional character immediately adjacent to `...` on the right side, then check fit.
+- Repeat these two steps in alternating order (left, right, left, right, ...).
+
+Each iteration must keep one contiguous prefix and one contiguous suffix of the original heading, separated by `...`.
+
+If the heading becomes only `...` and still does not fit, the current method must fail.
 
 
 ##### Colors
@@ -1108,7 +1100,7 @@ The following colors must be applied to the packing type of the corresponding fi
 | Clump    | Native        | `treemap.nativeClumpBgColor`  | `treemap.nativeClumpTextColor`   |
 | Clump    | Packed clump  | `treemap.packedClumpBgColor`  | `treemap.packedClumpTextColor`   |
 
-The rules from the table above must be enforced regardless of the orientation of the label. The rules are the same for horizontal and vertical labels. A label must not use any text color other than the color defined in the table above, and it must not use any locally applied background color. For both horizontal and vertical labels, the label background must be transparent, so the tile background remains visible.
+The rules from the table above must be enforced for all labels. A label must not use any text color other than the color defined in the table above, and it must not use any locally applied background color. The label background must be transparent, so the tile background remains visible.
 
 
 #### Behavior
@@ -1121,7 +1113,7 @@ The following mouse pointer shapes must be used when the mouse pointer moves abo
 |----------------------------------|---------------|
 | Non-empty folder                 | `pointer`     |
 | Empty folder                     | `not-allowed` |
-| Non-executable file              | `pointer`     |
+| Non-executable file              | `default`     |
 | Executable file                  | `not-allowed` |
 
 
@@ -1140,22 +1132,6 @@ The tooltip must provide the following data on the file system object:
 ##### Treemap Size
 
 The treemap fills the client area and rescales when the main window is resized. 
-
-
-##### Handling the Main Window Resize
-
-THE REQUIREMENTS IN THIS SECTION DO NOT HAVE EFFECT
-
-The clump tile must exist in the treemap if the clump exists. The clump tile is not allowed to exist if there is no clump.
-
-A non-clump tile is allowed to disappear when the user makes the main window smaller. In this case, the corresponding file system object goes to the clump. The clump tile must appear if it was not visible before. The properties of the clump must be calculated or recalculated accordingly. The label of the clump title must get updated.  
-
-> **IMPORTANT**  
-> If we have no clump tile yet, you have to remove two tiles to show a clump tile. 
-
-A non-clump tile is allowed to appear if the user makes the main window larger. In this case, the corresponding file system object goes out of the clump. The properties of the clump must be recalculated accordingly. The label of the clump tile must get updated. If there is no clump anymore, then the clump tile must disappear.  
-
-END OF THE REQUIREMENTS THAT DO NOT HAVE EFFECT
 
 
 ### Status Bar
@@ -1223,7 +1199,7 @@ An error alert must contain the following elements:
 
 The error alert icon must be a yellow rectangle with a black exclamation mark inside. 
 
-An error info block must provode the following data: 
+An error info block must provide the following data: 
 
 - Error code
 - Error message
@@ -1317,7 +1293,7 @@ The groups of configuration parameters are described below in this section.
 | `treemap.packedClumpTextColor`    | Packed clump tile text color                 | #ffffff |  +   |
 | `treemap.tileFontName`            | Tile text font                               | Segoe UI  |  +   |
 | `treemap.headingMaxFontSize`      | Maximal size of a label heading              |      30pt |  +   |
-| `treemap.headingMinFontSize`      | Minimal size of a label heading              |       7pt |  +   |
+| `treemap.headingMinFontSize`      | Minimal size of a label heading              |       8pt |  +   |
 | `treemap.headingLineHeight`       | Line height / font size in the heading       |       1.2 |  +   |
 | `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
 | `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
