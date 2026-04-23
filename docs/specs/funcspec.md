@@ -26,6 +26,8 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Empty folder:* A folder that contains no file system objects. 
 
+*Executable file:* A file whose contents encode instructions that a computer can load and run as a program, either directly by the system loader or through a configured runtime/interpreter.
+
 *File system object:* A file or a folder, including the root folder of a volume.
 
 *Folder hierarchy descriptor:* A data structure in computer memory that provides information about the folder of interest and all file system objects within it recursively.
@@ -51,7 +53,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 *Success:* For scanning a folder, indicates that scanning was not interrupted by the user voluntarily or by the program for technical reasons.
 
 > **NOTE**
-> If the program fails to collect data on some inner folders or files because of insufficient permissions, but finishes scanning organically without interruptions, it's still success.
+> If the program fails to collect data on some inner folders or files because of insufficient permissions, but finishes scanning organically without interruptions, it is still a success.
 
 *Superfolder:* A folder that directly contains the context folder.
 
@@ -130,6 +132,7 @@ The program must support the following use cases:
 - *Returning to the Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
+- *Exploring a File*
 - *Checking a Folder of Interest*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
@@ -254,6 +257,7 @@ Otherwise, the folder is available for scanning.
    - *Diving Into a Subfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
+   - *Exploring a File*
    - *Displaying the Program Information*
    - *Quitting the Current Session*
 
@@ -338,6 +342,7 @@ The user is allowed to navigate while the use case *Scanning the Context Folder*
    - *Returning to a Superfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
+   - *Exploring a File*
    - *Displaying the Program Information*
    - *Quitting the Current Session*
 
@@ -440,7 +445,7 @@ All of the following conditions are met:
 
    Apply the *Checking a Folder of Interest* use case to the subfolder. 
 
-   If the subfolder is node:
+   If the subfolder is not empty:
 
    - Make the subfolder the context folder. 
    - Display the treemap for the new context folder as complete. 
@@ -467,6 +472,7 @@ All of the following conditions are met:
 - *Returning to a Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
+- *Exploring a File*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -518,6 +524,7 @@ All of the following conditions are met:
    - *Returning to a Superfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
+   - *Exploring a File*
    - *Displaying the Program Information*
    - *Quitting the Current Session*
 
@@ -572,6 +579,7 @@ All of the following conditions are met:
    - *Returning to a Superfolder*
    - *Exploring the Context Folder*
    - *Exploring a Subfolder*
+   - *Exploring a File*
    - *Displaying the Program Information*
    - *Quitting the Current Session*
 
@@ -628,6 +636,7 @@ The user wants to open a subfolder in the system file manager.
 - *Returning to a Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
+- *Exploring a File*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -662,6 +671,70 @@ The full path to the folder of interest.
 **Postrequisites**
 
 Control returns to the overall use case.
+
+
+### Exploring a File 
+
+**Context**
+
+The user wants to view a file using a corresponding application.
+
+**Prerequisites**
+
+All of the following conditions are met:
+
+- A treemap is displayed as complete.
+- Neither modal dialog box is open.
+
+**Steps**
+
+1. The user right-clicks a tile.
+
+   **System Response**
+
+   Display a context menu for the tile. 
+
+2. If the file is executable:
+
+   - Display the **Explore** command disabled.
+   - Recognize the result as negative.
+
+   **Step Result**
+
+   The use case cannot proceed. 
+
+2. The user selects the **Explore** command.
+
+   **System Response**
+
+   - Apply the *Checking a Folder of Interest* use case to the subfolder. 
+   - Open the file in the corresponding application. 
+   - Keep the mouse pointer in the busy state for two seconds.
+   - Recognize the result as positive.
+
+   The file should be opened in the default application associated with its file type, as provided by the operating system.
+
+**Result**
+
+   **Positive**
+
+   The file is loaded in the associated application.
+
+   **Negative**
+
+   None. 
+
+**Postrequisites**
+
+- *Choosing a Target Folder*
+- *Updating the Context Folder*
+- *Diving Into a Subfolder*
+- *Returning to a Superfolder*
+- *Exploring the Context Folder*
+- *Exploring a Subfolder*
+- *Exploring a File*
+- *Displaying the Program Information*
+- *Quitting the Current Session*
 
 
 ### Displaying the Program Information
@@ -709,6 +782,7 @@ The following use cases are available to the user:
 - *Returning to a Superfolder*
 - *Exploring the Context Folder*
 - *Exploring a Subfolder*
+- *Exploring a File*
 - *Displaying the Program Information*
 - *Quitting the Current Session*
 
@@ -951,7 +1025,7 @@ The following requirements apply to a horizontally oriented label:
 
 - The lines of the label follow from top to bottom.
 
-A vertically oriented label must be displayed as if the horizontal label with the same content has been rotated by 90 degrees counterclockwise.
+A vertically oriented label must be displayed as if the horizontal label with the same content has been rotated by 90 degrees counterclockwise. The rotation direction is defined in a coordinate system where X increases to the right and Y increases upward.
 
 
 ##### Formatting
@@ -983,6 +1057,8 @@ The method "Label is not displayed" works in all cases.
 
 The following procedure must be applied to determine whether the label fits the tile and to select appropriate font sizes. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize`. Stop as soon as the label fits within that external rectangle and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
 
+The font-size procedure is scoped to one method at a time.
+
 
 ##### Colors
 
@@ -999,7 +1075,21 @@ The following colors must be applied to the packing type of the corresponding fi
 | Clump    | Native        | `treemap.nativeClumpBgColor`  | `treemap.nativeClumpTextColor`   |
 | Clump    | Packed clump  | `treemap.packedClumpBgColor`  | `treemap.packedClumpTextColor`   |
 
-The rules from the table above must be enforced regardless of the orientation of the label. The rules are the same for horizontal and vertical labels. A label must not use any text color other than the color defined in the table above, and it must not use any locally applied background color.
+The rules from the table above must be enforced regardless of the orientation of the label. The rules are the same for horizontal and vertical labels. A label must not use any text color other than the color defined in the table above, and it must not use any locally applied background color. For both horizontal and vertical labels, the label background must be transparent, so the tile background remains visible.
+
+
+#### Behavior
+
+##### Mouse Pointers
+
+The following mouse pointer shapes must be used when the mouse pointer moves above a tile.
+
+| Corresponding File System Object | Mouse Pointer |
+|----------------------------------|---------------|
+| Non-empty folder                 | `pointer`     |
+| Empty folder                     | `not-allowed` |
+| Non-executable file              | `pointer`     |
+| Executable file                  | `not-allowed` |
 
 
 ##### Tooltips
@@ -1030,7 +1120,7 @@ A non-clump tile is allowed to disappear when the user makes the main window sma
 > **IMPORTANT**  
 > If we have no clump tile yet, you have to remove two tiles to show a clump tile. 
 
-A non-clump tile is allowed to appear if the user makes the main window larger. In this case, the corresponding file system object goes out of the clump. The properties of the clump must be recalculated accordingly. The label of the clump tite must get updated. If there is no clump anymore, then the clump tile must disappear.  
+A non-clump tile is allowed to appear if the user makes the main window larger. In this case, the corresponding file system object goes out of the clump. The properties of the clump must be recalculated accordingly. The label of the clump tile must get updated. If there is no clump anymore, then the clump tile must disappear.  
 
 END OF THE REQUIREMENTS THAT DO NOT HAVE EFFECT
 
