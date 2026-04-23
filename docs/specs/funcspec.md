@@ -1121,6 +1121,8 @@ The following mouse pointer shapes must be used when the mouse pointer moves abo
 
 If a tile does not display a label, then a tooltip must be provided for it.
 
+If a tile displays a heading that is only `...`, then a tooltip must be provided for it.
+
 The tooltip must provide the following data on the file system object:
 
 - Name

@@ -38,10 +38,10 @@ func DefaultTreemap() Treemap {
 		MaxTiles:            20,
 		MinTileWidthPt:      50,
 		MinTileHeightPt:     50,
-		TilePaddingLeftPt:   10,
-		TilePaddingTopPt:    10,
-		TilePaddingRightPt:  10,
-		TilePaddingBottomPt: 10,
+		TilePaddingLeftPt:   5,
+		TilePaddingTopPt:    5,
+		TilePaddingRightPt:  5,
+		TilePaddingBottomPt: 5,
 
 		NativeFolderBg:   hexRGBA("#80ef80"),
 		NativeFolderText: hexRGBA("#000000"),
@@ -59,7 +59,7 @@ func DefaultTreemap() Treemap {
 		TileFontName: "Segoe UI",
 
 		HeadingMaxFontSizePt: 30,
-		HeadingMinFontSizePt: 7,
+		HeadingMinFontSizePt: 8,
 		HeadingLineHeight:    1.2,
 		DetailsFontSizeRatio: 0.8,
 		DetailsLineHeight:    1.5,

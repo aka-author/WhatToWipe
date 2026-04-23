@@ -77,7 +77,15 @@ type app struct {
 	chartDirty      bool
 	treemapComplete bool
 
-	labelFonts map[string]*walk.Font
+	labelFonts  map[string]*walk.Font
+	labelCache  []labelChoice
+	labelSolved []bool
+	// Cache key for label resolution (depends on tile geometry, viewport, and DPI).
+	labelCacheW, labelCacheH, labelCacheDPI int
+	labelCacheValid                         bool
+	labelSolveNext                          int
+	labelSolving                            bool
+	labelSolveSeq                           uint64
 
 	scanCtx    context.Context
 	scanCancel context.CancelFunc
@@ -336,11 +344,11 @@ func (a *app) chartChildren() []Widget {
 				if a.chart != nil {
 					a.chart.SetCursor(a.cursorForBlock(b))
 				}
-				if a.tileHasLabel(b) {
-					a.setChartTooltip("")
+				if a.tileNeedsTooltipAt(h) {
+					a.setChartTooltip(tileTooltipText(b))
 					return
 				}
-				a.setChartTooltip(tileTooltipText(b))
+				a.setChartTooltip("")
 			},
 		},
 	}
@@ -759,6 +767,7 @@ func (a *app) rebuildTreemap() {
 	if cur == nil {
 		a.items = nil
 		a.blocks = nil
+		a.invalidateLabelCache()
 		a.chartDirty = true
 		if a.chart != nil {
 			a.chart.Invalidate()
@@ -769,6 +778,7 @@ func (a *app) rebuildTreemap() {
 	if len(cur.Kids) == 0 && len(cur.Files) == 0 {
 		a.items = nil
 		a.blocks = nil
+		a.invalidateLabelCache()
 		a.chartDirty = true
 		if a.chart != nil {
 			a.chart.Invalidate()
@@ -778,6 +788,7 @@ func (a *app) rebuildTreemap() {
 
 	a.items = scan.BuildTreemapItems(cur, a.driveTotal, a.treemapCfg)
 	a.blocks = nil
+	a.invalidateLabelCache()
 	a.chartDirty = true
 	if a.chart != nil {
 		a.chart.Invalidate()
@@ -807,12 +818,14 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 			minW := int(win.MulDiv(int32(a.treemapCfg.MinTileWidthPt), int32(dpi), 72))
 			minH := int(win.MulDiv(int32(a.treemapCfg.MinTileHeightPt), int32(dpi), 72))
 			a.blocks = a.blocksForViewport(area, minW, minH)
+			a.invalidateLabelCache()
 			for _, b := range a.blocks {
 				fillRect(img, b.Rect, b.Color)
 				strokeRect(img, b.Rect, color.RGBA{40, 40, 45, 255})
 			}
 		} else {
 			a.blocks = nil
+			a.invalidateLabelCache()
 		}
 		strokeRect(img, image.Rect(0, 0, bounds.Width, bounds.Height), color.RGBA{25, 25, 30, 255})
 
@@ -841,14 +854,17 @@ func (a *app) paintTreemap(canvas *walk.Canvas, _ walk.Rectangle) error {
 	if err := canvas.DrawImagePixels(a.chartBmp, walk.Point{}); err != nil {
 		return err
 	}
-
 	a.drawBlockLabels(canvas)
 	return nil
 }
 
 func (a *app) drawBlockLabels(canvas *walk.Canvas) {
-	for _, b := range a.blocks {
-		a.drawTileLabelAuto(canvas, b)
+	a.ensureLabelSolveInitialized()
+	for i, b := range a.blocks {
+		if i < 0 || i >= len(a.labelCache) || i >= len(a.labelSolved) || !a.labelSolved[i] {
+			continue
+		}
+		a.drawTileLabelAuto(canvas, b, a.labelCache[i])
 	}
 }
 
@@ -858,8 +874,8 @@ const (
 	labelModeHidden labelMode = iota
 	labelModeHorizWithDetails
 	labelModeHorizNoDetails
-	labelModeVertWithDetails
-	labelModeVertNoDetails
+	labelModeHorizWithDetailsShort
+	labelModeHorizNoDetailsShort
 )
 
 type labelLayout struct {
@@ -872,10 +888,27 @@ type labelLayout struct {
 	contentW, contentH int
 }
 
-func (a *app) tileLabelPolicy(b model.BlockLayout) (labelMode, model.BlockLayout, int) {
+type labelChoice struct {
+	mode        labelMode
+	heading     string
+	pt          int
+	withDetails bool
+}
+
+func (a *app) invalidateLabelCache() {
+	atomic.AddUint64(&a.labelSolveSeq, 1)
+	a.labelCache = nil
+	a.labelSolved = nil
+	a.labelCacheValid = false
+	a.labelCacheW, a.labelCacheH, a.labelCacheDPI = 0, 0, 0
+	a.labelSolveNext = 0
+	a.labelSolving = false
+}
+
+func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 	b = a.withExternalRect(b)
 	if b.Rect.Empty() {
-		return labelModeHidden, b, 0
+		return labelChoice{mode: labelModeHidden}
 	}
 	maxPt := a.treemapCfg.HeadingMaxFontSizePt
 	minPt := a.treemapCfg.HeadingMinFontSizePt
@@ -883,37 +916,133 @@ func (a *app) tileLabelPolicy(b model.BlockLayout) (labelMode, model.BlockLayout
 		maxPt = 30
 	}
 	if minPt <= 0 {
-		minPt = 7
+		minPt = 8
 	}
 	if minPt > maxPt {
 		minPt = maxPt
 	}
 	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, pt, false, true) {
-			return labelModeHorizWithDetails, b, pt
+		if a.tileLabelFits(b, b.Name, pt, true) {
+			return labelChoice{mode: labelModeHorizWithDetails, heading: b.Name, pt: pt, withDetails: true}
 		}
 	}
 	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, pt, false, false) {
-			return labelModeHorizNoDetails, b, pt
+		if a.tileLabelFits(b, b.Name, pt, false) {
+			return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: pt, withDetails: false}
+		}
+	}
+	short := shortenedHeadingVariants(b.Name)
+	for pt := maxPt; pt >= minPt; pt-- {
+		for _, heading := range short {
+			if a.tileLabelFits(b, heading, pt, true) {
+				return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: pt, withDetails: true}
+			}
 		}
 	}
 	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, pt, true, true) {
-			return labelModeVertWithDetails, b, pt
+		for _, heading := range short {
+			if a.tileLabelFits(b, heading, pt, false) {
+				return labelChoice{mode: labelModeHorizNoDetailsShort, heading: heading, pt: pt, withDetails: false}
+			}
 		}
 	}
-	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, pt, true, false) {
-			return labelModeVertNoDetails, b, pt
-		}
-	}
-	return labelModeHidden, b, minPt
+	return labelChoice{mode: labelModeHidden, pt: minPt}
 }
 
-func (a *app) tileHasLabel(b model.BlockLayout) bool {
-	mode, _, _ := a.tileLabelPolicy(b)
-	return mode != labelModeHidden
+func (a *app) ensureLabelSolveInitialized() {
+	if a.chart == nil {
+		a.labelCache = nil
+		a.labelSolved = nil
+		a.labelCacheValid = false
+		return
+	}
+	b := a.chart.ClientBoundsPixels()
+	dpi := a.chart.DPI()
+	if a.labelCacheValid &&
+		len(a.labelCache) == len(a.blocks) &&
+		len(a.labelSolved) == len(a.blocks) &&
+		a.labelCacheW == b.Width &&
+		a.labelCacheH == b.Height &&
+		a.labelCacheDPI == dpi {
+		return
+	}
+	if len(a.blocks) == 0 {
+		a.labelCache = nil
+		a.labelSolved = nil
+		a.labelCacheValid = true
+		a.labelCacheW, a.labelCacheH, a.labelCacheDPI = b.Width, b.Height, dpi
+		return
+	}
+	a.labelCache = make([]labelChoice, len(a.blocks))
+	a.labelSolved = make([]bool, len(a.blocks))
+	a.labelCacheValid = true
+	a.labelCacheW, a.labelCacheH, a.labelCacheDPI = b.Width, b.Height, dpi
+	a.labelSolveNext = 0
+	a.startLabelSolve()
+}
+
+func (a *app) startLabelSolve() {
+	if a.labelSolving || a.chart == nil || len(a.blocks) == 0 {
+		return
+	}
+	a.labelSolving = true
+	seq := atomic.AddUint64(&a.labelSolveSeq, 1)
+	go func() {
+		for {
+			var done bool
+			a.mw.Synchronize(func() {
+				if seq != atomic.LoadUint64(&a.labelSolveSeq) || !a.labelCacheValid || a.chart == nil {
+					done = true
+					return
+				}
+				if a.labelSolveNext >= len(a.blocks) {
+					a.labelSolving = false
+					done = true
+					return
+				}
+				start := time.Now()
+				changed := false
+				for a.labelSolveNext < len(a.blocks) && time.Since(start) < 4*time.Millisecond {
+					i := a.labelSolveNext
+					a.labelCache[i] = a.resolveTileLabel(a.blocks[i])
+					a.labelSolved[i] = true
+					a.labelSolveNext++
+					changed = true
+				}
+				if changed && a.chart != nil {
+					a.chart.Invalidate()
+				}
+				if a.labelSolveNext >= len(a.blocks) {
+					a.labelSolving = false
+					done = true
+				}
+			})
+			if done {
+				return
+			}
+			time.Sleep(1 * time.Millisecond)
+		}
+	}()
+}
+
+func (a *app) tileNeedsTooltipAt(index int) bool {
+	a.ensureLabelSolveInitialized()
+	if !a.labelCacheValid {
+		// Before cache is ready, prefer showing tooltip over hiding useful info.
+		return true
+	}
+	if index < 0 || index >= len(a.labelCache) || index >= len(a.labelSolved) {
+		return true
+	}
+	if !a.labelSolved[index] {
+		return true
+	}
+	ch := a.labelCache[index]
+	if ch.mode == labelModeHidden {
+		return true
+	}
+	// Requirement extension: tiles that display only "..." must still show tooltip.
+	return ch.heading == "..."
 }
 
 func tileTooltipText(b model.BlockLayout) string {
@@ -948,7 +1077,7 @@ func (a *app) minTilePx() (int, int) {
 	return minW, minH
 }
 
-func (a *app) tilePaddingPx(rotated bool) (left, top, right, bottom int) {
+func (a *app) tilePaddingPx() (left, top, right, bottom int) {
 	dpi := 96
 	if a.chart != nil {
 		dpi = a.chart.DPI()
@@ -959,19 +1088,10 @@ func (a *app) tilePaddingPx(rotated bool) (left, top, right, bottom int) {
 		}
 		return v
 	}
-	left = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingLeftPt, 10)), int32(dpi), 72))
-	// FS Padding and Clipping:
-	// - Horizontal label: left/top paddings are configured, right/bottom are 0.
-	// - Vertical label: left/bottom paddings are configured, right/top are 0.
-	if rotated {
-		top = 0
-		right = 0
-		bottom = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingBottomPt, 10)), int32(dpi), 72))
-	} else {
-		top = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingTopPt, 10)), int32(dpi), 72))
-		right = 0
-		bottom = 0
-	}
+	left = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingLeftPt, 5)), int32(dpi), 72))
+	top = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingTopPt, 5)), int32(dpi), 72))
+	right = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingRightPt, 5)), int32(dpi), 72))
+	bottom = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingBottomPt, 5)), int32(dpi), 72))
 	return left, top, right, bottom
 }
 
@@ -986,7 +1106,7 @@ func (a *app) cursorForBlock(b model.BlockLayout) walk.Cursor {
 		if b.IsExecFile {
 			return walk.CursorNo()
 		}
-		return walk.CursorHand()
+		return walk.CursorArrow()
 	default:
 		return walk.CursorArrow()
 	}
@@ -1009,129 +1129,57 @@ func (a *app) withExternalRect(b model.BlockLayout) model.BlockLayout {
 	return b
 }
 
-func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
-	mode, vb, pt := a.tileLabelPolicy(b)
-	if mode == labelModeHidden {
+func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout, choice labelChoice) {
+	if choice.mode == labelModeHidden {
 		return
 	}
-	switch mode {
+	vb := a.withExternalRect(b)
+	switch choice.mode {
 	case labelModeHorizWithDetails:
-		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, false, true)
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), choice.heading, choice.pt, choice.withDetails)
 	case labelModeHorizNoDetails:
-		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, false, false)
-	case labelModeVertWithDetails:
-		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, true, true)
-	case labelModeVertNoDetails:
-		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, true, false)
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), choice.heading, choice.pt, choice.withDetails)
+	case labelModeHorizWithDetailsShort:
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), choice.heading, choice.pt, choice.withDetails)
+	case labelModeHorizNoDetailsShort:
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), choice.heading, choice.pt, choice.withDetails)
 	}
 }
 
-// drawTreemapTileLabel draws a tile label in horizontal or rotated orientation.
-func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt int, rotated, withDetails bool) {
-	lay, ok := a.computeLabelLayout(b, dpi, namePt, rotated, withDetails)
+func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi int, heading string, namePt int, withDetails bool) {
+	lay, ok := a.computeLabelLayout(b, dpi, heading, namePt, withDetails)
 	if !ok {
 		return
 	}
 	fg := rgbaToWalkColor(b.TextColor)
-	if !rotated {
-		y := lay.inner.Min.Y
-		drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
-			rc := walk.Rectangle{X: lay.inner.Min.X, Y: y, Width: lay.inner.Dx(), Height: lh}
-			_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop)
-			y += lh
-		}
-		drawLine(b.Name, lay.nameFont, lay.nameLH, fg)
-		if withDetails {
-			y += lay.gap
-			drawLine(format.ObjectSize(b.Size), lay.metaFont, lay.metaLH, fg)
-			if lay.showShare {
-				drawLine(lay.shareText, lay.metaFont, lay.metaLH, fg)
-			}
-		}
-		return
+	y := lay.inner.Min.Y
+	drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
+		rc := walk.Rectangle{X: lay.inner.Min.X, Y: y, Width: lay.inner.Dx(), Height: lh}
+		_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop)
+		y += lh
 	}
-	// Render horizontal label with transparent background, then rotate to satisfy vertical-orientation rule.
-	w := max(lay.contentW, 1)
-	h := max(lay.contentH, 1)
-	tmp, err := walk.NewBitmapWithTransparentPixelsForDPI(walk.Size{Width: w, Height: h}, dpi)
-	if err != nil {
-		return
-	}
-	defer tmp.Dispose()
-	tmpCanvas, err := walk.NewCanvasFromImage(tmp)
-	if err != nil {
-		return
-	}
-	defer tmpCanvas.Dispose()
-	ty := 0
-	drawTmp := func(text string, font *walk.Font, lh int) {
-		rc := walk.Rectangle{X: 0, Y: ty, Width: w, Height: lh}
-		_ = tmpCanvas.DrawTextPixels(text, font, fg, rc, walk.TextSingleLine|walk.TextTop)
-		ty += lh
-	}
-	drawTmp(b.Name, lay.nameFont, lay.nameLH)
+	drawLine(heading, lay.nameFont, lay.nameLH, fg)
 	if withDetails {
-		ty += lay.gap
-		drawTmp(format.ObjectSize(b.Size), lay.metaFont, lay.metaLH)
+		y += lay.gap
+		drawLine(format.ObjectSize(b.Size), lay.metaFont, lay.metaLH, fg)
 		if lay.showShare {
-			drawTmp(lay.shareText, lay.metaFont, lay.metaLH)
+			drawLine(lay.shareText, lay.metaFont, lay.metaLH, fg)
 		}
 	}
-	im, err := tmp.ToImage()
-	if err != nil {
-		return
-	}
-	rot := rotateRGBA90CCW(im)
-	rotBmp, err := walk.NewBitmapFromImageForDPI(rot, dpi)
-	if err != nil {
-		return
-	}
-	defer rotBmp.Dispose()
-	_, rh := rot.Rect.Dx(), rot.Rect.Dy()
-	x := lay.inner.Min.X
-	y := lay.inner.Max.Y - rh
-	if y < lay.inner.Min.Y {
-		y = lay.inner.Min.Y
-	}
-	_ = canvas.DrawImagePixels(rotBmp, walk.Point{X: x, Y: y})
 }
 
-func rotateRGBA90CCW(src *image.RGBA) *image.RGBA {
-	b := src.Bounds()
-	w, h := b.Dx(), b.Dy()
-	dst := image.NewRGBA(image.Rect(0, 0, h, w))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			dst.Set(y, w-1-x, src.RGBAAt(x+b.Min.X, y+b.Min.Y))
-		}
-	}
-	return dst
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func (a *app) tileLabelFits(b model.BlockLayout, headingPt int, rotated, withDetails bool) bool {
+func (a *app) tileLabelFits(b model.BlockLayout, heading string, headingPt int, withDetails bool) bool {
 	if a.chart == nil {
 		return false
 	}
-	lay, ok := a.computeLabelLayout(b, a.chart.DPI(), headingPt, rotated, withDetails)
+	lay, ok := a.computeLabelLayout(b, a.chart.DPI(), heading, headingPt, withDetails)
 	if !ok {
 		return false
 	}
-	innerW := lay.inner.Dx()
-	innerH := lay.inner.Dy()
-	if rotated {
-		return lay.contentH <= innerW && lay.contentW <= innerH
-	}
-	return lay.contentW <= innerW && lay.contentH <= innerH
+	return lay.contentW <= lay.inner.Dx() && lay.contentH <= lay.inner.Dy()
 }
 
-func (a *app) computeLabelLayout(b model.BlockLayout, dpi, namePt int, rotated, withDetails bool) (labelLayout, bool) {
+func (a *app) computeLabelLayout(b model.BlockLayout, dpi int, heading string, namePt int, withDetails bool) (labelLayout, bool) {
 	var lay labelLayout
 	metaPt := int(float64(namePt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
 	if metaPt < 1 {
@@ -1142,7 +1190,7 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi, namePt int, rotated, 
 	if lay.nameFont == nil || lay.metaFont == nil {
 		return lay, false
 	}
-	padL, padT, padR, padB := a.tilePaddingPx(rotated)
+	padL, padT, padR, padB := a.tilePaddingPx()
 	lay.inner = image.Rect(b.Rect.Min.X+padL, b.Rect.Min.Y+padT, b.Rect.Max.X-padR, b.Rect.Max.Y-padB)
 	if lay.inner.Empty() {
 		return lay, false
@@ -1160,7 +1208,7 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi, namePt int, rotated, 
 	if !withDetails {
 		lay.showShare = false
 	}
-	nameW, ok := measureTextWidthPx(a.chart, b.Name, lay.nameFont)
+	nameW, ok := measureTextWidthPx(a.chart, heading, lay.nameFont)
 	if !ok {
 		return lay, false
 	}
@@ -1187,6 +1235,53 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi, namePt int, rotated, 
 		}
 	}
 	return lay, true
+}
+
+func shortenedHeadingVariants(s string) []string {
+	r := []rune(s)
+	n := len(r)
+	if n == 0 {
+		return nil
+	}
+	if n < 3 {
+		return nil
+	}
+	if n == 3 {
+		return []string{"..."}
+	}
+	removedStart := (n - 3) / 2
+	leftKeep := removedStart
+	rightStart := removedStart + 3
+	rightKeep := n - rightStart
+	build := func() string {
+		var b strings.Builder
+		if leftKeep > 0 {
+			b.WriteString(string(r[:leftKeep]))
+		}
+		b.WriteString("...")
+		if rightKeep > 0 {
+			b.WriteString(string(r[n-rightKeep:]))
+		}
+		return b.String()
+	}
+	out := []string{build()}
+	removeLeftNext := true
+	for leftKeep > 0 || rightKeep > 0 {
+		if removeLeftNext {
+			if leftKeep > 0 {
+				leftKeep--
+				out = append(out, build())
+			}
+			removeLeftNext = false
+			continue
+		}
+		if rightKeep > 0 {
+			rightKeep--
+			out = append(out, build())
+		}
+		removeLeftNext = true
+	}
+	return out
 }
 
 func (a *app) hitTest(x, y int) int {
