@@ -89,6 +89,13 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 *Packed folder:* An archive that contains a single folder.
 
 
+## Default Global Rules
+
+### Tile Size
+
+Size comparisons always apply to the external rectangle of a tile as the user sees it.
+
+
 ## Data Structures and Models 
 
 ### Folder Hierarchy Descriptor
@@ -864,7 +871,7 @@ Values that are zero, negative, or non-finite are excluded from the diagram and 
 
 For each represented value `v_i`, the program must compute an area share `v_i / sum(v)` and assign a tile area equal to that share of the enclosing rectangle.
 
-If a computed tile area falls below a minimum threshold (implementation-defined), the corresponding value may be merged into a residual tile (for example, `other (N items)`), where `N` is the count of merged values.
+In the diagram model, if an allocated tile area falls below a minimum threshold (implementation-defined), the corresponding value may be merged into a residual tile (for example, `other (N items)`), where `N` is the count of merged values. This rule concerns area allocation among values, not the external rectangle in pixels.
 
 Each tile must correspond to exactly one represented value, and all tiles must be at the same level (no nesting in this view).
 
@@ -898,24 +905,26 @@ Each tile’s area is proportional to the volume share of the represented entry 
 
 File tiles must use the packing type recorded in the descriptor for the represented entry.
 
-If a computed tile width is below `treemap.minTileWidth` or a computed tile height is below `treemap.minTileHeight`, the tile must be expanded to at least `treemap.minTileWidth × treemap.minTileHeight`.
-
 
 #### Tile Layout
 
 ##### Label Content
 
-Every tile must show a label. A label must contain the following blocks:
+Every tile must show a label, unless it does not have enough space for it. A label must contain the following blocks:
 
 - Heading
 - Details block
 
+The list above represents the normal order of blocks for the purpose of displaying them in visual media.
+
 A heading must contain the name of the corresponding file system object.
 
-The details block must contain the following lines on the corresponding file system oblect: 
+The details block must contain the following lines on the corresponding file system object: 
 
 - Size
 - Volume share
+
+The list above represents the normal order of lines for the purpose of displaying them in visual media.
 
 Size format must be:
 
@@ -931,7 +940,23 @@ Volume share format must be:
 
 #### Label Layout
 
-The following linear sizes must apply to the parts of the tile label. 
+##### Text Orientation
+
+The following text orientations are possible for labels:
+
+- Horizontal
+- Vertical
+
+The following requirements apply to a horizontally oriented label:
+
+- The lines of the label follow from top to bottom.
+
+A vertically oriented label must be displayed as if the horizontal label with the same content has been rotated by 90 degrees counterclockwise.
+
+
+##### Formatting
+
+The following linear sizes must apply to the parts of the tile label.
 
 | Property                         | Value                                                 |
 |----------------------------------|-------------------------------------------------------|
@@ -942,14 +967,26 @@ The following linear sizes must apply to the parts of the tile label.
 | Details line height              | Details font size * `treemap.detailsLineHeight`       |
 | Interval above the details block | Details font size * `treemap.aboveDetailsHeightRatio` |
 
-A label fits the tile if it can be displayed within the tile without being clipped.
+A label fits the tile if it can be displayed within the tile’s external rectangle without being clipped.
 
-The following font size rule must be applied to a label to determine the correct heading font size for it. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize`. Stop as soon as the label fits the tile and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
+The possible methods for displaying a label are listed below, from most preferable to least preferable:
+
+- Horizontally, with details
+- Horizontally, without details
+- Vertically, with details (bottom-to-top)
+- Vertically, without details (bottom-to-top)
+- Label is not displayed
+
+When displaying a label for a tile, the program must test the methods from most preferable to least preferable and use the first method that works.
+
+The method "Label is not displayed" works in all cases.
+
+The following procedure must be applied to determine whether the label fits the tile and to select appropriate font sizes. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize`. Stop as soon as the label fits within that external rectangle and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
 
 
 ##### Colors
 
-Background and text colors must come **only** from Treemap Configuration Parameters (`treemap.*BgColor`, `treemap.*TextColor`). No separate fixed palette is specified outside that table.
+Background and text colors must come only from *Treemap Configuration Parameters*. No separate fixed palette is specified outside that table.
 
 The following colors must be applied to the packing type of the corresponding file system object.
 
@@ -962,6 +999,18 @@ The following colors must be applied to the packing type of the corresponding fi
 | Clump    | Native        | `treemap.nativeClumpBgColor`  | `treemap.nativeClumpTextColor`   |
 | Clump    | Packed clump  | `treemap.packedClumpBgColor`  | `treemap.packedClumpTextColor`   |
 
+The rules from the table above must be enforced regardless of the orientation of the label. The rules are the same for horizontal and vertical labels. A label must not use any text color other than the color defined in the table above, and it must not use any locally applied background color.
+
+
+##### Tooltips
+
+If a tile does not display a label, then a tooltip must be provided for it.
+
+The tooltip must provide the following data on the file system object:
+
+- Name
+- Size
+
 
 #### Layout
 
@@ -972,6 +1021,8 @@ The treemap fills the client area and rescales when the main window is resized.
 
 ##### Handling the Main Window Resize
 
+THE REQUIREMENTS IN THIS SECTION DO NOT HAVE EFFECT
+
 The clump tile must exist in the treemap if the clump exists. The clump tile is not allowed to exist if there is no clump.
 
 A non-clump tile is allowed to disappear when the user makes the main window smaller. In this case, the corresponding file system object goes to the clump. The clump tile must appear if it was not visible before. The properties of the clump must be calculated or recalculated accordingly. The label of the clump title must get updated.  
@@ -980,6 +1031,8 @@ A non-clump tile is allowed to disappear when the user makes the main window sma
 > If we have no clump tile yet, you have to remove two tiles to show a clump tile. 
 
 A non-clump tile is allowed to appear if the user makes the main window larger. In this case, the corresponding file system object goes out of the clump. The properties of the clump must be recalculated accordingly. The label of the clump tite must get updated. If there is no clump anymore, then the clump tile must disappear.  
+
+END OF THE REQUIREMENTS THAT DO NOT HAVE EFFECT
 
 
 ### Status Bar
@@ -1094,7 +1147,7 @@ An interruption alert must get closed when the user performs one of the followin
 
 Program configuration includes a set of parameters that describe the behavior and appearance of a certain program installation. 
 
-Values of the configuration parameters must be stored in a configuration file named **`WhatToWipe.config.txt`**, in **the same directory as the running executable** (`WhatToWipe.exe`). The program must read and write that file only; it must not resolve the path from the process working directory, `%AppData%`, or any other location.
+Values of the configuration parameters must be stored in a configuration file named `WhatToWipe.config.txt`, in the same directory as the running executable (`WhatToWipe.exe`). The program must read and write that file only; it must not resolve the path from the process working directory, `%AppData%`, or any other location.
 
 A configuration file must be a human-readable text file. 
 
@@ -1121,12 +1174,12 @@ The groups of configuration parameters are described below in this section.
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
 | `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   | 
-| `treemap.tilePaddingLeft`         | Left padding in a tile                       |     10 pt |  +   |
-| `treemap.tilePaddingTop`          | Top padding in a tile                        |     10 pt |  +   |
-| `treemap.tilePaddingRight`        | Right padding in a tile                      |     10 pt |  +   |
-| `treemap.tilePaddingBottom`       | Bottom padding in a tile                     |     10 pt |  +   |
-| `treemap.minTileWidth`            | Minimum tile width                           |     50 pt |  +   |
-| `treemap.minTileHeight`           | Minimum tile height                          |     50 pt |  +   |
+| `treemap.tilePaddingLeft`         | Left padding in a tile                       |      10pt |  +   |
+| `treemap.tilePaddingTop`          | Top padding in a tile                        |      10pt |  +   |
+| `treemap.tilePaddingRight`        | Right padding in a tile                      |      10pt |  +   |
+| `treemap.tilePaddingBottom`       | Bottom padding in a tile                     |      10pt |  +   |
+| `treemap.minTileWidth`            | Minimum tile width                           |      50pt |  +   |
+| `treemap.minTileHeight`           | Minimum tile height                          |      50pt |  +   |
 | `treemap.nativeFolderBgColor`     | Native folder tile background color          | #80ef80 |  +   |
 | `treemap.nativeFolderTextColor`   | Native folder tile text color                | #000000 |  +   |
 | `treemap.packedFolderBgColor`     | Packed folder tile background color          | #06402b |  +   |
@@ -1140,12 +1193,12 @@ The groups of configuration parameters are described below in this section.
 | `treemap.packedClumpBgColor`      | Packed clump tile background color           | #323232 |  +   |
 | `treemap.packedClumpTextColor`    | Packed clump tile text color                 | #ffffff |  +   |
 | `treemap.tileFontName`            | Tile text font                               | Segoe UI  |  +   |
-| `treemap.headingMaxFontSize`      | Maximal size of a label heading              |     30 pt |  +   |
-| `treemap.headingMinFontSize`      | Minimal size of a label heading              |     10 pt |  +   |
+| `treemap.headingMaxFontSize`      | Maximal size of a label heading              |      30pt |  +   |
+| `treemap.headingMinFontSize`      | Minimal size of a label heading              |       7pt |  +   |
 | `treemap.headingLineHeight`       | Line height / font size in the heading       |       1.2 |  +   |
 | `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
 | `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
-| `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |       1.5 |  +   |
+| `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |         1 |  +   |
 
 
 ## Related Links
