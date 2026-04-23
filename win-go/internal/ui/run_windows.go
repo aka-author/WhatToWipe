@@ -1087,7 +1087,7 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 		return
 	}
 	defer rotBmp.Dispose()
-	rw, rh := rot.Rect.Dx(), rot.Rect.Dy()
+	_, rh := rot.Rect.Dx(), rot.Rect.Dy()
 	x := lay.inner.Min.X
 	y := lay.inner.Max.Y - rh
 	if y < lay.inner.Min.Y {
