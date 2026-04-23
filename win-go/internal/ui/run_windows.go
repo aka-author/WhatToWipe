@@ -316,10 +316,11 @@ func (a *app) chartChildren() []Widget {
 				if h < 0 || h >= len(a.blocks) {
 					return
 				}
-				if !a.blocks[h].IsNode {
+				b := a.blocks[h]
+				if b.Kind != model.TreemapItemFolder || b.IsEmpty {
 					return
 				}
-				a.navPath = append(a.navPath, a.blocks[h].Path)
+				a.navPath = append(a.navPath, b.Path)
 				a.rebuildTreemap()
 			},
 			OnMouseMove: func(x, y int, _ walk.MouseButton) {
@@ -497,7 +498,8 @@ func (a *app) openInExplorer(path string) {
 }
 
 func (a *app) openFileInDefaultApp(path string) {
-	cmd := exec.Command("cmd", "/c", "start", "", path)
+	// Use explorer directly to avoid spawning a transient console window from cmd /c start.
+	cmd := exec.Command("explorer", path)
 	if err := cmd.Start(); err != nil {
 		walk.MsgBox(a.mw, "WhatToWipe", "Could not open file:\n"+err.Error(), walk.MsgBoxIconError)
 	}
@@ -860,6 +862,16 @@ const (
 	labelModeVertNoDetails
 )
 
+type labelLayout struct {
+	inner              image.Rectangle
+	nameFont, metaFont *walk.Font
+	nameLH, metaLH     int
+	gap                int
+	shareText          string
+	showShare          bool
+	contentW, contentH int
+}
+
 func (a *app) tileLabelPolicy(b model.BlockLayout) (labelMode, model.BlockLayout, int) {
 	b = a.withExternalRect(b)
 	if b.Rect.Empty() {
@@ -936,7 +948,7 @@ func (a *app) minTilePx() (int, int) {
 	return minW, minH
 }
 
-func (a *app) tilePaddingPx() (left, top, right, bottom int) {
+func (a *app) tilePaddingPx(rotated bool) (left, top, right, bottom int) {
 	dpi := 96
 	if a.chart != nil {
 		dpi = a.chart.DPI()
@@ -948,9 +960,18 @@ func (a *app) tilePaddingPx() (left, top, right, bottom int) {
 		return v
 	}
 	left = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingLeftPt, 10)), int32(dpi), 72))
-	top = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingTopPt, 10)), int32(dpi), 72))
-	right = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingRightPt, 10)), int32(dpi), 72))
-	bottom = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingBottomPt, 10)), int32(dpi), 72))
+	// FS Padding and Clipping:
+	// - Horizontal label: left/top paddings are configured, right/bottom are 0.
+	// - Vertical label: left/bottom paddings are configured, right/top are 0.
+	if rotated {
+		top = 0
+		right = 0
+		bottom = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingBottomPt, 10)), int32(dpi), 72))
+	} else {
+		top = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingTopPt, 10)), int32(dpi), 72))
+		right = 0
+		bottom = 0
+	}
 	return left, top, right, bottom
 }
 
@@ -1007,61 +1028,31 @@ func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
 
 // drawTreemapTileLabel draws a tile label in horizontal or rotated orientation.
 func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt int, rotated, withDetails bool) {
-	metaPt := int(float64(namePt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
-	if metaPt < 1 {
-		metaPt = 1
-	}
-	nameFont := a.ensureLabelFont(namePt)
-	metaFont := a.ensureLabelFont(metaPt)
-	if nameFont == nil || metaFont == nil {
+	lay, ok := a.computeLabelLayout(b, dpi, namePt, rotated, withDetails)
+	if !ok {
 		return
-	}
-	padL, padT, padR, padB := a.tilePaddingPx()
-	inner := image.Rect(b.Rect.Min.X+padL, b.Rect.Min.Y+padT, b.Rect.Max.X-padR, b.Rect.Max.Y-padB)
-	if inner.Empty() {
-		return
-	}
-	innerW := inner.Dx()
-	nameLH := int(float64(namePt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
-	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && nameLH < h+2 {
-		nameLH = h + 2
-	}
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", metaFont); ok && h > 0 && metaLH < h+2 {
-		metaLH = h + 2
 	}
 	fg := rgbaToWalkColor(b.TextColor)
-	shareText, showShare := formatShareLine(b.DriveShare)
-	if !withDetails {
-		showShare = false
-	}
-	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.0)*float64(dpi)/72.0 + 0.5)
 	if !rotated {
-		y := inner.Min.Y
+		y := lay.inner.Min.Y
 		drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
-			rc := walk.Rectangle{X: inner.Min.X, Y: y, Width: innerW, Height: lh}
+			rc := walk.Rectangle{X: lay.inner.Min.X, Y: y, Width: lay.inner.Dx(), Height: lh}
 			_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop)
 			y += lh
 		}
-		drawLine(b.Name, nameFont, nameLH, fg)
+		drawLine(b.Name, lay.nameFont, lay.nameLH, fg)
 		if withDetails {
-			y += gap
-			drawLine(format.ObjectSize(b.Size), metaFont, metaLH, fg)
-			if showShare {
-				drawLine(shareText, metaFont, metaLH, fg)
+			y += lay.gap
+			drawLine(format.ObjectSize(b.Size), lay.metaFont, lay.metaLH, fg)
+			if lay.showShare {
+				drawLine(lay.shareText, lay.metaFont, lay.metaLH, fg)
 			}
 		}
 		return
 	}
 	// Render horizontal label with transparent background, then rotate to satisfy vertical-orientation rule.
-	w := max(innerW, 1)
-	h := nameLH
-	if withDetails {
-		h += gap + metaLH
-		if showShare {
-			h += metaLH
-		}
-	}
+	w := max(lay.contentW, 1)
+	h := max(lay.contentH, 1)
 	tmp, err := walk.NewBitmapWithTransparentPixelsForDPI(walk.Size{Width: w, Height: h}, dpi)
 	if err != nil {
 		return
@@ -1078,12 +1069,12 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 		_ = tmpCanvas.DrawTextPixels(text, font, fg, rc, walk.TextSingleLine|walk.TextTop)
 		ty += lh
 	}
-	drawTmp(b.Name, nameFont, nameLH)
+	drawTmp(b.Name, lay.nameFont, lay.nameLH)
 	if withDetails {
-		ty += gap
-		drawTmp(format.ObjectSize(b.Size), metaFont, metaLH)
-		if showShare {
-			drawTmp(shareText, metaFont, metaLH)
+		ty += lay.gap
+		drawTmp(format.ObjectSize(b.Size), lay.metaFont, lay.metaLH)
+		if lay.showShare {
+			drawTmp(lay.shareText, lay.metaFont, lay.metaLH)
 		}
 	}
 	im, err := tmp.ToImage()
@@ -1097,13 +1088,10 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	}
 	defer rotBmp.Dispose()
 	rw, rh := rot.Rect.Dx(), rot.Rect.Dy()
-	x := inner.Min.X + (inner.Dx()-rw)/2
-	y := inner.Max.Y - rh
-	if x < inner.Min.X {
-		x = inner.Min.X
-	}
-	if y < inner.Min.Y {
-		y = inner.Min.Y
+	x := lay.inner.Min.X
+	y := lay.inner.Max.Y - rh
+	if y < lay.inner.Min.Y {
+		y = lay.inner.Min.Y
 	}
 	_ = canvas.DrawImagePixels(rotBmp, walk.Point{X: x, Y: y})
 }
@@ -1131,67 +1119,74 @@ func (a *app) tileLabelFits(b model.BlockLayout, headingPt int, rotated, withDet
 	if a.chart == nil {
 		return false
 	}
-	dpi := a.chart.DPI()
-	metaPt := int(float64(headingPt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
+	lay, ok := a.computeLabelLayout(b, a.chart.DPI(), headingPt, rotated, withDetails)
+	if !ok {
+		return false
+	}
+	innerW := lay.inner.Dx()
+	innerH := lay.inner.Dy()
+	if rotated {
+		return lay.contentH <= innerW && lay.contentW <= innerH
+	}
+	return lay.contentW <= innerW && lay.contentH <= innerH
+}
+
+func (a *app) computeLabelLayout(b model.BlockLayout, dpi, namePt int, rotated, withDetails bool) (labelLayout, bool) {
+	var lay labelLayout
+	metaPt := int(float64(namePt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
 	if metaPt < 1 {
 		metaPt = 1
 	}
-	padL, padT, padR, padB := a.tilePaddingPx()
-	innerW := b.Rect.Dx() - padL - padR
-	innerH := b.Rect.Dy() - padT - padB
-	if innerW <= 0 {
-		return false
+	lay.nameFont = a.ensureLabelFont(namePt)
+	lay.metaFont = a.ensureLabelFont(metaPt)
+	if lay.nameFont == nil || lay.metaFont == nil {
+		return lay, false
 	}
-	nameFont := a.ensureLabelFont(headingPt)
-	metaFont := a.ensureLabelFont(metaPt)
-	if nameFont == nil || metaFont == nil {
-		return false
+	padL, padT, padR, padB := a.tilePaddingPx(rotated)
+	lay.inner = image.Rect(b.Rect.Min.X+padL, b.Rect.Min.Y+padT, b.Rect.Max.X-padR, b.Rect.Max.Y-padB)
+	if lay.inner.Empty() {
+		return lay, false
 	}
-	nameLH := int(float64(headingPt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
-	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
-	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.0)*float64(dpi)/72.0 + 0.5)
-	shareText, showShare := formatShareLine(b.DriveShare)
+	lay.nameLH = int(float64(namePt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
+	lay.metaLH = int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", lay.nameFont); ok && h > 0 && lay.nameLH < h+2 {
+		lay.nameLH = h + 2
+	}
+	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", lay.metaFont); ok && h > 0 && lay.metaLH < h+2 {
+		lay.metaLH = h + 2
+	}
+	lay.gap = int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.0)*float64(dpi)/72.0 + 0.5)
+	lay.shareText, lay.showShare = formatShareLine(b.DriveShare)
 	if !withDetails {
-		showShare = false
+		lay.showShare = false
 	}
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && nameLH < h+2 {
-		nameLH = h + 2
-	}
-	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", metaFont); ok && h > 0 && metaLH < h+2 {
-		metaLH = h + 2
-	}
-	nameW, ok := measureTextWidthPx(a.chart, b.Name, nameFont)
+	nameW, ok := measureTextWidthPx(a.chart, b.Name, lay.nameFont)
 	if !ok {
-		return false
+		return lay, false
 	}
-	sizeW, ok := measureTextWidthPx(a.chart, format.ObjectSize(b.Size), metaFont)
-	if !ok {
-		return false
-	}
-	if showShare {
-		shareW, ok := measureTextWidthPx(a.chart, shareText, metaFont)
-		if !ok {
-			return false
-		}
-		if shareW > innerW {
-			// validated below with computed content size
-		}
-	}
-	contentW := max(nameW, sizeW)
-	contentH := nameLH
+	lay.contentW = nameW
+	lay.contentH = lay.nameLH
 	if withDetails {
-		contentH += gap + metaLH
-		if showShare {
-			contentH += metaLH
+		sizeW, ok := measureTextWidthPx(a.chart, format.ObjectSize(b.Size), lay.metaFont)
+		if !ok {
+			return lay, false
 		}
-		if shareW, ok := measureTextWidthPx(a.chart, shareText, metaFont); ok && shareW > contentW {
-			contentW = shareW
+		if sizeW > lay.contentW {
+			lay.contentW = sizeW
+		}
+		lay.contentH += lay.gap + lay.metaLH
+		if lay.showShare {
+			shareW, ok := measureTextWidthPx(a.chart, lay.shareText, lay.metaFont)
+			if !ok {
+				return lay, false
+			}
+			if shareW > lay.contentW {
+				lay.contentW = shareW
+			}
+			lay.contentH += lay.metaLH
 		}
 	}
-	if rotated {
-		return contentH <= innerW && contentW <= innerH
-	}
-	return contentW <= innerW && contentH <= innerH
+	return lay, true
 }
 
 func (a *app) hitTest(x, y int) int {

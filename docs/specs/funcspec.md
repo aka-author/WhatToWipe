@@ -982,6 +982,39 @@ File tiles must use the packing type recorded in the descriptor for the represen
 
 #### Tile Layout
 
+##### Padding and Clipping
+
+The padding rectangle is the rectangle inside the tile’s external rectangle whose left edge is shifted inward by (Left padding), top edge by (Top padding), right edge by (Right padding), and bottom edge by (Bottom padding).
+
+The following padding must be provided inside a tile. 
+
+Padding parameters for a tile having a horizontally oriented label.
+
+| Tile Side | Configuration Parameter   |
+|-----------|---------------------------|
+| Left padding      | `treemap.tilePaddingLeft` |
+| Top padding      | `treemap.tilePaddingTop`  |
+| Bottom padding   | 0                         |
+| Right  padding   | 0                         |
+
+Horizontal content flows from the left top angle of the padding rectangle.
+
+
+Padding parameters for a tile having a vertically oriented label.
+
+| Tile Side | Configuration Parameter     |
+|-----------|-----------------------------|
+| Left padding     | `treemap.tilePaddingLeft`   |
+| Top padding      | 0                           |
+| Bottom padding   | `treemap.tilePaddingBottom` |
+| Right padding    | 0                           |
+
+Horizontal content flows from the left bottom angle of the padding rectangle.
+
+
+When the tile contet gets clipped, it must get clipped by the padding rectangle. 
+
+
 ##### Label Content
 
 Every tile must show a label, unless it does not have enough space for it. A label must contain the following blocks:
@@ -1264,10 +1297,10 @@ The groups of configuration parameters are described below in this section.
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
 | `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   | 
-| `treemap.tilePaddingLeft`         | Left padding in a tile                       |      10pt |  +   |
-| `treemap.tilePaddingTop`          | Top padding in a tile                        |      10pt |  +   |
-| `treemap.tilePaddingRight`        | Right padding in a tile                      |      10pt |  +   |
-| `treemap.tilePaddingBottom`       | Bottom padding in a tile                     |      10pt |  +   |
+| `treemap.tilePaddingLeft`         | Left padding in a tile                       |       5pt |  +   |
+| `treemap.tilePaddingTop`          | Top padding in a tile                        |       5pt |  +   |
+| `treemap.tilePaddingRight`        | Right padding in a tile                      |       5pt |  +   |
+| `treemap.tilePaddingBottom`       | Bottom padding in a tile                     |       5pt |  +   |
 | `treemap.minTileWidth`            | Minimum tile width                           |      50pt |  +   |
 | `treemap.minTileHeight`           | Minimum tile height                          |      50pt |  +   |
 | `treemap.nativeFolderBgColor`     | Native folder tile background color          | #80ef80 |  +   |

@@ -44,6 +44,9 @@ Words like “must”, “must not”, and “should” carry their usual Englis
 |----|-------------|
 | WR-01 | The release executable must be a normal Windows PE that can carry the metadata Windows Explorer shows under Properties → Details, so the FS rules that tie About to file version can be met in the usual way. |
 | WR-02 | The build must embed a `VERSIONINFO` resource with string file info populated so Explorer’s Details view is meaningful. At minimum the `FileVersion` and `ProductVersion` string fields must be set in a way that matches how you read them back for the FS About string; other common fields (`CompanyName`, `FileDescription`, `LegalCopyright`, `OriginalFilename`, `ProductName`) should be filled for a shipping binary so support staff can identify the build. The exact About text remains defined only in FS. |
+| WR-03 | Release builds must avoid aggressive stripping profiles that remove standard PE metadata expected by Windows tooling and endpoint scanners. If size optimization is used, it must preserve normal executable metadata and diagnostics needed for support triage. |
+| WR-04 | Release executables should be Authenticode-signed. If signing is not available for a specific build, that build must be explicitly marked as unsigned in release notes or artifacts metadata. |
+| WR-05 | The release copy/deployment step must tolerate transient file locks caused by antivirus scanning (for example with bounded retry), rather than failing immediately on first access-denied or sharing-violation errors. |
 
 Exact About strings and version format stay only in FS.
 
