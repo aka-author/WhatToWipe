@@ -50,6 +50,8 @@ type TreeItem struct {
 	Color      color.RGBA
 	TextColor  color.RGBA
 	IsNode     bool
+	IsEmpty    bool
+	IsExecFile bool
 	DriveShare float64
 	Kind       int
 }
@@ -63,6 +65,8 @@ type BlockLayout struct {
 	Color      color.RGBA
 	TextColor  color.RGBA
 	IsNode     bool
+	IsEmpty    bool
+	IsExecFile bool
 	DriveShare float64
 	Kind       int
 }

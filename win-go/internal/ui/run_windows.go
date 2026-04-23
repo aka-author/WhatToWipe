@@ -28,8 +28,6 @@ import (
 	"whatrwipe/win-go/internal/winver"
 )
 
-const maxTreemapVerticalUnitPt = 45
-
 type scanKind int
 
 const (
@@ -327,10 +325,16 @@ func (a *app) chartChildren() []Widget {
 			OnMouseMove: func(x, y int, _ walk.MouseButton) {
 				h := a.hitTest(x, y)
 				if h < 0 || h >= len(a.blocks) {
+					if a.chart != nil {
+						a.chart.SetCursor(walk.CursorArrow())
+					}
 					a.setChartTooltip("")
 					return
 				}
 				b := a.blocks[h]
+				if a.chart != nil {
+					a.chart.SetCursor(a.cursorForBlock(b))
+				}
 				if a.tileHasLabel(b) {
 					a.setChartTooltip("")
 					return
@@ -345,15 +349,24 @@ func (a *app) onInspectContext() {
 	if a.inspectHit < 0 || a.inspectHit >= len(a.blocks) {
 		return
 	}
-	p := a.blocks[a.inspectHit].Path
+	b := a.blocks[a.inspectHit]
+	p := b.Path
 	if p == "" {
 		if cur := a.resolveCurrent(); cur != nil {
 			p = cur.Path
 		}
 	}
-	if p != "" {
-		a.openInExplorer(p)
+	if p == "" {
+		return
 	}
+	if b.Kind == model.TreemapItemFile {
+		if b.IsExecFile {
+			return
+		}
+		a.openFileInDefaultApp(p)
+		return
+	}
+	a.openInExplorer(p)
 }
 
 func (a *app) loadToolbarArt() error {
@@ -480,6 +493,13 @@ func (a *app) openInExplorer(path string) {
 	cmd := exec.Command("explorer", path)
 	if err := cmd.Start(); err != nil {
 		walk.MsgBox(a.mw, "WhatToWipe", "Could not open file manager:\n"+err.Error(), walk.MsgBoxIconError)
+	}
+}
+
+func (a *app) openFileInDefaultApp(path string) {
+	cmd := exec.Command("cmd", "/c", "start", "", path)
+	if err := cmd.Start(); err != nil {
+		walk.MsgBox(a.mw, "WhatToWipe", "Could not open file:\n"+err.Error(), walk.MsgBoxIconError)
 	}
 }
 
@@ -616,7 +636,7 @@ func (a *app) setScanChrome(scanning bool) {
 		a.tooltipsOnce.Do(func() {
 			_ = a.openAction.SetToolTip("Open a folder")
 			_ = a.upAction.SetToolTip("Go up")
-			_ = a.manageAction.SetToolTip("Open in file manager (Explore)")
+			_ = a.manageAction.SetToolTip("Open in file manager")
 			_ = a.updateMenu.SetToolTip("Update the folder data")
 			_ = a.stopMenu.SetToolTip("Stop scanning folders")
 		})
@@ -834,8 +854,10 @@ type labelMode int
 
 const (
 	labelModeHidden labelMode = iota
-	labelModeFit
-	labelModeClip
+	labelModeHorizWithDetails
+	labelModeHorizNoDetails
+	labelModeVertWithDetails
+	labelModeVertNoDetails
 )
 
 func (a *app) tileLabelPolicy(b model.BlockLayout) (labelMode, model.BlockLayout, int) {
@@ -849,24 +871,32 @@ func (a *app) tileLabelPolicy(b model.BlockLayout) (labelMode, model.BlockLayout
 		maxPt = 30
 	}
 	if minPt <= 0 {
-		minPt = 10
-	}
-	if maxPt > maxTreemapVerticalUnitPt {
-		maxPt = maxTreemapVerticalUnitPt
+		minPt = 7
 	}
 	if minPt > maxPt {
 		minPt = maxPt
 	}
-	minW, minH := a.minTilePx()
-	if b.Rect.Dx() < minW || b.Rect.Dy() < minH {
-		return labelModeHidden, b, minPt
-	}
 	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, pt) {
-			return labelModeFit, b, pt
+		if a.tileLabelFits(b, pt, false, true) {
+			return labelModeHorizWithDetails, b, pt
 		}
 	}
-	return labelModeClip, b, minPt
+	for pt := maxPt; pt >= minPt; pt-- {
+		if a.tileLabelFits(b, pt, false, false) {
+			return labelModeHorizNoDetails, b, pt
+		}
+	}
+	for pt := maxPt; pt >= minPt; pt-- {
+		if a.tileLabelFits(b, pt, true, true) {
+			return labelModeVertWithDetails, b, pt
+		}
+	}
+	for pt := maxPt; pt >= minPt; pt-- {
+		if a.tileLabelFits(b, pt, true, false) {
+			return labelModeVertNoDetails, b, pt
+		}
+	}
+	return labelModeHidden, b, minPt
 }
 
 func (a *app) tileHasLabel(b model.BlockLayout) bool {
@@ -875,10 +905,7 @@ func (a *app) tileHasLabel(b model.BlockLayout) bool {
 }
 
 func tileTooltipText(b model.BlockLayout) string {
-	shareText, showShare := formatShareLine(b.DriveShare)
-	if showShare {
-		return fmt.Sprintf("%s\n%s\n%s", b.Name, format.ObjectSize(b.Size), shareText)
-	}
+	// funcspec: Name + Size only
 	return fmt.Sprintf("%s\n%s", b.Name, format.ObjectSize(b.Size))
 }
 
@@ -909,6 +936,41 @@ func (a *app) minTilePx() (int, int) {
 	return minW, minH
 }
 
+func (a *app) tilePaddingPx() (left, top, right, bottom int) {
+	dpi := 96
+	if a.chart != nil {
+		dpi = a.chart.DPI()
+	}
+	nz := func(v, def int) int {
+		if v <= 0 {
+			return def
+		}
+		return v
+	}
+	left = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingLeftPt, 10)), int32(dpi), 72))
+	top = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingTopPt, 10)), int32(dpi), 72))
+	right = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingRightPt, 10)), int32(dpi), 72))
+	bottom = int(win.MulDiv(int32(nz(a.treemapCfg.TilePaddingBottomPt, 10)), int32(dpi), 72))
+	return left, top, right, bottom
+}
+
+func (a *app) cursorForBlock(b model.BlockLayout) walk.Cursor {
+	switch b.Kind {
+	case model.TreemapItemFolder:
+		if b.IsEmpty {
+			return walk.CursorNo()
+		}
+		return walk.CursorHand()
+	case model.TreemapItemFile:
+		if b.IsExecFile {
+			return walk.CursorNo()
+		}
+		return walk.CursorHand()
+	default:
+		return walk.CursorArrow()
+	}
+}
+
 func (a *app) externalTileRect(b model.BlockLayout) image.Rectangle {
 	if a.chart == nil {
 		return b.Rect
@@ -931,11 +993,20 @@ func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout) {
 	if mode == labelModeHidden {
 		return
 	}
-	a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt)
+	switch mode {
+	case labelModeHorizWithDetails:
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, false, true)
+	case labelModeHorizNoDetails:
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, false, false)
+	case labelModeVertWithDetails:
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, true, true)
+	case labelModeVertNoDetails:
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), pt, true, false)
+	}
 }
 
-// drawTreemapTileLabel draws the three-line tile label (Folder Name + gap + two Folder Details lines).
-func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt int) {
+// drawTreemapTileLabel draws a tile label in horizontal or rotated orientation.
+func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi, namePt int, rotated, withDetails bool) {
 	metaPt := int(float64(namePt)*a.ratioOr(a.treemapCfg.DetailsFontSizeRatio, 0.8) + 0.5)
 	if metaPt < 1 {
 		metaPt = 1
@@ -945,8 +1016,12 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	if nameFont == nil || metaFont == nil {
 		return
 	}
-	padX, padY := 6, 6
-	innerW := b.Rect.Dx() - 2*padX
+	padL, padT, padR, padB := a.tilePaddingPx()
+	inner := image.Rect(b.Rect.Min.X+padL, b.Rect.Min.Y+padT, b.Rect.Max.X-padR, b.Rect.Max.Y-padB)
+	if inner.Empty() {
+		return
+	}
+	innerW := inner.Dx()
 	nameLH := int(float64(namePt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
 	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
 	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && nameLH < h+2 {
@@ -955,26 +1030,104 @@ func (a *app) drawTreemapTileLabel(canvas *walk.Canvas, b model.BlockLayout, dpi
 	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", metaFont); ok && h > 0 && metaLH < h+2 {
 		metaLH = h + 2
 	}
-	y := b.Rect.Min.Y + padY
-	drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
-		if y+lh > b.Rect.Max.Y {
-			return
-		}
-		rc := walk.Rectangle{X: b.Rect.Min.X + padX, Y: y, Width: innerW, Height: lh}
-		_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop)
-		y += lh
-	}
 	fg := rgbaToWalkColor(b.TextColor)
 	shareText, showShare := formatShareLine(b.DriveShare)
-	drawLine(b.Name, nameFont, nameLH, fg)
-	y += int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.5)*float64(dpi)/72.0 + 0.5)
-	drawLine(format.ObjectSize(b.Size), metaFont, metaLH, fg)
-	if showShare {
-		drawLine(shareText, metaFont, metaLH, fg)
+	if !withDetails {
+		showShare = false
 	}
+	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.0)*float64(dpi)/72.0 + 0.5)
+	if !rotated {
+		y := inner.Min.Y
+		drawLine := func(text string, font *walk.Font, lh int, clr walk.Color) {
+			rc := walk.Rectangle{X: inner.Min.X, Y: y, Width: innerW, Height: lh}
+			_ = canvas.DrawTextPixels(text, font, clr, rc, walk.TextSingleLine|walk.TextTop)
+			y += lh
+		}
+		drawLine(b.Name, nameFont, nameLH, fg)
+		if withDetails {
+			y += gap
+			drawLine(format.ObjectSize(b.Size), metaFont, metaLH, fg)
+			if showShare {
+				drawLine(shareText, metaFont, metaLH, fg)
+			}
+		}
+		return
+	}
+	// Render horizontal label with transparent background, then rotate to satisfy vertical-orientation rule.
+	w := max(innerW, 1)
+	h := nameLH
+	if withDetails {
+		h += gap + metaLH
+		if showShare {
+			h += metaLH
+		}
+	}
+	tmp, err := walk.NewBitmapWithTransparentPixelsForDPI(walk.Size{Width: w, Height: h}, dpi)
+	if err != nil {
+		return
+	}
+	defer tmp.Dispose()
+	tmpCanvas, err := walk.NewCanvasFromImage(tmp)
+	if err != nil {
+		return
+	}
+	defer tmpCanvas.Dispose()
+	ty := 0
+	drawTmp := func(text string, font *walk.Font, lh int) {
+		rc := walk.Rectangle{X: 0, Y: ty, Width: w, Height: lh}
+		_ = tmpCanvas.DrawTextPixels(text, font, fg, rc, walk.TextSingleLine|walk.TextTop)
+		ty += lh
+	}
+	drawTmp(b.Name, nameFont, nameLH)
+	if withDetails {
+		ty += gap
+		drawTmp(format.ObjectSize(b.Size), metaFont, metaLH)
+		if showShare {
+			drawTmp(shareText, metaFont, metaLH)
+		}
+	}
+	im, err := tmp.ToImage()
+	if err != nil {
+		return
+	}
+	rot := rotateRGBA90CCW(im)
+	rotBmp, err := walk.NewBitmapFromImageForDPI(rot, dpi)
+	if err != nil {
+		return
+	}
+	defer rotBmp.Dispose()
+	rw, rh := rot.Rect.Dx(), rot.Rect.Dy()
+	x := inner.Min.X + (inner.Dx()-rw)/2
+	y := inner.Max.Y - rh
+	if x < inner.Min.X {
+		x = inner.Min.X
+	}
+	if y < inner.Min.Y {
+		y = inner.Min.Y
+	}
+	_ = canvas.DrawImagePixels(rotBmp, walk.Point{X: x, Y: y})
 }
 
-func (a *app) tileLabelFits(b model.BlockLayout, headingPt int) bool {
+func rotateRGBA90CCW(src *image.RGBA) *image.RGBA {
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	dst := image.NewRGBA(image.Rect(0, 0, h, w))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			dst.Set(y, w-1-x, src.RGBAAt(x+b.Min.X, y+b.Min.Y))
+		}
+	}
+	return dst
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (a *app) tileLabelFits(b model.BlockLayout, headingPt int, rotated, withDetails bool) bool {
 	if a.chart == nil {
 		return false
 	}
@@ -983,8 +1136,9 @@ func (a *app) tileLabelFits(b model.BlockLayout, headingPt int) bool {
 	if metaPt < 1 {
 		metaPt = 1
 	}
-	padX, padY := 6, 6
-	innerW := b.Rect.Dx() - 2*padX
+	padL, padT, padR, padB := a.tilePaddingPx()
+	innerW := b.Rect.Dx() - padL - padR
+	innerH := b.Rect.Dy() - padT - padB
 	if innerW <= 0 {
 		return false
 	}
@@ -995,20 +1149,16 @@ func (a *app) tileLabelFits(b model.BlockLayout, headingPt int) bool {
 	}
 	nameLH := int(float64(headingPt)*a.ratioOr(a.treemapCfg.HeadingLineHeight, 1.2)*float64(dpi)/72.0 + 0.5)
 	metaLH := int(float64(metaPt)*a.ratioOr(a.treemapCfg.DetailsLineHeight, 1.5)*float64(dpi)/72.0 + 0.5)
-	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.5)*float64(dpi)/72.0 + 0.5)
+	gap := int(float64(metaPt)*a.ratioOr(a.treemapCfg.AboveDetailsRatio, 1.0)*float64(dpi)/72.0 + 0.5)
 	shareText, showShare := formatShareLine(b.DriveShare)
+	if !withDetails {
+		showShare = false
+	}
 	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", nameFont); ok && h > 0 && nameLH < h+2 {
 		nameLH = h + 2
 	}
 	if h, ok := measureTextHeightPx(a.chart, "Agjpyq", metaFont); ok && h > 0 && metaLH < h+2 {
 		metaLH = h + 2
-	}
-	totalH := padY + nameLH + gap + metaLH
-	if showShare {
-		totalH += metaLH
-	}
-	if totalH > b.Rect.Dy() {
-		return false
 	}
 	nameW, ok := measureTextWidthPx(a.chart, b.Name, nameFont)
 	if !ok {
@@ -1024,10 +1174,24 @@ func (a *app) tileLabelFits(b model.BlockLayout, headingPt int) bool {
 			return false
 		}
 		if shareW > innerW {
-			return false
+			// validated below with computed content size
 		}
 	}
-	return nameW <= innerW && sizeW <= innerW
+	contentW := max(nameW, sizeW)
+	contentH := nameLH
+	if withDetails {
+		contentH += gap + metaLH
+		if showShare {
+			contentH += metaLH
+		}
+		if shareW, ok := measureTextWidthPx(a.chart, shareText, metaFont); ok && shareW > contentW {
+			contentW = shareW
+		}
+	}
+	if rotated {
+		return contentH <= innerW && contentW <= innerH
+	}
+	return contentW <= innerW && contentH <= innerH
 }
 
 func (a *app) hitTest(x, y int) int {
@@ -1263,6 +1427,8 @@ func treeItemFromBlock(b model.BlockLayout) model.TreeItem {
 		Color:      b.Color,
 		TextColor:  b.TextColor,
 		IsNode:     b.IsNode,
+		IsEmpty:    b.IsEmpty,
+		IsExecFile: b.IsExecFile,
 		DriveShare: b.DriveShare,
 		Kind:       b.Kind,
 	}
@@ -1277,6 +1443,8 @@ func blockFromTreeItem(it model.TreeItem, r image.Rectangle) model.BlockLayout {
 		Color:      it.Color,
 		TextColor:  it.TextColor,
 		IsNode:     it.IsNode,
+		IsEmpty:    it.IsEmpty,
+		IsExecFile: it.IsExecFile,
 		DriveShare: it.DriveShare,
 		Kind:       it.Kind,
 	}

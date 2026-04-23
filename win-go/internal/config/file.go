@@ -81,9 +81,13 @@ func ConfigFileListsScanningUpdateInterval(data []byte) bool {
 func SaveTreemap(path string, t Treemap) error {
 	var b strings.Builder
 	w := func(key, val string) { fmt.Fprintf(&b, "%s = %s\n", key, val) }
-	w("treemap.maxTiles", strconv.Itoa(nonzeroOr(t.MaxTiles, 25)))
+	w("treemap.maxTiles", strconv.Itoa(nonzeroOr(t.MaxTiles, 20)))
 	w("treemap.minTileWidth", fmtPt(nonzeroOr(t.MinTileWidthPt, 50)))
 	w("treemap.minTileHeight", fmtPt(nonzeroOr(t.MinTileHeightPt, 50)))
+	w("treemap.tilePaddingLeft", fmtPt(nonzeroOr(t.TilePaddingLeftPt, 10)))
+	w("treemap.tilePaddingTop", fmtPt(nonzeroOr(t.TilePaddingTopPt, 10)))
+	w("treemap.tilePaddingRight", fmtPt(nonzeroOr(t.TilePaddingRightPt, 10)))
+	w("treemap.tilePaddingBottom", fmtPt(nonzeroOr(t.TilePaddingBottomPt, 10)))
 	w("treemap.nativeFolderBgColor", formatHex(t.NativeFolderBg))
 	w("treemap.nativeFolderTextColor", formatHex(t.NativeFolderText))
 	w("treemap.packedFolderBgColor", formatHex(t.PackedFolderBg))
@@ -102,11 +106,11 @@ func SaveTreemap(path string, t Treemap) error {
 	}
 	w("treemap.tileFontName", face)
 	w("treemap.headingMaxFontSize", fmtPt(nonzeroOr(t.HeadingMaxFontSizePt, 30)))
-	w("treemap.headingMinFontSize", fmtPt(nonzeroOr(t.HeadingMinFontSizePt, 10)))
+	w("treemap.headingMinFontSize", fmtPt(nonzeroOr(t.HeadingMinFontSizePt, 7)))
 	w("treemap.headingLineHeight", fmtRatio(t.HeadingLineHeight, 1.2))
 	w("treemap.detailsFontSizeRatio", fmtRatio(t.DetailsFontSizeRatio, 0.8))
 	w("treemap.detailsLineHeight", fmtRatio(t.DetailsLineHeight, 1.5))
-	w("treemap.aboveDetailsHeightRatio", fmtRatio(t.AboveDetailsRatio, 1.5))
+	w("treemap.aboveDetailsHeightRatio", fmtRatio(t.AboveDetailsRatio, 1.0))
 	fmt.Fprintf(&b, "\nscanning.updateInterval = %s\n", ScanPathUpdateIntervalFileValue)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
@@ -118,7 +122,7 @@ func nonzeroOr(v, def int) int {
 	return v
 }
 
-func fmtPt(pt int) string { return fmt.Sprintf("%d pt", pt) }
+func fmtPt(pt int) string { return fmt.Sprintf("%dpt", pt) }
 func fmtRatio(v, def float64) string {
 	if v <= 0 {
 		v = def
@@ -158,6 +162,22 @@ func applyTreemapLines(d *Treemap, data []byte) {
 		case "treemap.mintileheight":
 			if n, ok := parsePt(val); ok {
 				d.MinTileHeightPt = n
+			}
+		case "treemap.tilepaddingleft":
+			if n, ok := parsePt(val); ok {
+				d.TilePaddingLeftPt = n
+			}
+		case "treemap.tilepaddingtop":
+			if n, ok := parsePt(val); ok {
+				d.TilePaddingTopPt = n
+			}
+		case "treemap.tilepaddingright":
+			if n, ok := parsePt(val); ok {
+				d.TilePaddingRightPt = n
+			}
+		case "treemap.tilepaddingbottom":
+			if n, ok := parsePt(val); ok {
+				d.TilePaddingBottomPt = n
 			}
 		case "treemap.nativefolderbgcolor":
 			d.NativeFolderBg = hexRGBA(val)
@@ -215,6 +235,7 @@ func applyTreemapLines(d *Treemap, data []byte) {
 
 func parsePt(s string) (int, bool) {
 	s = strings.TrimSpace(strings.ToLower(s))
+	s = strings.ReplaceAll(s, " ", "")
 	s = strings.TrimSuffix(s, "pt")
 	s = strings.TrimSpace(s)
 	n, err := strconv.Atoi(s)

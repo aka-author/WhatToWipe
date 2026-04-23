@@ -1,7 +1,10 @@
 package scan
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"whatrwipe/win-go/internal/config"
 	"whatrwipe/win-go/internal/model"
@@ -13,10 +16,36 @@ type treemapCand struct {
 	size           int64
 	isFolder       bool
 	isNode         bool
+	isEmpty        bool
+	isExecFile     bool
 	share          float64
 	clump          bool
 	packing        model.PackingType
 	clumpNonNative bool
+}
+
+func isExecutablePath(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == "" {
+		return false
+	}
+	pathext := os.Getenv("PATHEXT")
+	if pathext == "" {
+		pathext = ".exe;.com;.bat;.cmd;.ps1;.msc;.vbs;.vbe;.js;.jse;.wsf;.wsh;.msi;.msp"
+	}
+	for _, tok := range strings.Split(strings.ToLower(pathext), ";") {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			continue
+		}
+		if tok[0] != '.' {
+			tok = "." + tok
+		}
+		if ext == tok {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildTreemapItems builds tiles for the current context folder (nested file system objects
@@ -34,6 +63,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	for _, k := range cur.Kids {
 		cands = append(cands, treemapCand{
 			name: k.Name, path: k.Path, size: k.Size, isFolder: true, isNode: k.IsNode, share: k.Share,
+			isEmpty: len(k.Kids) == 0 && len(k.Files) == 0,
 			packing: model.PackingNative,
 		})
 	}
@@ -44,7 +74,8 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 		}
 		cands = append(cands, treemapCand{
 			name: f.Name, path: f.Path, size: f.Size, isFolder: false, isNode: false, share: sh,
-			packing: f.Packing,
+			isExecFile: isExecutablePath(f.Path),
+			packing:    f.Packing,
 		})
 	}
 	if len(cands) == 0 {
@@ -88,7 +119,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	for _, c := range picked {
 		ti := model.TreeItem{
 			Name: c.name, Path: c.path, Size: c.size,
-			DriveShare: c.share, IsNode: c.isNode,
+			DriveShare: c.share, IsNode: c.isNode, IsEmpty: c.isEmpty, IsExecFile: c.isExecFile,
 		}
 		switch {
 		case c.clump:

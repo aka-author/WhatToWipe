@@ -8,9 +8,13 @@ import (
 
 // Treemap holds treemap-related defaults (funcspec § Treemap Configuration Parameters).
 type Treemap struct {
-	MaxTiles        int
-	MinTileWidthPt  int
-	MinTileHeightPt int
+	MaxTiles            int
+	MinTileWidthPt      int
+	MinTileHeightPt     int
+	TilePaddingLeftPt   int
+	TilePaddingTopPt    int
+	TilePaddingRightPt  int
+	TilePaddingBottomPt int
 
 	NativeFolderBg, NativeFolderText color.RGBA
 	PackedFolderBg, PackedFolderText color.RGBA
@@ -31,9 +35,13 @@ type Treemap struct {
 
 func DefaultTreemap() Treemap {
 	return Treemap{
-		MaxTiles:        25,
-		MinTileWidthPt:  50,
-		MinTileHeightPt: 50,
+		MaxTiles:            20,
+		MinTileWidthPt:      50,
+		MinTileHeightPt:     50,
+		TilePaddingLeftPt:   10,
+		TilePaddingTopPt:    10,
+		TilePaddingRightPt:  10,
+		TilePaddingBottomPt: 10,
 
 		NativeFolderBg:   hexRGBA("#80ef80"),
 		NativeFolderText: hexRGBA("#000000"),
@@ -51,11 +59,11 @@ func DefaultTreemap() Treemap {
 		TileFontName: "Segoe UI",
 
 		HeadingMaxFontSizePt: 30,
-		HeadingMinFontSizePt: 10,
+		HeadingMinFontSizePt: 7,
 		HeadingLineHeight:    1.2,
 		DetailsFontSizeRatio: 0.8,
 		DetailsLineHeight:    1.5,
-		AboveDetailsRatio:    1.5,
+		AboveDetailsRatio:    1.0,
 	}
 }
 

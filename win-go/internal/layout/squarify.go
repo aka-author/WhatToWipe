@@ -108,6 +108,8 @@ func blockFromItem(it model.TreeItem, area image.Rectangle) model.BlockLayout {
 		Color:      it.Color,
 		TextColor:  it.TextColor,
 		IsNode:     it.IsNode,
+		IsEmpty:    it.IsEmpty,
+		IsExecFile: it.IsExecFile,
 		DriveShare: it.DriveShare,
 		Kind:       it.Kind,
 	}
