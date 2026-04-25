@@ -60,8 +60,8 @@ function Increment-VersionBuildNumber {
     $vi.FixedFileInfo.ProductVersion.Patch = $pat
     $vi.FixedFileInfo.ProductVersion.Build = $bld
 
-    # Keep human-readable string versions aligned with numeric values.
-    $ver = "$maj.$min.$pat.$bld"
+    # Fourth component is six digits with leading zeros (e.g. 0.1.0.000007); numeric Build stays an integer.
+    $ver = "$maj.$min.$pat.$($bld.ToString('D6'))"
     $vi.StringFileInfo.FileVersion = $ver
     $vi.StringFileInfo.ProductVersion = $ver
 
@@ -121,22 +121,10 @@ function Read-ProductVersionInfo {
     $pat = [int]$vi.FixedFileInfo.FileVersion.Patch
     $bld = [int]$vi.FixedFileInfo.FileVersion.Build
     return @{
-        ProductVersion = "$maj.$min.$pat.$bld"
+        ProductVersion = "$maj.$min.$pat.$($bld.ToString('D6'))"
         Build          = $bld
+        BuildPadded    = $bld.ToString('D6')
     }
-}
-
-function Append-BuildTrace {
-    param(
-        [Parameter(Mandatory = $true)][string]$TracePath,
-        [Parameter(Mandatory = $true)][hashtable]$Record
-    )
-    $dir = Split-Path -Path $TracePath -Parent
-    if (-not (Test-Path -LiteralPath $dir)) {
-        New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    }
-    $line = ($Record | ConvertTo-Json -Compress -Depth 6) + [Environment]::NewLine
-    [System.IO.File]::AppendAllText($TracePath, $line, [System.Text.UTF8Encoding]::new($false))
 }
 
 function Prepare-CurrentBuildFolder {
@@ -187,9 +175,6 @@ while ($walkDir) {
     $walkDir = $parentDir
 }
 $WinBinRoot = Join-Path $ShitwiperRoot "bin\win"
-# Append-only log (outside repo under Shitwiper/bin/win): one JSON object per line with
-# build (numeric), productVersion, branch, commit (full SHA), timeUtc. Lookup by build number via Select-String or jq.
-$TracePath = Join-Path $WinBinRoot "build-trace.jsonl"
 
 if (-not $GitRoot) {
     Write-Warning "No Git repository found above win-go; skipping pre-build commit and trace (branch/commit unknown)."
@@ -201,9 +186,11 @@ Increment-VersionBuildNumber -Path $VersionInfoPath
 $verInfo = Read-ProductVersionInfo -Path $VersionInfoPath
 $productVer = $verInfo.ProductVersion
 $buildNum = $verInfo.Build
+$buildPadded = $verInfo.BuildPadded
 
 $branch = "unknown"
 $commit = "unknown"
+$commitShort = "unknown"
 
 # About artwork source in repository root assets.
 $Src = Join-Path $ModuleRoot "..\assets\art\about-bunny.png"
@@ -228,15 +215,8 @@ if ($GitRoot) {
     if ($LASTEXITCODE -ne 0) { throw "git rev-parse HEAD failed" }
     $branch = (git -C $GitRoot rev-parse --abbrev-ref HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw "git rev-parse --abbrev-ref HEAD failed" }
-    $traceRecord = @{
-        build          = $buildNum
-        productVersion = $productVer
-        branch         = $branch
-        commit         = $commit
-        timeUtc        = (Get-Date).ToUniversalTime().ToString("o")
-    }
-    Append-BuildTrace -TracePath $TracePath -Record $traceRecord
-    Write-Host "Build trace: $TracePath (build=$buildNum branch=$branch commit=$commit)"
+    $commitShort = (git -C $GitRoot rev-parse --short=7 HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse --short HEAD failed" }
 }
 
 # Build output target: <Shitwiper>/bin/win/current (relative to repo layout: win-go is under codebase)
@@ -274,22 +254,47 @@ if ($env:WHATTOWIPE_SIGNTOOL) {
 # Keep version template alongside payload; installer scripts can consume this if needed.
 Copy-WithRetry -Source $VersionInfoPath -Destination (Join-Path $OutDir "versioninfo.json")
 
-# Marker file for this build (yyyy-MM-dd_HH-mm.date).
-$Stamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
-$Marker = Join-Path $OutDir ($Stamp + ".date")
+# Marker / archive folder stem: yyyy-MM-dd_HH-mm_000007 (six-digit build).
+$folderTime = Get-Date -Format "yyyy-MM-dd_HH-mm"
+$folderStem = "${folderTime}_${buildPadded}"
+$Marker = Join-Path $OutDir ($folderStem + ".date")
 New-Item -ItemType File -Path $Marker -Force | Out-Null
 
 $metaPath = Join-Path $OutDir "build-meta.json"
 @{
     build          = $buildNum
+    buildPadded    = $buildPadded
+    folderStem     = $folderStem
     productVersion = $productVer
     branch         = $branch
     commit         = $commit
+    commitShort    = $commitShort
     timeUtc        = (Get-Date).ToUniversalTime().ToString("o")
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metaPath -Encoding utf8
+
+$historyDir = Join-Path $CodebaseRoot "docs\history"
+$historyPath = Join-Path $historyDir "builds.txt"
+if (-not (Test-Path -LiteralPath $historyDir)) {
+    New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
+}
+if (-not (Test-Path -LiteralPath $historyPath)) {
+    $header = "version`tbranch`tcommit_full`tcommit_short" + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($historyPath, $header, [System.Text.UTF8Encoding]::new($false))
+}
+$histLine = ($productVer + "`t" + $branch + "`t" + $commit + "`t" + $commitShort + [Environment]::NewLine)
+[System.IO.File]::AppendAllText($historyPath, $histLine, [System.Text.UTF8Encoding]::new($false))
+
+if ($GitRoot) {
+    $histRel = Get-RepoRelativePath -GitRoot $GitRoot -AbsolutePath $historyPath
+    git -C $GitRoot add -- $histRel
+    if ($LASTEXITCODE -ne 0) { throw "git add failed: $histRel" }
+    git -C $GitRoot commit -m "docs: append build $productVer to history"
+    if ($LASTEXITCODE -ne 0) { throw "git commit (build history) failed" }
+}
 
 # Final summary for quick operator verification.
 Write-Host "Built:  $Exe"
 Write-Host "Version info: " (Join-Path $OutDir "versioninfo.json")
 Write-Host "Marker: $Marker"
 Write-Host "Build meta: $metaPath"
+Write-Host "History: $historyPath"
