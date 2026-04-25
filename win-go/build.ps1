@@ -254,11 +254,13 @@ if ($env:WHATTOWIPE_SIGNTOOL) {
 # Keep version template alongside payload; installer scripts can consume this if needed.
 Copy-WithRetry -Source $VersionInfoPath -Destination (Join-Path $OutDir "versioninfo.json")
 
-# Marker / archive folder stem: yyyy-MM-dd_HH-mm_000007 (six-digit build).
+# Marker / archive folder stem: yyyy-MM-dd_HH-mm_000007 (six-digit build in name).
+# Marker file body records the same so the build is visible without parsing the filename.
 $folderTime = Get-Date -Format "yyyy-MM-dd_HH-mm"
 $folderStem = "${folderTime}_${buildPadded}"
 $Marker = Join-Path $OutDir ($folderStem + ".date")
-New-Item -ItemType File -Path $Marker -Force | Out-Null
+$markerBody = "productVersion=$productVer`nbuild=$buildNum`nbuildPadded=$buildPadded`nfolderStem=$folderStem`n"
+[System.IO.File]::WriteAllText($Marker, $markerBody, [System.Text.UTF8Encoding]::new($false))
 
 $metaPath = Join-Path $OutDir "build-meta.json"
 @{
