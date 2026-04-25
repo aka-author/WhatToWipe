@@ -1,30 +1,43 @@
 {
-  "FixedFileInfo": {
-    "FileVersion": { "Major": 0, "Minor": 1, "Patch": 0, "Build": 0 },
-    "ProductVersion": { "Major": 0, "Minor": 1, "Patch": 0, "Build": 0 },
-    "FileFlagsMask": "3f",
-    "FileFlags ": "00",
-    "FileOS": "040004",
-    "FileType": "01",
-    "FileSubType": "00"
-  },
-  "StringFileInfo": {
-    "Comments": "Disk usage treemap (WhatToWipe functional spec)",
-    "CompanyName": "WhatToWipe",
-    "FileDescription": "WhatToWipe — folder size treemap",
-    "FileVersion": "0.1.0.0",
-    "InternalName": "whatrwipe",
-    "LegalCopyright": "See repository license",
-    "LegalTrademarks": "",
-    "OriginalFilename": "WhatToWipe.exe",
-    "PrivateBuild": "",
-    "ProductName": "WhatToWipe",
-    "ProductVersion": "0.1.0.0",
-    "SpecialBuild": ""
-  },
-  "VarFileInfo": {
-    "Translation": { "LangID": "0409", "CharsetID": "04B0" }
-  },
-  "IconPath": "icons/app.ico",
-  "ManifestPath": "whatrwipe.exe.manifest"
+    "FixedFileInfo":  {
+                          "FileVersion":  {
+                                              "Major":  0,
+                                              "Minor":  1,
+                                              "Patch":  0,
+                                              "Build":  3
+                                          },
+                          "ProductVersion":  {
+                                                 "Major":  0,
+                                                 "Minor":  1,
+                                                 "Patch":  0,
+                                                 "Build":  3
+                                             },
+                          "FileFlagsMask":  "3f",
+                          "FileFlags ":  "00",
+                          "FileOS":  "040004",
+                          "FileType":  "01",
+                          "FileSubType":  "00"
+                      },
+    "StringFileInfo":  {
+                           "Comments":  "Disk usage treemap (WhatToWipe functional spec)",
+                           "CompanyName":  "WhatToWipe",
+                           "FileDescription":  "WhatToWipe Р Р†Р вЂљРІР‚Сњ folder size treemap",
+                           "FileVersion":  "0.1.0.3",
+                           "InternalName":  "whatrwipe",
+                           "LegalCopyright":  "See repository license",
+                           "LegalTrademarks":  "",
+                           "OriginalFilename":  "WhatToWipe.exe",
+                           "PrivateBuild":  "",
+                           "ProductName":  "WhatToWipe",
+                           "ProductVersion":  "0.1.0.3",
+                           "SpecialBuild":  ""
+                       },
+    "VarFileInfo":  {
+                        "Translation":  {
+                                            "LangID":  "0409",
+                                            "CharsetID":  "04B0"
+                                        }
+                    },
+    "IconPath":  "icons/app.ico",
+    "ManifestPath":  "whatrwipe.exe.manifest"
 }

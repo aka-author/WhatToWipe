@@ -1,7 +1,15 @@
+# Fail fast on any error so the script never continues in a half-built state.
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
-$go = if (Test-Path "C:\Program Files\Go\bin\go.exe") { "C:\Program Files\Go\bin\go.exe" } else { "go" }
+# Module root (this script lives in win-go/). All paths are derived from here; callers may use any cwd.
+$ModuleRoot = $PSScriptRoot
+$CodebaseRoot = Split-Path $ModuleRoot -Parent
+$ShitwiperRoot = Split-Path $CodebaseRoot -Parent
+$goCmd = Get-Command go -ErrorAction SilentlyContinue
+$go = if ($goCmd) { $goCmd.Source } else { "go" }
+# Central path to Windows version resource template that feeds goversioninfo.
+$VersionInfoPath = Join-Path $ModuleRoot "versioninfo.json"
 
+# Copy a file with retry attempts to tolerate short-lived file locks (AV/indexer/etc.).
 function Copy-WithRetry {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
@@ -23,34 +31,227 @@ function Copy-WithRetry {
     }
 }
 
-$Src = Join-Path $PSScriptRoot "..\assets\art\about-bunny.png"
-$EmbedDst = Join-Path $PSScriptRoot "assets\art\about-bunny.png"
+# Increment build number in versioninfo.json and keep all version fields synchronized.
+# This guarantees each build script run emits a monotonically increasing build suffix
+# and that About/Explorer show the same dotted version.
+function Increment-VersionBuildNumber {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "versioninfo.json not found: $Path"
+    }
+
+    # Parse current JSON as an object graph we can update in place.
+    $raw = Get-Content -LiteralPath $Path -Raw
+    $vi = $raw | ConvertFrom-Json
+
+    # Read base semantic parts and bump only Build.
+    $maj = [int]$vi.FixedFileInfo.FileVersion.Major
+    $min = [int]$vi.FixedFileInfo.FileVersion.Minor
+    $pat = [int]$vi.FixedFileInfo.FileVersion.Patch
+    $bld = [int]$vi.FixedFileInfo.FileVersion.Build + 1
+
+    # Keep numeric file/product versions aligned.
+    $vi.FixedFileInfo.FileVersion.Build = $bld
+    $vi.FixedFileInfo.ProductVersion.Major = $maj
+    $vi.FixedFileInfo.ProductVersion.Minor = $min
+    $vi.FixedFileInfo.ProductVersion.Patch = $pat
+    $vi.FixedFileInfo.ProductVersion.Build = $bld
+
+    # Keep human-readable string versions aligned with numeric values.
+    $ver = "$maj.$min.$pat.$bld"
+    $vi.StringFileInfo.FileVersion = $ver
+    $vi.StringFileInfo.ProductVersion = $ver
+
+    # Write UTF-8 (no BOM) for stable diffs/tool compatibility.
+    $updated = $vi | ConvertTo-Json -Depth 16
+    [System.IO.File]::WriteAllText($Path, $updated + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "Version bumped to: $ver"
+}
+
+function Clear-DirectoryContents {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+    Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force
+    }
+}
+
+function Get-RepoRelativePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitRoot,
+        [Parameter(Mandatory = $true)][string]$AbsolutePath
+    )
+    $g = (Resolve-Path -LiteralPath $GitRoot).Path.TrimEnd('\', '/')
+    $a = (Resolve-Path -LiteralPath $AbsolutePath).Path
+    if (-not $a.StartsWith($g, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Path is not under git root: $AbsolutePath (root: $g)"
+    }
+    return $a.Substring($g.Length).TrimStart('\', '/').Replace('\', '/')
+}
+
+function Commit-BuildSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitRoot,
+        [Parameter(Mandatory = $true)][string]$ModuleRoot,
+        [Parameter(Mandatory = $true)][string]$Message
+    )
+    # Stage all changes under win-go (version bump, regenerated .syso, icons, etc.).
+    git -C $GitRoot add -- win-go
+    if ($LASTEXITCODE -ne 0) { throw "git add win-go failed" }
+    git -C $GitRoot diff --cached --quiet
+    if ($LASTEXITCODE -eq 0) {
+        throw "Nothing staged for build commit. Expected changes under win-go after version bump and go generate."
+    }
+    git -C $GitRoot commit -m $Message
+    if ($LASTEXITCODE -ne 0) { throw "git commit failed. Configure user.name / user.email if needed." }
+}
+
+function Read-ProductVersionInfo {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $vi = (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json)
+    $maj = [int]$vi.FixedFileInfo.FileVersion.Major
+    $min = [int]$vi.FixedFileInfo.FileVersion.Minor
+    $pat = [int]$vi.FixedFileInfo.FileVersion.Patch
+    $bld = [int]$vi.FixedFileInfo.FileVersion.Build
+    return @{
+        ProductVersion = "$maj.$min.$pat.$bld"
+        Build          = $bld
+    }
+}
+
+function Append-BuildTrace {
+    param(
+        [Parameter(Mandatory = $true)][string]$TracePath,
+        [Parameter(Mandatory = $true)][hashtable]$Record
+    )
+    $dir = Split-Path -Path $TracePath -Parent
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+    $line = ($Record | ConvertTo-Json -Compress -Depth 6) + [Environment]::NewLine
+    [System.IO.File]::AppendAllText($TracePath, $line, [System.Text.UTF8Encoding]::new($false))
+}
+
+function Prepare-CurrentBuildFolder {
+    param(
+        [Parameter(Mandatory = $true)][string]$WinBinRoot,
+        [Parameter(Mandatory = $true)][string]$CurrentDir
+    )
+    New-Item -ItemType Directory -Force -Path $WinBinRoot | Out-Null
+    New-Item -ItemType Directory -Force -Path $CurrentDir | Out-Null
+
+    $existingItems = @(Get-ChildItem -LiteralPath $CurrentDir -Force -ErrorAction SilentlyContinue)
+    if ($existingItems.Count -eq 0) {
+        return
+    }
+
+    $dateMarker = Get-ChildItem -LiteralPath $CurrentDir -File -Filter "*.date" -Force -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -eq $dateMarker) {
+        Write-Host "No .date marker in current; wiping current folder."
+        Clear-DirectoryContents -Path $CurrentDir
+        return
+    }
+
+    $stampName = [System.IO.Path]::GetFileNameWithoutExtension($dateMarker.Name)
+    $archiveDir = Join-Path $WinBinRoot $stampName
+    if (Test-Path -LiteralPath $archiveDir) {
+        Write-Host "Archive folder already exists ($archiveDir); wiping current folder."
+        Clear-DirectoryContents -Path $CurrentDir
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
+    foreach ($item in $existingItems) {
+        Move-Item -LiteralPath $item.FullName -Destination $archiveDir -Force
+    }
+    Clear-DirectoryContents -Path $CurrentDir
+}
+
+$GitRoot = $null
+$walkDir = (Resolve-Path -LiteralPath $ModuleRoot).Path
+while ($walkDir) {
+    if (Test-Path -LiteralPath (Join-Path $walkDir ".git")) {
+        $GitRoot = $walkDir
+        break
+    }
+    $parentDir = Split-Path -Path $walkDir -Parent
+    if ($parentDir -eq $walkDir) { break }
+    $walkDir = $parentDir
+}
+$WinBinRoot = Join-Path $ShitwiperRoot "bin\win"
+# Append-only log (outside repo under Shitwiper/bin/win): one JSON object per line with
+# build (numeric), productVersion, branch, commit (full SHA), timeUtc. Lookup by build number via Select-String or jq.
+$TracePath = Join-Path $WinBinRoot "build-trace.jsonl"
+
+if (-not $GitRoot) {
+    Write-Warning "No Git repository found above win-go; skipping pre-build commit and trace (branch/commit unknown)."
+}
+
+# Bump version before go:generate so generated .syso embeds updated version metadata.
+Increment-VersionBuildNumber -Path $VersionInfoPath
+
+$verInfo = Read-ProductVersionInfo -Path $VersionInfoPath
+$productVer = $verInfo.ProductVersion
+$buildNum = $verInfo.Build
+
+$branch = "unknown"
+$commit = "unknown"
+
+# About artwork source in repository root assets.
+$Src = Join-Path $ModuleRoot "..\assets\art\about-bunny.png"
+# Embedded-art destination inside win-go module for //go:embed.
+$EmbedDst = Join-Path $ModuleRoot "assets\art\about-bunny.png"
 New-Item -ItemType Directory -Force -Path (Split-Path $EmbedDst) | Out-Null
+# Use checked-in art when available; otherwise generate placeholder art.
 if (Test-Path -LiteralPath $Src) {
     Copy-Item -LiteralPath $Src -Destination $EmbedDst -Force
 } else {
-    & $go run ./tools/genaboutpng
+    & $go -C $ModuleRoot run ./tools/genaboutpng
 }
 
-& $go run ./tools/genicons
-& $go generate .
+# Regenerate toolbar icon assets used by the application.
+& $go -C $ModuleRoot run ./tools/genicons
+# Run go:generate directives (includes goversioninfo resource generation).
+& $go -C $ModuleRoot generate .
 
-# Single obvious folder under this module (not repo-root /bin/, which may be gitignored).
-$OutDir = Join-Path $PSScriptRoot "dist"
+if ($GitRoot) {
+    Commit-BuildSnapshot -GitRoot $GitRoot -ModuleRoot $ModuleRoot -Message "build: version $productVer"
+    $commit = (git -C $GitRoot rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse HEAD failed" }
+    $branch = (git -C $GitRoot rev-parse --abbrev-ref HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse --abbrev-ref HEAD failed" }
+    $traceRecord = @{
+        build          = $buildNum
+        productVersion = $productVer
+        branch         = $branch
+        commit         = $commit
+        timeUtc        = (Get-Date).ToUniversalTime().ToString("o")
+    }
+    Append-BuildTrace -TracePath $TracePath -Record $traceRecord
+    Write-Host "Build trace: $TracePath (build=$buildNum branch=$branch commit=$commit)"
+}
+
+# Build output target: <Shitwiper>/bin/win/current (relative to repo layout: win-go is under codebase)
+$OutDir = Join-Path $WinBinRoot "current"
 $Exe = Join-Path $OutDir "WhatToWipe.exe"
-# Optional second copy for install tree: <Shitwiper>/bin/win/
-$CodebaseRoot = Split-Path $PSScriptRoot -Parent
-$ShitwiperRoot = Split-Path $CodebaseRoot -Parent
-$ProperDir = Join-Path $ShitwiperRoot "bin\win"
-$ProperBin = Join-Path $ProperDir "WhatToWipe.exe"
 
+Prepare-CurrentBuildFolder -WinBinRoot $WinBinRoot -CurrentDir $OutDir
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-New-Item -ItemType Directory -Force -Path $ProperDir | Out-Null
 
 # Pure Go + GUI subsystem + no VCS path embed.
 # Keep symbols in release builds; heavily stripped binaries are more likely to trigger generic AV heuristics.
+# CGO disabled for reproducible static-style Windows build in this project.
 $env:CGO_ENABLED = "0"
-& $go build -trimpath -buildvcs=false -ldflags "-H windowsgui" -o $Exe .
+& $go -C $ModuleRoot build -trimpath -buildvcs=false -ldflags "-H windowsgui" -o $Exe .
+# Cleanup local environment mutation even if caller reuses this shell.
 Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
 if (-not (Test-Path -LiteralPath $Exe)) {
     throw "go build did not produce: $Exe"
@@ -70,13 +271,25 @@ if ($env:WHATTOWIPE_SIGNTOOL) {
     & $signTool @signArgs
 }
 
-& $go run ./tools/seedconfig $OutDir
-Copy-WithRetry -Source $Exe -Destination $ProperBin
-& $go run ./tools/seedconfig $ProperDir
-if (-not (Test-Path -LiteralPath $ProperBin)) {
-    throw "Copy failed; expected: $ProperBin"
-}
-$Cfg = Join-Path $OutDir "WhatToWipe.config.txt"
+# Keep version template alongside payload; installer scripts can consume this if needed.
+Copy-WithRetry -Source $VersionInfoPath -Destination (Join-Path $OutDir "versioninfo.json")
+
+# Marker file for this build (yyyy-MM-dd_HH-mm.date).
+$Stamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
+$Marker = Join-Path $OutDir ($Stamp + ".date")
+New-Item -ItemType File -Path $Marker -Force | Out-Null
+
+$metaPath = Join-Path $OutDir "build-meta.json"
+@{
+    build          = $buildNum
+    productVersion = $productVer
+    branch         = $branch
+    commit         = $commit
+    timeUtc        = (Get-Date).ToUniversalTime().ToString("o")
+} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metaPath -Encoding utf8
+
+# Final summary for quick operator verification.
 Write-Host "Built:  $Exe"
-Write-Host "Config: $Cfg"
-Write-Host "Copied: $ProperBin"
+Write-Host "Version info: " (Join-Path $OutDir "versioninfo.json")
+Write-Host "Marker: $Marker"
+Write-Host "Build meta: $metaPath"

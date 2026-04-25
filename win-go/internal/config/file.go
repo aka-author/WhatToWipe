@@ -11,16 +11,16 @@ import (
 	"strings"
 )
 
-// ConfigFileName is stored next to the executable (human-readable text, funcspec § Program Setup Configuration).
+// ConfigFileName stores human-readable setup values (funcspec § Program Setup Configuration).
 const ConfigFileName = "WhatToWipe.config.txt"
 
-// ConfigPath returns the absolute path to the configuration file.
+// ConfigPath returns the absolute path to the per-user configuration file in %LocalAppData%\WhatToWipe.
 func ConfigPath() (string, error) {
-	exe, err := os.Executable()
+	base, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(filepath.Dir(exe), ConfigFileName), nil
+	return filepath.Join(base, "WhatToWipe", ConfigFileName), nil
 }
 
 // LoadTreemapFromPath loads treemap keys from a given file path (e.g. seedconfig for dist/; not ConfigPath()).
@@ -79,6 +79,9 @@ func ConfigFileListsScanningUpdateInterval(data []byte) bool {
 
 // SaveTreemap writes treemap parameters plus scanning.updateInterval (key = value lines only; no generated comments).
 func SaveTreemap(path string, t Treemap) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	var b strings.Builder
 	w := func(key, val string) { fmt.Fprintf(&b, "%s = %s\n", key, val) }
 	w("treemap.maxTiles", strconv.Itoa(nonzeroOr(t.MaxTiles, 20)))

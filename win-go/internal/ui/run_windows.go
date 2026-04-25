@@ -4,6 +4,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -95,6 +96,8 @@ type app struct {
 	scanCancel context.CancelFunc
 	scanSeq    uint64
 	scanning   atomic.Bool
+	scanCursorPrev  walk.Cursor
+	scanCursorSaved bool
 
 	pendingUpdateSnap *snap
 	inspectHit        int
@@ -336,6 +339,13 @@ func (a *app) chartChildren() []Widget {
 				a.rebuildTreemap()
 			},
 			OnMouseMove: func(x, y int, _ walk.MouseButton) {
+				if a.scanning.Load() {
+					if a.chart != nil {
+						a.chart.SetCursor(walk.CursorWait())
+					}
+					a.setChartTooltip("")
+					return
+				}
 				h := a.hitTest(x, y)
 				if h < 0 || h >= len(a.blocks) {
 					if a.chart != nil {
@@ -534,17 +544,55 @@ func (a *app) onManage() {
 }
 
 func (a *app) onAbout() {
+	ver := appVersionDotted()
+	showAboutDialog(a.mw, ver)
+}
+
+func appVersionDotted() string {
+	const fallback = "0.0.0.0"
 	exe, err := os.Executable()
 	if err != nil {
 		exe = ""
 	}
-	ver := "0.0.0.0"
 	if exe != "" {
 		if v, e := winver.FileVersionDotted(exe); e == nil {
-			ver = v
+			return v
 		}
 	}
-	showAboutDialog(a.mw, ver)
+	if v, e := versionFromVersionInfoJSON(exe); e == nil && v != "" {
+		return v
+	}
+	return fallback
+}
+
+func versionFromVersionInfoJSON(exe string) (string, error) {
+	type versionInfo struct {
+		StringFileInfo struct {
+			FileVersion string `json:"FileVersion"`
+		} `json:"StringFileInfo"`
+	}
+	candidates := []string{}
+	if exe != "" {
+		candidates = append(candidates,
+			filepath.Join(filepath.Dir(exe), "versioninfo.json"),
+			filepath.Join(filepath.Dir(exe), "..", "versioninfo.json"),
+		)
+	}
+	candidates = append(candidates, filepath.Join("win-go", "versioninfo.json"))
+	for _, p := range candidates {
+		b, err := os.ReadFile(filepath.Clean(p))
+		if err != nil {
+			continue
+		}
+		var vi versionInfo
+		if err := json.Unmarshal(b, &vi); err != nil {
+			continue
+		}
+		if vi.StringFileInfo.FileVersion != "" {
+			return vi.StringFileInfo.FileVersion, nil
+		}
+	}
+	return "", os.ErrNotExist
 }
 
 func (a *app) unsetTreemapToInitial() {
@@ -835,6 +883,30 @@ func (a *app) setScanChrome(scanning bool) {
 	if a.volFreeBtn != nil {
 		hasVol := a.volBarRoot != "" && a.targetPath != ""
 		a.volFreeBtn.SetEnabled(hasVol)
+	}
+	if a.chart != nil {
+		if scanning {
+			a.chart.SetCursor(walk.CursorWait())
+		} else {
+			a.chart.SetCursor(walk.CursorArrow())
+		}
+	}
+	if a.mw != nil {
+		if scanning {
+			if !a.scanCursorSaved {
+				a.scanCursorPrev = a.mw.Cursor()
+				a.scanCursorSaved = true
+			}
+			a.mw.SetCursor(walk.CursorWait())
+		} else if a.scanCursorSaved {
+			if a.scanCursorPrev != nil {
+				a.mw.SetCursor(a.scanCursorPrev)
+			} else {
+				a.mw.SetCursor(nil)
+			}
+			a.scanCursorPrev = nil
+			a.scanCursorSaved = false
+		}
 	}
 	a.refreshVolumeToolbar()
 }
