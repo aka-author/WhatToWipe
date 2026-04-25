@@ -52,6 +52,9 @@ function Increment-VersionBuildNumber {
     $min = [int]$vi.FixedFileInfo.FileVersion.Minor
     $pat = [int]$vi.FixedFileInfo.FileVersion.Patch
     $bld = [int]$vi.FixedFileInfo.FileVersion.Build + 1
+    if ($bld -gt 0xFFFF) {
+        throw "Build counter exceeds 0xFFFF (65535). Bump Major/Minor/Patch in versioninfo.json and set Build to 0, then rebuild."
+    }
 
     # Keep numeric file/product versions aligned.
     $vi.FixedFileInfo.FileVersion.Build = $bld
@@ -60,8 +63,8 @@ function Increment-VersionBuildNumber {
     $vi.FixedFileInfo.ProductVersion.Patch = $pat
     $vi.FixedFileInfo.ProductVersion.Build = $bld
 
-    # Fourth component is six digits with leading zeros (e.g. 0.1.0.000007); numeric Build stays an integer.
-    $ver = "$maj.$min.$pat.$($bld.ToString('D6'))"
+    # Fourth component is four uppercase hex digits (e.g. 0.1.0.000C); numeric Build stays a decimal integer (0..65535).
+    $ver = "$maj.$min.$pat.$($bld.ToString('X4'))"
     $vi.StringFileInfo.FileVersion = $ver
     $vi.StringFileInfo.ProductVersion = $ver
 
@@ -121,9 +124,9 @@ function Read-ProductVersionInfo {
     $pat = [int]$vi.FixedFileInfo.FileVersion.Patch
     $bld = [int]$vi.FixedFileInfo.FileVersion.Build
     return @{
-        ProductVersion = "$maj.$min.$pat.$($bld.ToString('D6'))"
+        ProductVersion = "$maj.$min.$pat.$($bld.ToString('X4'))"
         Build          = $bld
-        BuildPadded    = $bld.ToString('D6')
+        BuildPadded    = $bld.ToString('X4')
     }
 }
 
@@ -254,7 +257,7 @@ if ($env:WHATTOWIPE_SIGNTOOL) {
 # Keep version template alongside payload; installer scripts can consume this if needed.
 Copy-WithRetry -Source $VersionInfoPath -Destination (Join-Path $OutDir "versioninfo.json")
 
-# Marker / archive folder stem: yyyy-MM-dd_HH-mm_000007 (six-digit build in name).
+# Marker / archive folder stem: yyyy-MM-dd_HH-mm_000C (four hex digits, uppercase build suffix in name).
 # Marker file body records the same so the build is visible without parsing the filename.
 $folderTime = Get-Date -Format "yyyy-MM-dd_HH-mm"
 $folderStem = "${folderTime}_${buildPadded}"
