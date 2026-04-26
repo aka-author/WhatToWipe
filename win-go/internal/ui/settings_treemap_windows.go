@@ -131,6 +131,28 @@ type treemapInlineEditor struct {
 	fontEdit  bool
 }
 
+func (ie *treemapInlineEditor) realignToCell() bool {
+	if ie == nil || !ie.editing || ie.row < 0 {
+		return false
+	}
+	lv := primarySysListView(ie.tv)
+	if lv == 0 {
+		return false
+	}
+	b := subitemBoundsDlg96(ie.dlg, lv, ie.row, 1)
+	if b.Width < 10 || b.Height < 10 {
+		return false
+	}
+	if ie.fontEdit {
+		ie.fontCombo.SetBounds(b)
+		ie.fontCombo.BringToTop()
+	} else {
+		ie.line.SetBounds(b)
+		ie.line.BringToTop()
+	}
+	return true
+}
+
 func (ie *treemapInlineEditor) endEdit(commit bool) {
 	if ie == nil || !ie.editing {
 		return
@@ -144,6 +166,13 @@ func (ie *treemapInlineEditor) endEdit(commit bool) {
 		}
 		if err != nil {
 			walk.MsgBox(ie.dlg, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+			if ie.fontEdit {
+				_ = ie.fontCombo.SetFocus()
+			} else {
+				_ = ie.line.SetFocus()
+				ie.line.SetTextSelection(0, -1)
+			}
+			return
 		}
 	}
 	ie.line.SetVisible(false)
@@ -159,17 +188,15 @@ func (ie *treemapInlineEditor) beginEdit(row int, font bool) {
 		return
 	}
 	ie.endEdit(true)
-	lv := primarySysListView(ie.tv)
-	if lv == 0 {
-		return
-	}
-	b := subitemBoundsDlg96(ie.dlg, lv, row, 1)
-	if b.Width < 10 || b.Height < 10 {
-		return
-	}
 	ie.row = row
 	ie.editing = true
 	ie.fontEdit = font
+	if !ie.realignToCell() {
+		ie.editing = false
+		ie.fontEdit = false
+		ie.row = -1
+		return
+	}
 	if font {
 		_ = ie.fontCombo.SetModel(ie.fontModel)
 		cur := strings.TrimSpace(ie.edited.TileFontName)
@@ -308,7 +335,6 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 						AssignTo: &applyBtn,
 						Text:     "Apply",
 						OnClicked: func() {
-							_ = applyBtn
 							_ = saveAndApply()
 						},
 					},
@@ -367,6 +393,21 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if editor == nil || !editor.editing || editor.fontEdit {
 			return
 		}
+		if key == walk.KeyReturn {
+			editor.endEdit(true)
+			_ = gridTV.SetFocus()
+			return
+		}
+		if key == walk.KeyTab {
+			nextRow := editor.row + 1
+			editor.endEdit(true)
+			if nextRow >= 0 && nextRow < len(treemapGridRowLabels) {
+				editor.beginEdit(nextRow, nextRow == 8)
+			} else {
+				_ = gridTV.SetFocus()
+			}
+			return
+		}
 		if key == walk.KeyEscape {
 			editor.endEdit(false)
 			_ = gridTV.SetFocus()
@@ -374,6 +415,16 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	})
 	fontCombo.KeyDown().Attach(func(key walk.Key) {
 		if editor == nil || !editor.editing || !editor.fontEdit {
+			return
+		}
+		if key == walk.KeyReturn || key == walk.KeyTab {
+			nextRow := editor.row + 1
+			editor.endEdit(true)
+			if key == walk.KeyTab && nextRow >= 0 && nextRow < len(treemapGridRowLabels) {
+				editor.beginEdit(nextRow, nextRow == 8)
+			} else {
+				_ = gridTV.SetFocus()
+			}
 			return
 		}
 		if key == walk.KeyEscape {
@@ -398,7 +449,9 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	})
 	dlg.SizeChanged().Attach(func() {
 		if editor != nil && editor.editing {
-			editor.endEdit(true)
+			if !editor.realignToCell() {
+				editor.endEdit(true)
+			}
 		}
 	})
 

@@ -1,0 +1,82 @@
+name: Windows Build Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: win-go/go.sum
+
+      - name: Ensure walk module resolution in CI
+        working-directory: win-go
+        run: |
+          if (-not (Test-Path "$env:GITHUB_WORKSPACE\samples\third_party\walk")) {
+            go mod edit -dropreplace github.com/lxn/walk
+          }
+          go mod download
+
+      - name: Build Windows executable
+        working-directory: win-go
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\artifacts\bin\win\current" | Out-Null
+          go build -trimpath -buildvcs=false -ldflags "-H windowsgui" -o "$env:GITHUB_WORKSPACE\artifacts\bin\win\current\EraseAndRewrite.exe" .
+          Copy-Item "$env:GITHUB_WORKSPACE\win-go\versioninfo.json" "$env:GITHUB_WORKSPACE\artifacts\bin\win\current\versioninfo.json" -Force
+
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-exe
+          path: artifacts/bin/win/current/*
+          if-no-files-found: error
+
+  build-installer:
+    runs-on: windows-latest
+    needs: build-windows
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download executable artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: win-exe
+          path: artifacts/bin/win/current
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer package
+        run: |
+          cmd /c "scripts\build-installer.bat ""$env:GITHUB_WORKSPACE\artifacts\bin\win\current"" ""$env:GITHUB_WORKSPACE\artifacts\delivery\win"""
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-installer
+          path: artifacts/delivery/win/**/*
+          if-no-files-found: error
