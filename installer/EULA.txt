@@ -1,0 +1,86 @@
+END USER LICENSE AGREEMENT (EULA)
+WhatToWipe
+
+IMPORTANT: PLEASE READ THIS END USER LICENSE AGREEMENT CAREFULLY.
+BY INSTALLING, COPYING, OR USING THE SOFTWARE, YOU AGREE TO BE BOUND
+BY THE TERMS OF THIS AGREEMENT.
+
+1. PARTIES
+This End User License Agreement ("Agreement") is between you ("User")
+and the copyright owner/licensor of WhatToWipe ("Licensor").
+
+2. SOFTWARE
+"Software" means the WhatToWipe application, including executable files,
+documentation, updates, and related materials provided by Licensor.
+
+3. LICENSE GRANT
+Subject to this Agreement, Licensor grants User a limited, non-exclusive,
+non-transferable, revocable license to install and use the Software for
+lawful purposes.
+
+4. RESTRICTIONS
+User must not, except as permitted by applicable law:
+- modify, adapt, translate, or create derivative works of the Software;
+- reverse engineer, decompile, or disassemble the Software;
+- remove or alter copyright, trademark, or other proprietary notices;
+- distribute, sublicense, rent, lease, lend, or commercially host the Software.
+
+5. OWNERSHIP
+The Software is licensed, not sold. All rights, title, and interest in and
+to the Software remain with Licensor and its suppliers, if any.
+
+6. UPDATES
+Licensor may provide updates, patches, or new versions at its discretion.
+Unless accompanied by separate terms, updates are governed by this Agreement.
+
+7. THIRD-PARTY COMPONENTS
+The Software may include third-party components governed by their own
+license terms. In case of conflict, third-party license terms apply to
+those components.
+
+8. PRIVACY
+The Software may process local system or file information as needed for
+its functionality. User is responsible for ensuring use of the Software
+complies with applicable privacy and data protection laws.
+
+9. DISCLAIMER OF WARRANTIES
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED "AS IS"
+AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, WHETHER EXPRESS, IMPLIED,
+OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+10. LIMITATION OF LIABILITY
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR WILL NOT BE LIABLE FOR ANY
+INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY
+LOSS OF DATA, PROFITS, REVENUE, OR BUSINESS OPPORTUNITY, ARISING FROM OR
+RELATED TO THE SOFTWARE OR THIS AGREEMENT, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES.
+
+11. INDEMNITY
+User agrees to indemnify and hold harmless Licensor from claims, damages,
+and expenses arising from User's misuse of the Software or breach of this
+Agreement.
+
+12. TERMINATION
+This Agreement is effective until terminated. It terminates automatically
+if User breaches its terms. Upon termination, User must stop using and
+delete all copies of the Software.
+
+13. EXPORT AND COMPLIANCE
+User must comply with all applicable laws and regulations, including export
+control and sanctions laws.
+
+14. GOVERNING LAW
+This Agreement is governed by applicable law in Licensor's jurisdiction,
+without regard to conflict-of-law rules, unless otherwise required by law.
+
+15. SEVERABILITY
+If any provision is held invalid or unenforceable, the remaining provisions
+remain in full force and effect.
+
+16. ENTIRE AGREEMENT
+This Agreement is the entire agreement between User and Licensor regarding
+the Software and supersedes prior or contemporaneous understandings.
+
+By selecting "I accept" or by installing/using the Software, you acknowledge
+that you have read and understood this Agreement and agree to be bound by it.

@@ -37,7 +37,7 @@ Implementation shape (under `win-go/internal/ui`, `walk` declarative shell):
 - The **first child** of the main client `VBox` is a horizontal **`Composite`**: **`ToolButton`**s for Open, Up, Explore, and Update/Stop (bitmaps from the existing art pipeline), then a **`Label`** for Total, then a **`PushButton`** for Free, then a spacer. The treemap **`CustomWidget`** follows with stretch.
 - **Menu** actions remain the source of truth for shortcuts and Inspect/File entries; **`setScanChrome`** keeps menu **`Action`** enabled/visible state in sync with the strip widgets (and drives the scan button image/tooltip between Update and Stop).
 
-Vendored `walk` (under `samples/third_party/walk`): besides the empty-toolbar disposal above, **`ToolButton.CreateLayoutItem`** was adjusted so layout height/width respect **bitmap size** and declarative **`MinSize`**, avoiding vertical clipping of 24×24-at-96-DPI-style glyphs in an `HBox`.
+Vendored `walk` (under `win-go/third_party/walk`): besides the empty-toolbar disposal above, **`ToolButton.CreateLayoutItem`** was adjusted so layout height/width respect **bitmap size** and declarative **`MinSize`**, avoiding vertical clipping of 24×24-at-96-DPI-style glyphs in an `HBox`.
 
 If FS wording still says “toolbar” for those elements, treat that as the **command affordances** in this strip; the FS table is the behavioral contract, not the Win32 control class.
 
@@ -57,7 +57,7 @@ In-memory structure built by the scanner, sufficient for FS fields (sizes, drive
 
 ### Treemap layout
 
-Pure function from child metrics and a pixel rectangle to tile rectangles. Areas among siblings follow FS drive share proportions. Cache layout until navigation, data, window size, or DPI changes (techspec RS-02, DP-02). Squarified layout in the `samples/` module (project root, next to `codebase/`) is one option.
+Pure function from child metrics and a pixel rectangle to tile rectangles. Areas among siblings follow FS drive share proportions. Cache layout until navigation, data, window size, or DPI changes (techspec RS-02, DP-02). Squarified layout in the active `win-go/` module is one option.
 
 ### Treemap view
 
@@ -87,7 +87,7 @@ FS does not require logging. For desktop support, optional debug logging (file o
 
 ## 8. Reference stack in this repository
 
-The prototype under the sibling `samples/` tree uses lxn/walk, lxn/win, a CustomWidget for the treemap, and `Synchronize` for cross-thread UI updates. The shipped `win-go` UI uses **vendored `walk`** (under `samples/third_party/walk`) with the command-strip layout above; another Win32 binding is fine if threading, DPI, and PE rules still hold.
+The shipped `win-go` UI uses **vendored `walk`** (under `win-go/third_party/walk`) with a CustomWidget for the treemap and `Synchronize` for cross-thread UI updates. Another Win32 binding is fine if threading, DPI, and PE rules still hold.
 
 ## 9. Build and release
 

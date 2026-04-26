@@ -11,6 +11,15 @@ Do **not** modify the project (files, configs, git state, or running commands th
 
 Do **not** make changes that were **not requested**, including “helpful” cleanups, drive-by refactors, typo fixes, formatting, lint-only edits, dependency bumps, or speculative reverts.
 
+## No guesswork (mega hard)
+
+- **No inference as direction.** Tone (anger, sarcasm), rhetorical questions, or phrases like “explicit direction” **do not** authorize edits, git actions, or workspace-changing commands unless the user **names** the concrete action in the same message.
+- **Literal scope.** Do exactly what they asked—nothing broader. If they challenge *why* you did something, answer in prose; **do not** “fix” the repo unless they explicitly order that fix.
+- **Ambiguity → ask.** If the next step is not unambiguous from their exact words, **one short question** and wait. **Never** pick an interpretation and act on it.
+- **No substituting your plan for theirs.** If they describe a workflow (e.g. “use this script”), do not extend it with unrequested integration or refactors.
+- **Follow instructions verbatim.** Execute only explicitly requested actions and constraints from the user's message.
+- **No guesswork.** Do not infer missing intent or add implicit steps; ask when something is not explicit.
+
 ## What counts as a direct instruction
 
 - Clear imperatives: *change*, *fix*, *add*, *remove*, *implement*, *update*, *rename*, *revert*, *delete*, *create*, *apply the patch*, *run migration*, etc., aimed at concrete work.
@@ -65,3 +74,12 @@ Only one directive authorizes implementation: the exact word "implement" in the 
 Any other wording does not authorize implementation, including but not limited to: fix, change, update, apply, do it, proceed, make, build, code, patch, or implied intent.
 
 If the current message does not contain the exact directive "implement", do not edit files, do not run build/test commands, and do not perform any workspace-changing action.
+
+## Windows installer output default (mega hard)
+
+When building Windows installers in this workspace, the default output root is:
+`<ProjectRoot>\delivery\win`
+
+`ProjectRoot` is the parent directory of `codebase` (that is, `codebase\..`).
+
+Use a different installer output path only if the user explicitly requests a different location in that same message.

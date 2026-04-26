@@ -58,11 +58,11 @@ Material that exists only to satisfy verification rows (decision logs, test matr
 
 Use a name chosen by the team; the techspec may refer to it without mandating the exact path. Do not scatter verification-only Markdown in random package directories unless there is a strong reason.
 
-## 3. Source layout (`cmd/`, `internal/`, and similar; **`samples/`** is never under **`codebase/`**)
+## 3. Source layout (`cmd/`, `internal/`, and similar)
 
-The **Windows Go module** is not inside the `codebase/` repository. It lives at the **project root** as **`samples/`**—the directory that sits next to **`codebase/`** (sibling layout: `…/Shitwiper/codebase/`, `…/Shitwiper/samples/`).
+The active **Windows Go module** is in-repo at **`win-go/`**.
 
-Inside **this** repo, placeholders for growth are: **`win-go/`**, `cmd/`, `internal/`, `assets/`, `docs/verification/`, plus further `techspec-*.md` / `arch-*.md` in `docs/specs/` only when a new target is real. **Versioned icon sources** live under **`assets/icons/`**: see **`assets/icons/FS-TOOLBAR-MAP.txt`** (maps to FS toolbar + main-window icon). Default SVG set plus **`*-hc.svg`** high-contrast variants.
+Inside this repo, first-party implementation roots are: **`win-go/`**, `cmd/`, `internal/`, `assets/`, `docs/verification/`, plus further `techspec-*.md` / `arch-*.md` in `docs/specs/` only when a new target is real. **Versioned icon sources** live under **`assets/icons/`**: see **`assets/icons/FS-TOOLBAR-MAP.txt`** (maps to FS toolbar + main-window icon). Default SVG set plus **`*-hc.svg`** high-contrast variants.
 
 House rules for growth:
 
@@ -72,22 +72,20 @@ House rules for growth:
 
 Do not duplicate FS or techspec text inside source folders; link to `docs/specs/` from the root `README.md` or this document instead of scattering copies.
 
-## 4. Build outputs and executables (not in **codebase**, no project **`bin/`** for now)
+## 4. Build outputs and executables (not in **codebase**)
 
 Compiled binaries must not live **inside** the `codebase/` git repository.
 
-**Current practice:** `samples/build.bat` emits **`DiskTreemap.exe`** in the **`samples/`** directory next to the Go module. That file is listed in **`samples/.gitignore`** so it is not committed. There is **no** sibling **`bin/`** tree or `%WHATTOWIPE_*%` output path at the moment; when packaging returns, document a single output convention here and in the build script in the same change.
+**Current practice:** `win-go/build.ps1` emits `WhatToWipe.exe` to `<ProjectRoot>/bin/win/current`, where `ProjectRoot = codebase/..`. Installer builds go to `<ProjectRoot>/delivery/win/<yyyy-MM-dd_HH-mm>`.
 
 Rules:
 
 - The root [`.gitignore`](../.gitignore) still ignores mistaken in-repo `bin/`, `*.exe`, and similar under **codebase**.
-- Generated icons and transient `.syso` files for the spike stay under **`samples/`** (see `samples/.gitignore`).
-
-Open **`Shitwiper.code-workspace`** to attach **`codebase`** and **`samples`** (`../samples`).
+- Generated icons and transient `.syso` files are managed under **`win-go/`** by the current build flow.
 
 ## 5. Third-party and vendored code
 
-Vendor or forked dependencies (today `samples/third_party/`) stay under the module that owns them, clearly separated from first-party code. Do not place product specifications inside `third_party/` trees.
+Vendor or forked dependencies stay under the module that owns them, clearly separated from first-party code. Do not place product specifications inside `third_party/` trees.
 
 ## 6. Precedence reminder
 

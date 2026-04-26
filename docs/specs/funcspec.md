@@ -17,14 +17,18 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Packing type:* How a file system object is stored relative to an archive container; the values used in this specification are in the NOTE below.
 
-> **NOTE**  
+> **NOTE**
 > In this specification, the packing types are native (on the volume, not inside an archive), packed file, packed folder, and packed clump.
 
 *Context folder:* A folder that the user is currently viewing.
 
+*Configuration file:* A file that stores configuration parameter values.
+
+*Configuration folder:* A folder where the program stores configuration data, including the configuration file.
+
 *Current volume:* The volume that contains the context folder.
 
-*Empty folder:* A folder that contains no file system objects. 
+*Empty folder:* A folder that contains no file system objects.
 
 *Executable file:* A file whose contents encode instructions that a computer can load and run as a program, either directly by the system loader or through a configured runtime/interpreter.
 
@@ -63,9 +67,9 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Treemap:* A diagram that represents the content of the context folder, its structure, and the properties of its subfolders and clumps, including their sizes and volume shares.
 
-*Treemap data:* A folder hierarchy descriptor together with auxiliary data items. 
+*Treemap data:* A folder hierarchy descriptor together with auxiliary data items.
 
-> **NOTE**  
+> **NOTE**
 > Auxiliary items are reserved for future use; this specification does not define them.
 
 *Tree role:* Whether a folder is a node folder, a leaf folder, or an empty folder.
@@ -98,7 +102,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 Size comparisons always apply to the external rectangle of a tile as the user sees it.
 
 
-## Data Structures and Models 
+## Data Structures and Models
 
 ### Folder Hierarchy Descriptor
 
@@ -155,7 +159,7 @@ The user decides to clean up volumes on their devices.
 **Result**
 
 - The program is ready to work.
-- The settings are loaded. 
+- The settings are loaded.
 - The treemap is unset.
 - The volume indicators are unset.
 
@@ -177,7 +181,7 @@ The user has to choose a folder that they will treat as the target folder.
 All of the following conditions are met:
 
 - The program is not scanning.
-- Neither modal dialog box is open. 
+- Neither modal dialog box is open.
 
 **Steps**
 
@@ -194,21 +198,21 @@ All of the following conditions are met:
    Identify the current volume.
 
    Update the volume indicators.
-   
+
    Display the treemap as unset.
 
    If the folder is available for scanning:
-   
+
    - Set the folder as both the target and the context folder.
    - Apply the *Scanning the Context Folder* use case.
 
    If the folder is not available for scanning:
-   
+
    - Raise the `#001` error.
    - Display an error alert.
    - Terminate the use case.
 
-3. The user waits until scanning has finished. 
+3. The user waits until scanning has finished.
 
    **System Response**
 
@@ -216,34 +220,34 @@ All of the following conditions are met:
 
    - Raise the `#004` error.
    - Display an error alert.
-   - Keep the treemap unset.    
+   - Keep the treemap unset.
    - Recognize the result as negative.
-   - Terminate the use case. 
+   - Terminate the use case.
 
-   If scanning has finished successfully: 
+   If scanning has finished successfully:
 
    - Display the treemap as complete.
    - Recognize the result as positive.
 
-   If scanning has been interrupted: 
-   
+   If scanning has been interrupted:
+
    - Keep the treemap unset.
    - Display an interruption alert.
    - Recognize the result as negative.
-   
+
 **Rules**
 
-The folder is not available for scanning if the program does not have sufficient permissions to access it. 
+The folder is not available for scanning if the program does not have sufficient permissions to access it.
 
-Otherwise, the folder is available for scanning. 
+Otherwise, the folder is available for scanning.
 
 **Result**
 
    **Positive**
 
-   - The treemap data is collected. 
+   - The treemap data is collected.
    - The treemap is displayed as complete.
-   
+
    **Negative**
 
    The treemap is displayed as unset.
@@ -278,9 +282,9 @@ The treemap is based on data collected during the last scan. This data includes 
 
 All of the following conditions are met:
 
-- A context folder is set.  
+- A context folder is set.
 - The program is not scanning.
-- Neither modal dialog box is open. 
+- Neither modal dialog box is open.
 
 **Steps**
 
@@ -290,7 +294,7 @@ All of the following conditions are met:
 
    Apply *Scanning the Context Folder* use case.
 
-2. The user waits until scanning has finished. 
+2. The user waits until scanning has finished.
 
    **System Response**
 
@@ -298,19 +302,19 @@ All of the following conditions are met:
 
    - Display the treemap as unset.
    - Raise the `#004` error.
-   - Display an error alert.    
+   - Display an error alert.
    - Recognize the result as negative.
-   - Terminate the use case. 
+   - Terminate the use case.
 
-   If the scanning has finished successfully: 
+   If the scanning has finished successfully:
 
-   - Update the treemap data. 
+   - Update the treemap data.
    - Display the treemap for the context folder as complete.
    - Recognize the result as positive.
 
-   If the scanning has been interrupted: 
-   
-   - Keep the treemap and treemap data unchanged. 
+   If the scanning has been interrupted:
+
+   - Keep the treemap and treemap data unchanged.
    - Display a interruption alert.
    - Recognize the result as incomplete.
 
@@ -318,7 +322,7 @@ All of the following conditions are met:
 
    **Positive**
 
-   The treemap is displayed as complete. 
+   The treemap is displayed as complete.
 
    **Incomplete**
 
@@ -326,7 +330,7 @@ All of the following conditions are met:
 
    **Negative**
 
-   The treemap is displayed as unset. 
+   The treemap is displayed as unset.
 
 **Rules**
 
@@ -359,40 +363,40 @@ The user is allowed to navigate while the use case *Scanning the Context Folder*
 
 Any of the following conditions is met:
 
-- Overall use case is *Choosing a Target Folder*.  
+- Overall use case is *Choosing a Target Folder*.
 - Overall use case is *Updating the Context Folder*.
 
 **Steps**
 
-1. Reconfigure the user interface. 
+1. Reconfigure the user interface.
 
    - Hide the **Inspect → Update** command.
    - Show the **Inspect → Stop** command.
    - Set the mouse pointer to the busy state.
 
-2. Scan the context folder hierarchy. 
+2. Scan the context folder hierarchy.
 
-   Handle the possible issues as stated below. 
+   Handle the possible issues as stated below.
 
-   If the user selects the **Inspect → Stop** command: 
-   
+   If the user selects the **Inspect → Stop** command:
+
    - Stop scanning.
-   - Recognize the result as negative. 
+   - Recognize the result as negative.
    - Terminate the use case.
 
    If the scanning becomes impossible for technical reasons:
 
-   - Stop scanning. 
+   - Stop scanning.
    - Raise the `#002` error.
    - Display an error alert.
    - Recognize the result as negative.
    - Terminate the use case.
- 
+
    Otherwise, if scanning has finished successfully:
 
-   - Recognize the result as positive. 
+   - Recognize the result as positive.
 
-3. Reconfigure the user interface. 
+3. Reconfigure the user interface.
 
    - Hide the **Inspect → Stop** command.
    - Show the **Inspect → Update** command.
@@ -409,7 +413,7 @@ The program must examine the files of the following types:
 - rar
 - zip
 
-If the file is an archive and the catalog of the archive is available, then the packing type of the file must be detected. Otherwise the file must be classified as a packed clump. 
+If the file is an archive and the catalog of the archive is available, then the packing type of the file must be detected. Otherwise the file must be classified as a packed clump.
 
 During scanning, the path to the folder that is currently being scanned must be displayed in the status bar as a full path. To prevent excessive blinking, the program must update the status bar each `scanning.updateInterval` seconds.
 
@@ -437,7 +441,7 @@ Control returns to the overall use case.
 All of the following conditions are met:
 
 - A treemap is displayed as complete.
-- Neither modal dialog box is open. 
+- Neither modal dialog box is open.
 
 **Steps**
 
@@ -445,26 +449,26 @@ All of the following conditions are met:
 
    **System Response**
 
-   Apply the *Checking a Folder of Interest* use case to the subfolder. 
+   Apply the *Checking a Folder of Interest* use case to the subfolder.
 
    If the subfolder is not empty:
 
-   - Make the subfolder the context folder. 
-   - Display the treemap for the new context folder as complete. 
+   - Make the subfolder the context folder.
+   - Display the treemap for the new context folder as complete.
    - Recognize the result as positive.
 
-   Otherwise, recognize the result as negative.  
+   Otherwise, recognize the result as negative.
 
 **Result**
 
    **Positive**
 
    - The subfolder is the context folder now.
-   - The treemap is updated accordingly. 
+   - The treemap is updated accordingly.
 
    **Negative**
 
-   The click has no effect. 
+   The click has no effect.
 
 **Postrequisites**
 
@@ -499,12 +503,12 @@ All of the following conditions are met:
 
    **System Response**
 
-   Apply the *Checking a Folder of Interest* use case to the superfolder. 
+   Apply the *Checking a Folder of Interest* use case to the superfolder.
 
    Make the superfolder the context folder.
 
-   Display the treemap for the new context folder as complete. 
-  
+   Display the treemap for the new context folder as complete.
+
 **Result**
 
    **Positive**
@@ -514,7 +518,7 @@ All of the following conditions are met:
 
    **Negative**
 
-   The treemap is displayed unset. 
+   The treemap is displayed unset.
 
 **Postrequisites**
 
@@ -556,7 +560,7 @@ All of the following conditions are met:
 
    **System Response**
 
-   - Apply the *Checking a Folder of Interest* use case to the context folder. 
+   - Apply the *Checking a Folder of Interest* use case to the context folder.
    - Open the system file manager window for the context folder.
    - Keep the mouse pointer in the busy state for two seconds.
    - Recognize the result as positive.
@@ -611,7 +615,7 @@ The user wants to open a subfolder in the system file manager.
 
   Display a context menu for the tile.
 
-  The context menu must contain the following items: 
+  The context menu must contain the following items:
 
    - **Explore...**
 
@@ -619,7 +623,7 @@ The user wants to open a subfolder in the system file manager.
 
    **System Response**
 
-   - Apply the *Checking a Folder of Interest* use case to the subfolder. 
+   - Apply the *Checking a Folder of Interest* use case to the subfolder.
    - Open the system file manager window for the subfolder.
    - Keep the mouse pointer in the busy state for two seconds.
    - Recognize the result as positive.
@@ -632,7 +636,7 @@ The user wants to open a subfolder in the system file manager.
 
    **Negative**
 
-   None. 
+   None.
 
 **Postrequisites**
 
@@ -655,7 +659,7 @@ Any use case in which the user tries to perform some operation against the folde
 
 **Parameters**
 
-The full path to the folder of interest. 
+The full path to the folder of interest.
 
 **Steps**
 
@@ -665,21 +669,21 @@ The full path to the folder of interest.
 
    **Positive**
 
-   The overall use case proceeds plainly. 
+   The overall use case proceeds plainly.
 
    **Negative**
 
-   - Raise the `#004` error. 
-   - Display an error alert.    
+   - Raise the `#004` error.
+   - Display an error alert.
    - Recognize the result of the overall use case as negative.
-   - Terminate the overall use case. 
+   - Terminate the overall use case.
 
 **Postrequisites**
 
 Control returns to the overall use case.
 
 
-### Exploring a File 
+### Exploring a File
 
 **Context**
 
@@ -700,9 +704,9 @@ All of the following conditions are met:
 
    Display a context menu for the tile.
 
-   The context menu must contain the following items: 
+   The context menu must contain the following items:
 
-   - **Open...** 
+   - **Open...**
 
 2. If the file is executable:
 
@@ -711,14 +715,14 @@ All of the following conditions are met:
 
    **Step Result**
 
-   The use case cannot proceed. 
+   The use case cannot proceed.
    The file is not opened.
 
 3. The user selects the **Open...** command.
 
    **System Response**
 
-   - Open the file in the associated application. 
+   - Open the file in the associated application.
    - Keep the mouse pointer in the busy state for two seconds.
    - Recognize the result as positive.
 
@@ -742,7 +746,7 @@ Whether a file is executable for this use case must be determined using a host-O
 
    **Negative**
 
-   None. 
+   None.
 
 **Postrequisites**
 
@@ -850,7 +854,7 @@ The following commands must be available for the user in the main window.
 | **Inspect → Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
 | **Help → About...**      |             |               | *Displaying the Program Information* |
 
-Selecting menu commands, clicking on toolbar buttons, and pressing hot keys must be treated as equivalent actions according to the table above. 
+Selecting menu commands, clicking on toolbar buttons, and pressing hot keys must be treated as equivalent actions according to the table above.
 
 > **NOTE**
 > In this document, use case descriptions must refer only to menu commands for the sake of brevity.
@@ -861,10 +865,10 @@ The following groups of commands must be treated as mutually exclusive:
 
 - Group *UpdateStop*: **Inspect → Update**, **Inspect → Stop**
 
-The following rules must be implemented for the mutually exclusive elements: 
+The following rules must be implemented for the mutually exclusive elements:
 
-* Mutually exclusive elements never visible at the same time. 
-* Mutually exclusive elements hold the same place. 
+* Mutually exclusive elements never visible at the same time.
+* Mutually exclusive elements hold the same place.
 
 The mutually exclusive groups must affect the following access methods:
 
@@ -880,13 +884,13 @@ The corresponding hotkeys do not produce the corresponding response.
 
 The phrase *command gets enabled* means that the effects listed above cease at the same time.
 
-The phrase *command disappears* refers to the following effects arising at the same time. 
+The phrase *command disappears* refers to the following effects arising at the same time.
 
 - The corresponding item disappears from the menu.
 - The corresponding button disappears from the toolbar.
-- The corresponding hotkeys do not produce the corresponding response. 
+- The corresponding hotkeys do not produce the corresponding response.
 
-The phrase *command appears* means that the effects listed above cease at the same time. 
+The phrase *command appears* means that the effects listed above cease at the same time.
 
 
 ### Main Window
@@ -942,13 +946,13 @@ The **Total** element must be implemented as a static text. The static text must
 The **Free** element must be implemented as a compound that contains the following nested elements:
 
 - Static label
-- Button 
+- Button
 
 The **Total** and **Free** indicators are the *volume indicators* together.
 
-The static label must be *Free at X:*. The *X* stands for the current volume letter or name. 
+The static label must be *Free at X:*. The *X* stands for the current volume letter or name.
 
-The button must display the volume free space. When the user clicks on the button the volume free space updates. 
+The button must display the volume free space. When the user clicks on the button the volume free space updates.
 
 
 ### Treemap
@@ -1006,7 +1010,7 @@ File tiles must use the packing type recorded in the descriptor for the represen
 
 The padding rectangle is the rectangle inside the tile’s external rectangle whose left edge is shifted inward by (Left padding), top edge by (Top padding), right edge by (Right padding), and bottom edge by (Bottom padding).
 
-The following padding must be provided inside a tile. 
+The following padding must be provided inside a tile.
 
 | Tile Side      | Configuration Parameter     |
 |----------------|-----------------------------|
@@ -1029,7 +1033,7 @@ The list above represents the normal order of blocks for the purpose of displayi
 
 A heading must contain the name of the corresponding file system object.
 
-The details block must contain the following lines on the corresponding file system object: 
+The details block must contain the following lines on the corresponding file system object:
 
 - Size
 - Volume share
@@ -1041,7 +1045,7 @@ Size format must be:
 - One fractional digit, one space, one suffix `TB`, `GB`, `MB`, or `KB` (largest unit that fits).
 - Zero gives `0.0 KB`.
 
-Volume share format must be: 
+Volume share format must be:
 
 - Up to 1 fractional digits, `%`.
 - If it appears as `0.0%`, then give it one more fractional digit.
@@ -1153,7 +1157,7 @@ The tooltip must provide the following data on the file system object:
 
 ##### Treemap Size
 
-The treemap fills the client area and rescales when the main window is resized. 
+The treemap fills the client area and rescales when the main window is resized.
 
 
 ### Status Bar
@@ -1172,7 +1176,7 @@ The open folder dialog box must include the following buttons:
 - **Open**
 - **Cancel**
 
-> **IMPORTANT**  
+> **IMPORTANT**
 > Button Create New Folder is irrelevant.
 
 
@@ -1209,9 +1213,9 @@ The table below lists the value of each property for every defined failure.
 
 ### Error Alert
 
-The program opens error alerts to inform the user about an error. 
+The program opens error alerts to inform the user about an error.
 
-An error alert must be a modal dialog box. 
+An error alert must be a modal dialog box.
 
 An error alert must contain the following elements:
 
@@ -1219,16 +1223,16 @@ An error alert must contain the following elements:
 - Error info block
 - **OK** button
 
-The error alert icon must be a yellow rectangle with a black exclamation mark inside. 
+The error alert icon must be a yellow rectangle with a black exclamation mark inside.
 
-An error info block must provide the following data: 
+An error info block must provide the following data:
 
 - Error code
 - Error message
 
 The **OK** button must hold the focus.
 
-An error alert must get closed when the user performs one of the following actions: 
+An error alert must get closed when the user performs one of the following actions:
 
 - Closes the error alert using the standard operating system method
 - Clicks on the **OK** button.
@@ -1266,11 +1270,28 @@ An interruption alert must get closed when the user performs one of the followin
 
 ### Storing and Applying Configuration
 
-Program configuration includes a set of parameters that describe the behavior and appearance of a certain program installation. 
+Program configuration includes a set of parameters that describe the behavior and appearance of a certain program installation.
 
-Values of the configuration parameters must be stored in a configuration file named `WhatToWipe.config.txt`, in the same directory as the running executable (`WhatToWipe.exe`). The program must read and write that file only; it must not resolve the path from the process working directory, `%AppData%`, or any other location.
+Values of the configuration parameters must be stored in a configuration file.
 
-A configuration file must be a human-readable text file. 
+The configuration file name must be `WhatToWipe.config.txt`.
+
+The configuration folder path must be `%LocalAppData%\WhatToWipe`.
+
+The executable must contain a built-in default configuration.
+
+On the first program start for a user, the program must check whether the configuration file exists in the configuration folder.
+
+If the configuration file does not exist, the program must create the configuration file.
+
+After creating the configuration file, the program must write the built-in default configuration into the configuration file.
+
+On subsequent starts, the program must load configuration from the configuration file in the configuration folder.
+
+A configuration file must be a human-readable text file.
+
+
+### Configuration Parameter Structure
 
 Each configuration parameter has the following properties:
 
@@ -1278,7 +1299,7 @@ Each configuration parameter has the following properties:
 - Description
 - Value
 
-Configuration parameters are split into groups. 
+Configuration parameters are split into groups.
 
 The groups of configuration parameters are described below in this section.
 
@@ -1287,14 +1308,14 @@ The groups of configuration parameters are described below in this section.
 
 | Name                      | Description                               | Default   | User |
 |---------------------------|-------------------------------------------|-----------|------|
-| `scanning.updateInterval` | How often the scanned path is updated     |   0.5 sec |  -   | 
+| `scanning.updateInterval` | How often the scanned path is updated     |   0.5 sec |  -   |
 
 
 ### Treemap Configuration Parameters
 
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
-| `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   | 
+| `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   |
 | `treemap.tilePaddingLeft`         | Left padding in a tile                       |       5pt |  +   |
 | `treemap.tilePaddingTop`          | Top padding in a tile                        |       5pt |  +   |
 | `treemap.tilePaddingRight`        | Right padding in a tile                      |       5pt |  +   |
@@ -1320,7 +1341,7 @@ The groups of configuration parameters are described below in this section.
 | `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
 | `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
 | `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |         1 |  +   |
-| `treemap.win.exeFiles`| File types of executable files in Windows  | bat, com, exe, dll, scr, msi |  +   |          
+| `treemap.win.exeFiles`| File types of executable files in Windows  | bat, com, exe, dll, scr, msi |  +   |
 
 
 ## Related Links

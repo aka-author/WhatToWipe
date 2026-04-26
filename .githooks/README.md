@@ -16,18 +16,7 @@ On Windows (PowerShell), you can run:
 .\scripts\install-githooks.ps1
 ```
 
-## `post-commit`
-
-After each **local** commit, if the current branch name is **`pub`** (override with env `PUBLISH_BRANCH`), the hook runs **`./publish.sh`** from the repo root (override with env `PUBLISH_SCRIPT`).
-
-Examples:
-
-```sh
-PUBLISH_BRANCH=release PUBLISH_SCRIPT=./scripts/ship.sh git commit -m "…"
-```
-
 ## Notes
 
-- This runs only on **commit**, not on **push**. To run something when GitHub receives a push, use GitHub Actions on `pub` instead.
-- Keep `publish.sh` fast; commits block until the hook exits.
-- Use `exit 0` in `publish.sh` unless you want to report hook failure (Git shows a warning if the hook exits non-zero).
+- This repository intentionally does not use a `post-commit` hook for build/publish.
+- If you need publish automation, use an explicit script/command or CI workflow.

@@ -105,9 +105,9 @@ function Commit-BuildSnapshot {
         [Parameter(Mandatory = $true)][string]$ModuleRoot,
         [Parameter(Mandatory = $true)][string]$Message
     )
-    # Stage all changes under win-go (version bump, regenerated .syso, icons, etc.).
-    git -C $GitRoot add -- win-go
-    if ($LASTEXITCODE -ne 0) { throw "git add win-go failed" }
+    # Stage the full repository snapshot (not partial folder-only staging).
+    git -C $GitRoot add -A
+    if ($LASTEXITCODE -ne 0) { throw "git add -A failed" }
     git -C $GitRoot diff --cached --quiet
     if ($LASTEXITCODE -eq 0) {
         throw "Nothing staged for build commit. Expected changes under win-go after version bump and go generate."
@@ -290,9 +290,8 @@ $histLine = ($productVer + "`t" + $branch + "`t" + $commit + "`t" + $commitShort
 [System.IO.File]::AppendAllText($historyPath, $histLine, [System.Text.UTF8Encoding]::new($false))
 
 if ($GitRoot) {
-    $histRel = Get-RepoRelativePath -GitRoot $GitRoot -AbsolutePath $historyPath
-    git -C $GitRoot add -- $histRel
-    if ($LASTEXITCODE -ne 0) { throw "git add failed: $histRel" }
+    git -C $GitRoot add -A
+    if ($LASTEXITCODE -ne 0) { throw "git add -A failed" }
     git -C $GitRoot commit -m "docs: append build $productVer to history"
     if ($LASTEXITCODE -ne 0) { throw "git commit (build history) failed" }
 }
