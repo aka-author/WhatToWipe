@@ -11,6 +11,7 @@ import (
 // Treemap holds treemap-related defaults (funcspec § Treemap Configuration Parameters).
 type Treemap struct {
 	MaxTiles            int
+	ClumpThreshold      float64
 	MinTileWidthPt      int
 	MinTileHeightPt     int
 	TilePaddingLeftPt   int
@@ -46,6 +47,7 @@ type Treemap struct {
 func DefaultTreemap() Treemap {
 	return Treemap{
 		MaxTiles:            20,
+		ClumpThreshold:      0.05,
 		MinTileWidthPt:      50,
 		MinTileHeightPt:     50,
 		TilePaddingLeftPt:   5,

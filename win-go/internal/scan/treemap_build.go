@@ -35,6 +35,10 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	if max < 1 {
 		max = 25
 	}
+	clumpThreshold := cfg.ClumpThreshold
+	if clumpThreshold <= 0 {
+		clumpThreshold = 0.05
+	}
 
 	var cands []treemapCand
 	for _, k := range cur.Kids {
@@ -58,25 +62,46 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	if len(cands) == 0 {
 		return nil
 	}
-	sort.SliceStable(cands, func(i, j int) bool {
-		if cands[i].size != cands[j].size {
-			return cands[i].size > cands[j].size
+	forcedClump := make([]treemapCand, 0)
+	kept := make([]treemapCand, 0, len(cands))
+	if cur.Size > 0 && clumpThreshold > 0 {
+		limit := float64(cur.Size) * clumpThreshold
+		for _, c := range cands {
+			// Spec rule: small file objects always go to clump.
+			if !c.isFolder && float64(c.size) < limit {
+				forcedClump = append(forcedClump, c)
+				continue
+			}
+			kept = append(kept, c)
 		}
-		return cands[i].path < cands[j].path
+	} else {
+		kept = cands
+	}
+	sort.SliceStable(kept, func(i, j int) bool {
+		if kept[i].size != kept[j].size {
+			return kept[i].size > kept[j].size
+		}
+		return kept[i].path < kept[j].path
 	})
 
 	var picked []treemapCand
-	if len(cands) <= max {
-		picked = cands
+	needClump := len(forcedClump) > 0 || len(kept) > max
+	if !needClump {
+		picked = kept
 	} else {
 		head := max - 1
 		if head < 0 {
 			head = 0
 		}
-		picked = append(picked, cands[:head]...)
+		if head > len(kept) {
+			head = len(kept)
+		}
+		picked = append(picked, kept[:head]...)
 		var sum int64
 		anyNonNative := false
-		for _, c := range cands[head:] {
+		clumpMembers := append([]treemapCand(nil), forcedClump...)
+		clumpMembers = append(clumpMembers, kept[head:]...)
+		for _, c := range clumpMembers {
 			sum += c.size
 			if !c.isFolder && c.packing != model.PackingNative {
 				anyNonNative = true

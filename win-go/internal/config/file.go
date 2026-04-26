@@ -85,6 +85,7 @@ func SaveTreemap(path string, t Treemap) error {
 	var b strings.Builder
 	w := func(key, val string) { fmt.Fprintf(&b, "%s = %s\n", key, val) }
 	w("treemap.maxTiles", strconv.Itoa(nonzeroOr(t.MaxTiles, 20)))
+	w("treemap.clumpThreshold", fmtPercentRatio(t.ClumpThreshold, 0.05))
 	w("treemap.minTileWidth", fmtPt(nonzeroOr(t.MinTileWidthPt, 50)))
 	w("treemap.minTileHeight", fmtPt(nonzeroOr(t.MinTileHeightPt, 50)))
 	w("treemap.tilePaddingLeft", fmtPt(nonzeroOr(t.TilePaddingLeftPt, 5)))
@@ -143,6 +144,12 @@ func nonzeroOr(v, def int) int {
 }
 
 func fmtPt(pt int) string { return fmt.Sprintf("%dpt", pt) }
+func fmtPercentRatio(v, def float64) string {
+	if v <= 0 {
+		v = def
+	}
+	return strconv.FormatFloat(v*100.0, 'f', -1, 64) + "%"
+}
 func fmtRatio(v, def float64) string {
 	if v <= 0 {
 		v = def
@@ -174,6 +181,10 @@ func applyTreemapLines(d *Treemap, data []byte) {
 		case "treemap.maxtiles":
 			if n, err := strconv.Atoi(val); err == nil && n > 0 {
 				d.MaxTiles = n
+			}
+		case "treemap.clumpthreshold":
+			if f, ok := parsePercentRatio(val); ok {
+				d.ClumpThreshold = f
 			}
 		case "treemap.mintilewidth":
 			if n, ok := parsePt(val); ok {
@@ -280,6 +291,26 @@ func parseRatio(s string) (float64, bool) {
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil || f <= 0 {
 		return 0, false
+	}
+	return f, true
+}
+
+func parsePercentRatio(s string) (float64, bool) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if strings.HasSuffix(s, "%") {
+		s = strings.TrimSpace(strings.TrimSuffix(s, "%"))
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil || f <= 0 {
+			return 0, false
+		}
+		return f / 100.0, true
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil || f <= 0 {
+		return 0, false
+	}
+	if f > 1 {
+		return f / 100.0, true
 	}
 	return f, true
 }

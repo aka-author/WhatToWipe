@@ -1,4 +1,5 @@
 treemap.maxTiles = 20
+treemap.clumpThreshold = 5%
 treemap.minTileWidth = 50pt
 treemap.minTileHeight = 50pt
 treemap.tilePaddingLeft = 5pt
