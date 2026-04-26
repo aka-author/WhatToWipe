@@ -1290,15 +1290,15 @@ An interruption alert must get closed when the user performs one of the followin
    - **Esc**
 
 
-### Settigs Form 
+### Settings Form
 
 The program must provide a settings form.
 
-The settings form must open when the user clicks **Tools → Settings...** in the menu.
+The settings form must open when the user clicks Tools → Settings… in the menu.
 
-The settings form must be implemented as a grid (table-like form), not as tabs.
+The settings form must be implemented as a single grid (one table-like layout), not as tabs and not as a vertical stack of separate row panels where each row has its own independent layout. All rows must belong to one layout so that the parameter-name column and the value column (and, for color rows, the swatch and picker columns) share the same widths across the whole form, like a spreadsheet.
 
-The grid must contain one row per configurable treemap parameter from **Treemap Configuration Parameters**.
+The grid must contain one row per configurable treemap parameter from Treemap Configuration Parameters.
 
 Each row must include:
 
@@ -1310,14 +1310,16 @@ Rows for color parameters must also include:
 - A live color preview (swatch)
 - A color picker action
 
+The row for `treemap.tileFontName` must include a drop-down list of fonts installed on the host system. The user must be able to select the tile font from that list.
+
 When the settings form opens, it must display the current effective values for all listed parameters.
 
 The settings form must provide the following actions:
 
-- **Apply**: validate inputs, save valid values, and apply them immediately.
-- **OK**: perform **Apply**, then close the form.
-- **Cancel**: close the form without applying pending edits.
-- **Reset Treemap Defaults**: restore all treemap parameter editors to built-in default values.
+- Apply: validate inputs, save valid values, and apply them immediately.
+- OK: perform Apply, then close the form.
+- Cancel: close the form without applying pending edits.
+- Reset Treemap Defaults: restore all treemap parameter editors to built-in default values.
 
 If at least one entered value is invalid, the form must not apply changes and must display a validation error.
 
@@ -1367,6 +1369,46 @@ Configuration parameters are split into groups.
 The groups of configuration parameters are described below in this section.
 
 
+### Special Data Types
+
+#### Percentage
+
+*Percentage* is a share of a whole, stored and compared internally as a fraction of one. In configuration text it may be written in either of these forms, with no space inside the token:
+
+- A number (with optional fractional part) immediately followed by `%`, meaning that many hundredths of the whole (examples: `1%`, `0.5%`, `12.5%`).
+- A unitless decimal strictly between 0 and 1, meaning that fraction of the whole (examples: `0.01`, `0.125`).
+
+The same logical value can be written both ways (`1%` and `0.01`). A parameter of type *Percentage* states which comparisons apply (for example strictly greater than zero). Whether values above 100% or at or below 0 are accepted is defined per parameter and by validation rules.
+
+
+#### Generic size
+
+A *generic size* is a numeric magnitude together with a unit of measure. In configuration text it is written as a single token: an optional leading sign, a decimal or whole number, immediately followed by a unit suffix with no space between the number and the unit. Examples: `12pt`, `3.5mm`, `105MB`. Which suffixes are valid depends on the parameter; unknown or disallowed combinations are rejected when configuration is loaded or validated.
+
+
+#### TSize (Typographic Size)
+
+*TSize* is a generic size used for on-screen layout: tile padding, minimum tile dimensions, font sizes, and similar quantities.
+
+Each TSize uses one of the units below. The suffix column is the token that follows the number in configuration text.
+
+| Unit        | Suffix |
+|-------------|--------|
+| Point       | `pt`   |
+| Pixel       | `px`   |
+| Millimeter  | `mm`   |
+| Centimeter  | `cm`   |
+| Inch        | `in`   |
+
+Comparing two TSize values (for example `treemap.headingMinFontSize` vs `treemap.headingMaxFontSize`) is defined by the implementation: values are converted to a common internal unit, or invalid or inconsistent combinations are rejected.
+
+
+#### Color
+
+A *color* defines the red, green, and blue channels for on-screen drawing. In configuration text it is written as hex RGB: an optional leading `#` followed by exactly six hexadecimal digits `RRGGBB` (two digits per channel, in order R, then G, then B). Examples: `#80EF80`, `#000000`, `ffffff`. Unless a parameter states otherwise, alpha and other color notations are not used.
+
+
+
 ### Scanning Configuration Parameters
 
 | Name                      | Description                               | Default   | User |
@@ -1376,38 +1418,42 @@ The groups of configuration parameters are described below in this section.
 
 ### Treemap Configuration Parameters
 
-| Name                              | Description                                  | Default   | User |
-|-----------------------------------|----------------------------------------------|-----------|------|
-| `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   |
-| `treemap.clumpThreshold`          | Minimum percentage for not going to clump    |        1% |  +   |
-| `treemap.tilePaddingLeft`         | Left padding in a tile                       |       5pt |  +   |
-| `treemap.tilePaddingTop`          | Top padding in a tile                        |       5pt |  +   |
-| `treemap.tilePaddingRight`        | Right padding in a tile                      |       5pt |  +   |
-| `treemap.tilePaddingBottom`       | Bottom padding in a tile                     |       5pt |  +   |
-| `treemap.minTileWidth`            | Minimum tile width                           |      50pt |  +   |
-| `treemap.minTileHeight`           | Minimum tile height                          |      50pt |  +   |
-| `treemap.nativeFolderBgColor`     | Native folder tile background color          | #80ef80 |  +   |
-| `treemap.nativeFolderTextColor`   | Native folder tile text color                | #000000 |  +   |
-| `treemap.packedFolderBgColor`     | Packed folder tile background color          | #06402b |  +   |
-| `treemap.packedFolderTextColor`   | Packed folder tile text color                | #ffffff |  +   |
-| `treemap.nativeFileBgColor`       | Native file tile background color            | #ffb09c |  +   |
-| `treemap.nativeFileTextColor`     | Native file tile text color                  | #000000 |  +   |
-| `treemap.packedFileBgColor`       | Packed file tile background color            | #900000 |  +   |
-| `treemap.packedFileTextColor`     | Packed file tile text color                  | #ffffff |  +   |
-| `treemap.nativeClumpBgColor`      | Native clump tile background color           | #aaaaaa |  +   |
-| `treemap.nativeClumpTextColor`    | Native clump tile text color                 | #000000 |  +   |
-| `treemap.packedClumpBgColor`      | Packed clump tile background color           | #323232 |  +   |
-| `treemap.packedClumpTextColor`    | Packed clump tile text color                 | #ffffff |  +   |
-| `treemap.labelPlaceholder`        | A placeholder for long labels                | ...       |  +   |
-| `treemap.labelDummy`              | A label shown is nothing fits                | ...       |  +   |
-| `treemap.tileFontName`            | Tile text font                               | Segoe UI  |  +   |
-| `treemap.headingMaxFontSize`      | Maximal size of a label heading              |      30pt |  +   |
-| `treemap.headingMinFontSize`      | Minimal size of a label heading              |       8pt |  +   |
-| `treemap.headingLineHeight`       | Line height / font size in the heading       |         1 |  +   |
-| `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
-| `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
-| `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |         1 |  +   |
-| `treemap.win.exeFiles`| File types of executable files in Windows  | bat, com, exe, dll, scr, msi |  +   |
+Color, Percentage, and TSize are defined in Special Data Types.
+
+| Name | Description | Type | Constraints | Default | User |
+|------|-------------|------|-------------|---------|------|
+| `treemap.maxTiles` | Max tiles | Integer | ≥ 1 | 20 | + |
+| `treemap.clumpThreshold` | Clump cutoff (share of total) | Percentage | > 0 | 1% | + |
+| `treemap.tilePaddingLeft` | Padding left | TSize | ≥ 0 | 5pt | + |
+| `treemap.tilePaddingTop` | Padding top | TSize | ≥ 0 | 5pt | + |
+| `treemap.tilePaddingRight` | Padding right | TSize | ≥ 0 | 5pt | + |
+| `treemap.tilePaddingBottom` | Padding bottom | TSize | ≥ 0 | 5pt | + |
+| `treemap.minTileWidth` | Min tile width | TSize | > 0 | 50pt | + |
+| `treemap.minTileHeight` | Min tile height | TSize | > 0 | 50pt | + |
+| `treemap.nativeFolderBgColor` | Folder native fill | Color | — | #80ef80 | + |
+| `treemap.nativeFolderTextColor` | Folder native text | Color | — | #000000 | + |
+| `treemap.packedFolderBgColor` | Folder packed fill | Color | — | #06402b | + |
+| `treemap.packedFolderTextColor` | Folder packed text | Color | — | #ffffff | + |
+| `treemap.nativeFileBgColor` | File native fill | Color | — | #ffb09c | + |
+| `treemap.nativeFileTextColor` | File native text | Color | — | #000000 | + |
+| `treemap.packedFileBgColor` | File packed fill | Color | — | #900000 | + |
+| `treemap.packedFileTextColor` | File packed text | Color | — | #ffffff | + |
+| `treemap.nativeClumpBgColor` | Clump native fill | Color | — | #aaaaaa | + |
+| `treemap.nativeClumpTextColor` | Clump native text | Color | — | #000000 | + |
+| `treemap.packedClumpBgColor` | Clump packed fill | Color | — | #323232 | + |
+| `treemap.packedClumpTextColor` | Clump packed text | Color | — | #ffffff | + |
+| `treemap.labelPlaceholder` | Truncation placeholder | String | non-empty | `...` | + |
+| `treemap.labelDummy` | Empty-layout label | String | non-empty | `...` | + |
+| `treemap.tileFontName` | Tile font | String | non-empty | Segoe UI | + |
+| `treemap.headingMaxFontSize` | Heading size max | TSize | > 0 | 30pt | + |
+| `treemap.headingMinFontSize` | Heading size min | TSize | > 0; ≤ max | 8pt | + |
+| `treemap.headingLineHeight` | Heading line height ratio | Float | > 0 | 1 | + |
+| `treemap.detailsFontSizeRatio` | Details / heading size | Float | > 0 | 0.8 | + |
+| `treemap.detailsLineHeight` | Details line height ratio | Float | > 0 | 1.5 | + |
+| `treemap.aboveDetailsHeightRatio` | Gap above details / details size | Float | > 0 | 1 | + |
+| `treemap.win.exeFiles` | Exe extensions (Windows) | String | comma tokens; optional `.` | bat, com, exe, dll, scr, msi | + |
+| `treemap.linux.exeFiles` | Exe extensions (Linux) | String | same; empty → built-in | — | + |
+| `treemap.macos.exeFiles` | Exe extensions (macOS) | String | same as Linux | — | + |
 
 
 ## Related Links

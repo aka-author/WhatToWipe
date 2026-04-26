@@ -57,13 +57,21 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	edited := current
 	def := config.DefaultTreemap()
 
+	installedFonts, err := installedFontFamilyNames()
+	if err != nil {
+		walk.MsgBox(owner, "Settings", "Cannot list installed fonts: "+err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
+	}
+	fontModel := mergeFontModel(installedFonts, current.TileFontName, def.TileFontName)
+
 	var dlg *walk.Dialog
 	var okBtn, applyBtn *walk.PushButton
 
 	var maxTilesEdit, clumpThresholdEdit *walk.LineEdit
 	var minTileWidthEdit, minTileHeightEdit *walk.LineEdit
 	var padLeftEdit, padTopEdit, padRightEdit, padBottomEdit *walk.LineEdit
-	var tileFontEdit, headingMaxEdit, headingMinEdit *walk.LineEdit
+	var tileFontCombo *walk.ComboBox
+	var headingMaxEdit, headingMinEdit *walk.LineEdit
 	var headingLineHeightEdit, detailsFontRatioEdit, detailsLineHeightEdit, aboveDetailsEdit *walk.LineEdit
 	var labelPlaceholderEdit, labelDummyEdit *walk.LineEdit
 	var winExeEdit, linuxExeEdit, macExeEdit *walk.LineEdit
@@ -98,7 +106,20 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		_ = padTopEdit.SetText(strconv.Itoa(t.TilePaddingTopPt))
 		_ = padRightEdit.SetText(strconv.Itoa(t.TilePaddingRightPt))
 		_ = padBottomEdit.SetText(strconv.Itoa(t.TilePaddingBottomPt))
-		_ = tileFontEdit.SetText(strings.TrimSpace(t.TileFontName))
+		if tileFontCombo != nil {
+			face := strings.TrimSpace(t.TileFontName)
+			found := false
+			for i, n := range fontModel {
+				if strings.EqualFold(n, face) {
+					_ = tileFontCombo.SetCurrentIndex(i)
+					found = true
+					break
+				}
+			}
+			if !found && len(fontModel) > 0 {
+				_ = tileFontCombo.SetCurrentIndex(0)
+			}
+		}
 		_ = headingMaxEdit.SetText(strconv.Itoa(t.HeadingMaxFontSizePt))
 		_ = headingMinEdit.SetText(strconv.Itoa(t.HeadingMinFontSizePt))
 		_ = headingLineHeightEdit.SetText(strconv.FormatFloat(t.HeadingLineHeight, 'f', -1, 64))
@@ -222,7 +243,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if err != nil {
 			return err
 		}
-		face := strings.TrimSpace(tileFontEdit.Text())
+		if tileFontCombo == nil {
+			return fmt.Errorf("treemap.tileFontName: internal error")
+		}
+		face := strings.TrimSpace(tileFontCombo.Text())
 		if face == "" {
 			return fmt.Errorf("treemap.tileFontName must not be empty")
 		}
@@ -336,43 +360,125 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return true
 	}
 
-	paramRow := func(name string, assign **walk.LineEdit) Widget {
-		return Composite{
-			Layout: Grid{Columns: 4, MarginsZero: true},
-			Children: []Widget{
-				Label{Text: name},
-				LineEdit{AssignTo: assign},
-				HSpacer{},
-				HSpacer{},
-			},
-		}
+	gridRows := []Widget{
+		Label{Text: "treemap.maxTiles"},
+		LineEdit{AssignTo: &maxTilesEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.clumpThreshold"},
+		LineEdit{AssignTo: &clumpThresholdEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.minTileWidth (pt)"},
+		LineEdit{AssignTo: &minTileWidthEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.minTileHeight (pt)"},
+		LineEdit{AssignTo: &minTileHeightEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.tilePaddingLeft (pt)"},
+		LineEdit{AssignTo: &padLeftEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.tilePaddingTop (pt)"},
+		LineEdit{AssignTo: &padTopEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.tilePaddingRight (pt)"},
+		LineEdit{AssignTo: &padRightEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.tilePaddingBottom (pt)"},
+		LineEdit{AssignTo: &padBottomEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.tileFontName"},
+		ComboBox{AssignTo: &tileFontCombo, Model: fontModel, Editable: false},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.headingMaxFontSize (pt)"},
+		LineEdit{AssignTo: &headingMaxEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.headingMinFontSize (pt)"},
+		LineEdit{AssignTo: &headingMinEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.headingLineHeight"},
+		LineEdit{AssignTo: &headingLineHeightEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.detailsFontSizeRatio"},
+		LineEdit{AssignTo: &detailsFontRatioEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.detailsLineHeight"},
+		LineEdit{AssignTo: &detailsLineHeightEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.aboveDetailsHeightRatio"},
+		LineEdit{AssignTo: &aboveDetailsEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.labelPlaceholder"},
+		LineEdit{AssignTo: &labelPlaceholderEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.labelDummy"},
+		LineEdit{AssignTo: &labelDummyEdit},
+		HSpacer{},
+		HSpacer{},
 	}
-	colorRow := func(name string, cf *colorField) Widget {
-		return Composite{
-			Layout: Grid{Columns: 4, MarginsZero: true},
-			Children: []Widget{
-				Label{Text: name},
-				LineEdit{
-					AssignTo: &cf.edit,
-					OnTextChanged: func() {
-						cf.updateSwatchFromText()
-					},
-				},
-				Label{
-					AssignTo: &cf.swatch,
-					Text:     "      ",
-					MinSize:  Size{Width: 46, Height: 20},
-					MaxSize:  Size{Width: 46, Height: 20},
-				},
-				PushButton{
-					Text: "Pick\u2026",
-					OnClicked: func() {
-						chooseColor(cf)
-					},
+	addColor := func(name string, cf *colorField) {
+		gridRows = append(gridRows,
+			Label{Text: name},
+			LineEdit{
+				AssignTo: &cf.edit,
+				OnTextChanged: func() {
+					cf.updateSwatchFromText()
 				},
 			},
-		}
+			Label{
+				AssignTo: &cf.swatch,
+				Text:     "      ",
+				MinSize:  Size{Width: 46, Height: 20},
+				MaxSize:  Size{Width: 46, Height: 20},
+			},
+			PushButton{
+				Text: "Pick\u2026",
+				OnClicked: func() {
+					chooseColor(cf)
+				},
+			},
+		)
 	}
+	addColor("treemap.nativeFolderBgColor", cfNativeFolderBg)
+	addColor("treemap.nativeFolderTextColor", cfNativeFolderText)
+	addColor("treemap.packedFolderBgColor", cfPackedFolderBg)
+	addColor("treemap.packedFolderTextColor", cfPackedFolderText)
+	addColor("treemap.nativeFileBgColor", cfNativeFileBg)
+	addColor("treemap.nativeFileTextColor", cfNativeFileText)
+	addColor("treemap.packedFileBgColor", cfPackedFileBg)
+	addColor("treemap.packedFileTextColor", cfPackedFileText)
+	addColor("treemap.nativeClumpBgColor", cfNativeClumpBg)
+	addColor("treemap.nativeClumpTextColor", cfNativeClumpText)
+	addColor("treemap.packedClumpBgColor", cfPackedClumpBg)
+	addColor("treemap.packedClumpTextColor", cfPackedClumpText)
+	gridRows = append(gridRows,
+		Label{Text: "treemap.win.exeFiles"},
+		LineEdit{AssignTo: &winExeEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.linux.exeFiles"},
+		LineEdit{AssignTo: &linuxExeEdit},
+		HSpacer{},
+		HSpacer{},
+		Label{Text: "treemap.macos.exeFiles"},
+		LineEdit{AssignTo: &macExeEdit},
+		HSpacer{},
+		HSpacer{},
+	)
 
 	var icon *walk.Icon
 	if ic, err := loadEmbeddedAppIcon(); err == nil {
@@ -390,41 +496,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		Children: []Widget{
 			Label{Text: "Treemap Configuration Parameters"},
 			Composite{
-				Layout: VBox{MarginsZero: true, Spacing: 6},
-				Children: []Widget{
-					paramRow("treemap.maxTiles", &maxTilesEdit),
-					paramRow("treemap.clumpThreshold (e.g. 1% or 0.01)", &clumpThresholdEdit),
-					paramRow("treemap.minTileWidth (pt)", &minTileWidthEdit),
-					paramRow("treemap.minTileHeight (pt)", &minTileHeightEdit),
-					paramRow("treemap.tilePaddingLeft (pt)", &padLeftEdit),
-					paramRow("treemap.tilePaddingTop (pt)", &padTopEdit),
-					paramRow("treemap.tilePaddingRight (pt)", &padRightEdit),
-					paramRow("treemap.tilePaddingBottom (pt)", &padBottomEdit),
-					paramRow("treemap.tileFontName", &tileFontEdit),
-					paramRow("treemap.headingMaxFontSize (pt)", &headingMaxEdit),
-					paramRow("treemap.headingMinFontSize (pt)", &headingMinEdit),
-					paramRow("treemap.headingLineHeight", &headingLineHeightEdit),
-					paramRow("treemap.detailsFontSizeRatio", &detailsFontRatioEdit),
-					paramRow("treemap.detailsLineHeight", &detailsLineHeightEdit),
-					paramRow("treemap.aboveDetailsHeightRatio", &aboveDetailsEdit),
-					paramRow("treemap.labelPlaceholder", &labelPlaceholderEdit),
-					paramRow("treemap.labelDummy", &labelDummyEdit),
-					colorRow("treemap.nativeFolderBgColor", cfNativeFolderBg),
-					colorRow("treemap.nativeFolderTextColor", cfNativeFolderText),
-					colorRow("treemap.packedFolderBgColor", cfPackedFolderBg),
-					colorRow("treemap.packedFolderTextColor", cfPackedFolderText),
-					colorRow("treemap.nativeFileBgColor", cfNativeFileBg),
-					colorRow("treemap.nativeFileTextColor", cfNativeFileText),
-					colorRow("treemap.packedFileBgColor", cfPackedFileBg),
-					colorRow("treemap.packedFileTextColor", cfPackedFileText),
-					colorRow("treemap.nativeClumpBgColor", cfNativeClumpBg),
-					colorRow("treemap.nativeClumpTextColor", cfNativeClumpText),
-					colorRow("treemap.packedClumpBgColor", cfPackedClumpBg),
-					colorRow("treemap.packedClumpTextColor", cfPackedClumpText),
-					paramRow("treemap.win.exeFiles", &winExeEdit),
-					paramRow("treemap.linux.exeFiles", &linuxExeEdit),
-					paramRow("treemap.macos.exeFiles", &macExeEdit),
-				},
+				Layout: Grid{Columns: 4, MarginsZero: true, Spacing: 6},
+				Children: gridRows,
 			},
 			Composite{
 				Layout: HBox{MarginsZero: true, Spacing: 8},
