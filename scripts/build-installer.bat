@@ -25,8 +25,8 @@ if not exist "%SOURCE_DIR%" (
   exit /b 3
 )
 
-if not exist "%SOURCE_DIR%\Erase & Rewrite.exe" (
-  echo Required file is missing: "%SOURCE_DIR%\Erase & Rewrite.exe"
+if not exist "%SOURCE_DIR%\EraseAndRewrite.exe" (
+  echo Required file is missing: "%SOURCE_DIR%\EraseAndRewrite.exe"
   exit /b 4
 )
 

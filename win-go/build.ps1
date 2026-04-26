@@ -243,7 +243,7 @@ if ($GitRoot) {
 
 # Build output target: <Shitwiper>/bin/win/current (relative to repo layout: win-go is under codebase)
 $OutDir = Join-Path $WinBinRoot "current"
-$Exe = Join-Path $OutDir "Erase & Rewrite.exe"
+$Exe = Join-Path $OutDir "EraseAndRewrite.exe"
 
 Prepare-CurrentBuildFolder -WinBinRoot $WinBinRoot -CurrentDir $OutDir
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null

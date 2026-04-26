@@ -6,7 +6,7 @@
   #define OutputDir SourceDir
 #endif
 
-#define ProductVersion GetStringFileInfo(SourceDir + "\Erase & Rewrite.exe", "ProductVersion")
+#define ProductVersion GetStringFileInfo(SourceDir + "\EraseAndRewrite.exe", "ProductVersion")
 #if ProductVersion == ""
   #define ProductVersion "0.0.0.0"
 #endif
@@ -21,23 +21,23 @@ DefaultDirName={autopf}\Erase & Rewrite
 DefaultGroupName=Erase & Rewrite
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
-OutputBaseFilename=Erase & Rewrite-Setup-{#ProductVersion}
+OutputBaseFilename=EraseAndRewrite-Setup-{#ProductVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64compatible
-UninstallDisplayIcon={app}\Erase & Rewrite.exe
+UninstallDisplayIcon={app}\EraseAndRewrite.exe
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.date"
 
 [Icons]
-Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\Erase & Rewrite.exe"
-Name: "{autodesktop}\Erase & Rewrite"; Filename: "{app}\Erase & Rewrite.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"
+Name: "{autodesktop}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
 
 [Run]
-Filename: "{app}\Erase & Rewrite.exe"; Description: "Launch Erase & Rewrite"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\EraseAndRewrite.exe"; Description: "Launch Erase & Rewrite"; Flags: nowait postinstall skipifsilent
