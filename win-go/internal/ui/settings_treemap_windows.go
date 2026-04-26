@@ -7,12 +7,41 @@ import (
 	"image/color"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 
 	"eraserewrite/win-go/internal/config"
 )
+
+type colorField struct {
+	edit  *walk.LineEdit
+	swatch *walk.Label
+	brush *walk.SolidColorBrush
+}
+
+func (cf *colorField) setHex(hex string) error {
+	if cf.edit != nil {
+		_ = cf.edit.SetText(strings.ToUpper(hex))
+	}
+	c, err := parseHexColor(hex)
+	if err != nil {
+		return err
+	}
+	if cf.swatch != nil {
+		if cf.brush != nil {
+			cf.brush.Dispose()
+		}
+		b, berr := walk.NewSolidColorBrush(walk.RGB(c.R, c.G, c.B))
+		if berr == nil {
+			cf.brush = b
+			cf.swatch.SetBackground(b)
+		}
+	}
+	return nil
+}
 
 func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.Treemap, bool) {
 	edited := current
@@ -27,13 +56,28 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 	var tileFontEdit, headingMaxEdit, headingMinEdit *walk.LineEdit
 	var headingLineHeightEdit, detailsFontRatioEdit, detailsLineHeightEdit, aboveDetailsEdit *walk.LineEdit
 	var labelPlaceholderEdit, labelDummyEdit *walk.LineEdit
-	var nativeFolderBgEdit, nativeFolderTextEdit *walk.LineEdit
-	var packedFolderBgEdit, packedFolderTextEdit *walk.LineEdit
-	var nativeFileBgEdit, nativeFileTextEdit *walk.LineEdit
-	var packedFileBgEdit, packedFileTextEdit *walk.LineEdit
-	var nativeClumpBgEdit, nativeClumpTextEdit *walk.LineEdit
-	var packedClumpBgEdit, packedClumpTextEdit *walk.LineEdit
 	var winExeEdit, linuxExeEdit, macExeEdit *walk.LineEdit
+
+	cfNativeFolderBg := &colorField{}
+	cfNativeFolderText := &colorField{}
+	cfPackedFolderBg := &colorField{}
+	cfPackedFolderText := &colorField{}
+	cfNativeFileBg := &colorField{}
+	cfNativeFileText := &colorField{}
+	cfPackedFileBg := &colorField{}
+	cfPackedFileText := &colorField{}
+	cfNativeClumpBg := &colorField{}
+	cfNativeClumpText := &colorField{}
+	cfPackedClumpBg := &colorField{}
+	cfPackedClumpText := &colorField{}
+	colorFields := []*colorField{
+		cfNativeFolderBg, cfNativeFolderText,
+		cfPackedFolderBg, cfPackedFolderText,
+		cfNativeFileBg, cfNativeFileText,
+		cfPackedFileBg, cfPackedFileText,
+		cfNativeClumpBg, cfNativeClumpText,
+		cfPackedClumpBg, cfPackedClumpText,
+	}
 
 	setFields := func(t config.Treemap) {
 		_ = maxTilesEdit.SetText(strconv.Itoa(t.MaxTiles))
@@ -53,39 +97,60 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		_ = aboveDetailsEdit.SetText(strconv.FormatFloat(t.AboveDetailsRatio, 'f', -1, 64))
 		_ = labelPlaceholderEdit.SetText(t.LabelPlaceholder)
 		_ = labelDummyEdit.SetText(t.LabelDummy)
-		_ = nativeFolderBgEdit.SetText(formatRGBHex(t.NativeFolderBg))
-		_ = nativeFolderTextEdit.SetText(formatRGBHex(t.NativeFolderText))
-		_ = packedFolderBgEdit.SetText(formatRGBHex(t.PackedFolderBg))
-		_ = packedFolderTextEdit.SetText(formatRGBHex(t.PackedFolderText))
-		_ = nativeFileBgEdit.SetText(formatRGBHex(t.NativeFileBg))
-		_ = nativeFileTextEdit.SetText(formatRGBHex(t.NativeFileText))
-		_ = packedFileBgEdit.SetText(formatRGBHex(t.PackedFileBg))
-		_ = packedFileTextEdit.SetText(formatRGBHex(t.PackedFileText))
-		_ = nativeClumpBgEdit.SetText(formatRGBHex(t.NativeClumpBg))
-		_ = nativeClumpTextEdit.SetText(formatRGBHex(t.NativeClumpText))
-		_ = packedClumpBgEdit.SetText(formatRGBHex(t.PackedClumpBg))
-		_ = packedClumpTextEdit.SetText(formatRGBHex(t.PackedClumpText))
 		_ = winExeEdit.SetText(strings.TrimSpace(t.WinExeFiles))
 		_ = linuxExeEdit.SetText(strings.TrimSpace(t.LinuxExeFiles))
 		_ = macExeEdit.SetText(strings.TrimSpace(t.MacOSExeFiles))
+
+		_ = cfNativeFolderBg.setHex(formatRGBHex(t.NativeFolderBg))
+		_ = cfNativeFolderText.setHex(formatRGBHex(t.NativeFolderText))
+		_ = cfPackedFolderBg.setHex(formatRGBHex(t.PackedFolderBg))
+		_ = cfPackedFolderText.setHex(formatRGBHex(t.PackedFolderText))
+		_ = cfNativeFileBg.setHex(formatRGBHex(t.NativeFileBg))
+		_ = cfNativeFileText.setHex(formatRGBHex(t.NativeFileText))
+		_ = cfPackedFileBg.setHex(formatRGBHex(t.PackedFileBg))
+		_ = cfPackedFileText.setHex(formatRGBHex(t.PackedFileText))
+		_ = cfNativeClumpBg.setHex(formatRGBHex(t.NativeClumpBg))
+		_ = cfNativeClumpText.setHex(formatRGBHex(t.NativeClumpText))
+		_ = cfPackedClumpBg.setHex(formatRGBHex(t.PackedClumpBg))
+		_ = cfPackedClumpText.setHex(formatRGBHex(t.PackedClumpText))
+	}
+
+	chooseColor := func(cf *colorField) {
+		if cf == nil || cf.edit == nil {
+			return
+		}
+		cur, err := parseHexColor(cf.edit.Text())
+		if err != nil {
+			cur = color.RGBA{A: 255}
+		}
+		picked, ok := pickColor(owner, cur)
+		if !ok {
+			return
+		}
+		_ = cf.setHex(formatRGBHex(picked))
 	}
 
 	applyEdits := func() error {
 		parseInt := func(name string, e *walk.LineEdit, min int) (int, error) {
-			s := strings.TrimSpace(e.Text())
-			v, err := strconv.Atoi(s)
+			v, err := strconv.Atoi(strings.TrimSpace(e.Text()))
 			if err != nil || v < min {
 				return 0, fmt.Errorf("%s must be an integer >= %d", name, min)
 			}
 			return v, nil
 		}
 		parseFloatPos := func(name string, e *walk.LineEdit) (float64, error) {
-			s := strings.TrimSpace(e.Text())
-			v, err := strconv.ParseFloat(s, 64)
+			v, err := strconv.ParseFloat(strings.TrimSpace(e.Text()), 64)
 			if err != nil || v <= 0 {
-				return 0, fmt.Errorf("%s must be a number > 0", name)
+				return 0, fmt.Errorf("%s must be > 0", name)
 			}
 			return v, nil
+		}
+		parseColor := func(name string, cf *colorField) (color.RGBA, error) {
+			c, err := parseHexColor(cf.edit.Text())
+			if err != nil {
+				return color.RGBA{}, fmt.Errorf("%s: %w", name, err)
+			}
+			return c, nil
 		}
 
 		maxTiles, err := parseInt("treemap.maxTiles", maxTilesEdit, 1)
@@ -94,7 +159,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		}
 		clumpTh, err := parsePercentOrRatio(strings.TrimSpace(clumpThresholdEdit.Text()))
 		if err != nil || clumpTh <= 0 {
-			return fmt.Errorf("treemap.clumpThreshold must be a positive ratio or percent (for example 1%% or 0.01)")
+			return fmt.Errorf("treemap.clumpThreshold must be positive (for example 1%% or 0.01)")
 		}
 		minW, err := parseInt("treemap.minTileWidth", minTileWidthEdit, 1)
 		if err != nil {
@@ -147,63 +212,6 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		if err != nil {
 			return err
 		}
-
-		parseColor := func(name string, e *walk.LineEdit) (color.RGBA, error) {
-			c, err := parseHexColor(e.Text())
-			if err != nil {
-				return color.RGBA{}, fmt.Errorf("%s: %w", name, err)
-			}
-			return c, nil
-		}
-		nFolderBg, err := parseColor("treemap.nativeFolderBgColor", nativeFolderBgEdit)
-		if err != nil {
-			return err
-		}
-		nFolderText, err := parseColor("treemap.nativeFolderTextColor", nativeFolderTextEdit)
-		if err != nil {
-			return err
-		}
-		pFolderBg, err := parseColor("treemap.packedFolderBgColor", packedFolderBgEdit)
-		if err != nil {
-			return err
-		}
-		pFolderText, err := parseColor("treemap.packedFolderTextColor", packedFolderTextEdit)
-		if err != nil {
-			return err
-		}
-		nFileBg, err := parseColor("treemap.nativeFileBgColor", nativeFileBgEdit)
-		if err != nil {
-			return err
-		}
-		nFileText, err := parseColor("treemap.nativeFileTextColor", nativeFileTextEdit)
-		if err != nil {
-			return err
-		}
-		pFileBg, err := parseColor("treemap.packedFileBgColor", packedFileBgEdit)
-		if err != nil {
-			return err
-		}
-		pFileText, err := parseColor("treemap.packedFileTextColor", packedFileTextEdit)
-		if err != nil {
-			return err
-		}
-		nClumpBg, err := parseColor("treemap.nativeClumpBgColor", nativeClumpBgEdit)
-		if err != nil {
-			return err
-		}
-		nClumpText, err := parseColor("treemap.nativeClumpTextColor", nativeClumpTextEdit)
-		if err != nil {
-			return err
-		}
-		pClumpBg, err := parseColor("treemap.packedClumpBgColor", packedClumpBgEdit)
-		if err != nil {
-			return err
-		}
-		pClumpText, err := parseColor("treemap.packedClumpTextColor", packedClumpTextEdit)
-		if err != nil {
-			return err
-		}
-
 		face := strings.TrimSpace(tileFontEdit.Text())
 		if face == "" {
 			return fmt.Errorf("treemap.tileFontName must not be empty")
@@ -212,6 +220,55 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		labelDummy := strings.TrimSpace(labelDummyEdit.Text())
 		if labelPlaceholder == "" || labelDummy == "" {
 			return fmt.Errorf("treemap.labelPlaceholder and treemap.labelDummy must not be empty")
+		}
+
+		nFolderBg, err := parseColor("treemap.nativeFolderBgColor", cfNativeFolderBg)
+		if err != nil {
+			return err
+		}
+		nFolderText, err := parseColor("treemap.nativeFolderTextColor", cfNativeFolderText)
+		if err != nil {
+			return err
+		}
+		pFolderBg, err := parseColor("treemap.packedFolderBgColor", cfPackedFolderBg)
+		if err != nil {
+			return err
+		}
+		pFolderText, err := parseColor("treemap.packedFolderTextColor", cfPackedFolderText)
+		if err != nil {
+			return err
+		}
+		nFileBg, err := parseColor("treemap.nativeFileBgColor", cfNativeFileBg)
+		if err != nil {
+			return err
+		}
+		nFileText, err := parseColor("treemap.nativeFileTextColor", cfNativeFileText)
+		if err != nil {
+			return err
+		}
+		pFileBg, err := parseColor("treemap.packedFileBgColor", cfPackedFileBg)
+		if err != nil {
+			return err
+		}
+		pFileText, err := parseColor("treemap.packedFileTextColor", cfPackedFileText)
+		if err != nil {
+			return err
+		}
+		nClumpBg, err := parseColor("treemap.nativeClumpBgColor", cfNativeClumpBg)
+		if err != nil {
+			return err
+		}
+		nClumpText, err := parseColor("treemap.nativeClumpTextColor", cfNativeClumpText)
+		if err != nil {
+			return err
+		}
+		pClumpBg, err := parseColor("treemap.packedClumpBgColor", cfPackedClumpBg)
+		if err != nil {
+			return err
+		}
+		pClumpText, err := parseColor("treemap.packedClumpTextColor", cfPackedClumpText)
+		if err != nil {
+			return err
 		}
 
 		edited.MaxTiles = maxTiles
@@ -231,6 +288,9 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		edited.AboveDetailsRatio = aboveDetails
 		edited.LabelPlaceholder = labelPlaceholder
 		edited.LabelDummy = labelDummy
+		edited.WinExeFiles = strings.TrimSpace(winExeEdit.Text())
+		edited.LinuxExeFiles = strings.TrimSpace(linuxExeEdit.Text())
+		edited.MacOSExeFiles = strings.TrimSpace(macExeEdit.Text())
 		edited.NativeFolderBg = nFolderBg
 		edited.NativeFolderText = nFolderText
 		edited.PackedFolderBg = pFolderBg
@@ -243,9 +303,6 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		edited.NativeClumpText = nClumpText
 		edited.PackedClumpBg = pClumpBg
 		edited.PackedClumpText = pClumpText
-		edited.WinExeFiles = strings.TrimSpace(winExeEdit.Text())
-		edited.LinuxExeFiles = strings.TrimSpace(linuxExeEdit.Text())
-		edited.MacOSExeFiles = strings.TrimSpace(macExeEdit.Text())
 		return nil
 	}
 
@@ -266,13 +323,28 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		return true
 	}
 
-	label := func(s string) Widget { return Label{Text: s} }
 	row := func(name string, assign **walk.LineEdit) Widget {
 		return Composite{
 			Layout: Grid{Columns: 2, MarginsZero: true},
 			Children: []Widget{
-				label(name),
+				Label{Text: name},
 				LineEdit{AssignTo: assign},
+			},
+		}
+	}
+	colorRow := func(name string, cf *colorField) Widget {
+		return Composite{
+			Layout: Grid{Columns: 4, MarginsZero: true},
+			Children: []Widget{
+				Label{Text: name},
+				LineEdit{AssignTo: &cf.edit},
+				Label{AssignTo: &cf.swatch, Text: "      ", MinSize: Size{Width: 46, Height: 20}, MaxSize: Size{Width: 46, Height: 20}},
+				PushButton{
+					Text: "Pick\u2026",
+					OnClicked: func() {
+						chooseColor(cf)
+					},
+				},
 			},
 		}
 	}
@@ -282,12 +354,12 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		icon = ic
 	}
 
-	_, _ = Dialog{
+	decl := Dialog{
 		AssignTo:      &dlg,
 		Title:         "Settings",
 		Icon:          icon,
-		MinSize:       Size{Width: 760, Height: 700},
-		Size:          Size{Width: 860, Height: 820},
+		MinSize:       Size{Width: 900, Height: 760},
+		Size:          Size{Width: 980, Height: 860},
 		DefaultButton: &okBtn,
 		Layout:        VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
@@ -312,18 +384,18 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 					row("treemap.aboveDetailsHeightRatio", &aboveDetailsEdit),
 					row("treemap.labelPlaceholder", &labelPlaceholderEdit),
 					row("treemap.labelDummy", &labelDummyEdit),
-					row("treemap.nativeFolderBgColor", &nativeFolderBgEdit),
-					row("treemap.nativeFolderTextColor", &nativeFolderTextEdit),
-					row("treemap.packedFolderBgColor", &packedFolderBgEdit),
-					row("treemap.packedFolderTextColor", &packedFolderTextEdit),
-					row("treemap.nativeFileBgColor", &nativeFileBgEdit),
-					row("treemap.nativeFileTextColor", &nativeFileTextEdit),
-					row("treemap.packedFileBgColor", &packedFileBgEdit),
-					row("treemap.packedFileTextColor", &packedFileTextEdit),
-					row("treemap.nativeClumpBgColor", &nativeClumpBgEdit),
-					row("treemap.nativeClumpTextColor", &nativeClumpTextEdit),
-					row("treemap.packedClumpBgColor", &packedClumpBgEdit),
-					row("treemap.packedClumpTextColor", &packedClumpTextEdit),
+					colorRow("treemap.nativeFolderBgColor", cfNativeFolderBg),
+					colorRow("treemap.nativeFolderTextColor", cfNativeFolderText),
+					colorRow("treemap.packedFolderBgColor", cfPackedFolderBg),
+					colorRow("treemap.packedFolderTextColor", cfPackedFolderText),
+					colorRow("treemap.nativeFileBgColor", cfNativeFileBg),
+					colorRow("treemap.nativeFileTextColor", cfNativeFileText),
+					colorRow("treemap.packedFileBgColor", cfPackedFileBg),
+					colorRow("treemap.packedFileTextColor", cfPackedFileText),
+					colorRow("treemap.nativeClumpBgColor", cfNativeClumpBg),
+					colorRow("treemap.nativeClumpTextColor", cfNativeClumpText),
+					colorRow("treemap.packedClumpBgColor", cfPackedClumpBg),
+					colorRow("treemap.packedClumpTextColor", cfPackedClumpText),
 					row("treemap.win.exeFiles", &winExeEdit),
 					row("treemap.linux.exeFiles", &linuxExeEdit),
 					row("treemap.macos.exeFiles", &macExeEdit),
@@ -349,7 +421,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 						AssignTo: &applyBtn,
 						Text:     "Apply",
 						OnClicked: func() {
-							_ = applyBtn // keep AssignTo alive for declarative
+							_ = applyBtn
 							_ = saveAndApply()
 						},
 					},
@@ -365,12 +437,43 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 				},
 			},
 		},
-	}.Run(owner)
-
-	if dlg.Result() != walk.DlgCmdOK {
+	}
+	if err := decl.Create(owner); err != nil {
+		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return current, false
+	}
+	setFields(current)
+	result := dlg.Run()
+	for _, cf := range colorFields {
+		if cf.brush != nil {
+			cf.brush.Dispose()
+			cf.brush = nil
+		}
+	}
+	if result != walk.DlgCmdOK {
 		return current, false
 	}
 	return edited, true
+}
+
+func pickColor(owner walk.Form, start color.RGBA) (color.RGBA, bool) {
+	var custom [16]win.COLORREF
+	cc := win.CHOOSECOLOR{
+		LStructSize:  uint32(unsafe.Sizeof(win.CHOOSECOLOR{})),
+		HwndOwner:    owner.AsFormBase().Handle(),
+		RgbResult:    win.RGB(start.R, start.G, start.B),
+		LpCustColors: &custom,
+		Flags:        win.CC_FULLOPEN | win.CC_RGBINIT,
+	}
+	if !win.ChooseColor(&cc) {
+		return color.RGBA{}, false
+	}
+	return color.RGBA{
+		R: byte(cc.RgbResult & 0xFF),
+		G: byte((cc.RgbResult >> 8) & 0xFF),
+		B: byte((cc.RgbResult >> 16) & 0xFF),
+		A: 255,
+	}, true
 }
 
 func parsePercentOrRatio(s string) (float64, error) {
