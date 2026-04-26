@@ -20,14 +20,14 @@ import (
 	. "github.com/lxn/walk/declarative"
 	"github.com/lxn/win"
 
-	"whatrwipe/win-go/internal/art"
-	"whatrwipe/win-go/internal/config"
-	"whatrwipe/win-go/internal/format"
-	"whatrwipe/win-go/internal/layout"
-	"whatrwipe/win-go/internal/model"
-	"whatrwipe/win-go/internal/scan"
-	"whatrwipe/win-go/internal/volume"
-	"whatrwipe/win-go/internal/winver"
+	"trashadvisor/win-go/internal/art"
+	"trashadvisor/win-go/internal/config"
+	"trashadvisor/win-go/internal/format"
+	"trashadvisor/win-go/internal/layout"
+	"trashadvisor/win-go/internal/model"
+	"trashadvisor/win-go/internal/scan"
+	"trashadvisor/win-go/internal/volume"
+	"trashadvisor/win-go/internal/winver"
 )
 
 type scanKind int
@@ -113,7 +113,7 @@ type app struct {
 	scanProgShownAt time.Time
 }
 
-// Run starts the WhatToWipe main window (FS + techspec shell).
+// Run starts the Trash Advisor main window (FS + techspec shell).
 func Run() error {
 	tc, cfgErr := config.LoadOrInitTreemap()
 	if cfgErr != nil {
@@ -137,7 +137,7 @@ func Run() error {
 
 	mwDecl := MainWindow{
 		AssignTo: &a.mw,
-		Title:    "WhatToWipe",
+		Title:    "Trash Advisor",
 		Size:     Size{1024, 760},
 		OnSizeChanged: func() {
 			a.setScanChrome(a.scanning.Load())
@@ -148,7 +148,7 @@ func Run() error {
 				Items: []MenuItem{
 					Action{
 						AssignTo:    &a.openAction,
-						Text:        "&Open a Folder…",
+						Text:        "&Open a FolderвЂ¦",
 						Image:       a.openBmp,
 						Shortcut:    Shortcut{walk.ModControl, walk.KeyO},
 						OnTriggered: a.onOpenFolder,
@@ -265,7 +265,7 @@ func (a *app) chartChildren() []Widget {
 				},
 				Label{
 					AssignTo:    &a.volTotalLbl,
-					Text:        "Total at —: —",
+					Text:        "Total at вЂ”: вЂ”",
 					MaxSize:     Size{Width: 520, Height: 0},
 					ToolTipText: "Total capacity of the volume",
 				},
@@ -274,12 +274,12 @@ func (a *app) chartChildren() []Widget {
 					Children: []Widget{
 						Label{
 							AssignTo:    &a.volFreeLbl,
-							Text:        "Free at —:",
+							Text:        "Free at вЂ”:",
 							ToolTipText: "Free space on the volume",
 						},
 						PushButton{
 							AssignTo:    &a.volFreeBtn,
-							Text:        "—",
+							Text:        "вЂ”",
 							Enabled:     false,
 							ToolTipText: "Free space on the volume. Click to refresh.",
 							OnClicked: func() {
@@ -637,7 +637,7 @@ func (a *app) busyPointerTwoSeconds() {
 
 // explorePathInShell implements *Checking a Folder of Interest* then opening the folder in the
 // shell (funcspec: Exploring the Context Folder / Exploring a Subfolder). unsetOnFailure mirrors
-// negative outcome for Inspect → Explore (treemap unset); tile Explore leaves the treemap unchanged.
+// negative outcome for Inspect в†’ Explore (treemap unset); tile Explore leaves the treemap unchanged.
 func (a *app) explorePathInShell(path string, unsetTreemapOnFailure bool) {
 	if a.mw == nil {
 		return
@@ -847,7 +847,7 @@ func (a *app) setScanChrome(scanning bool) {
 	}
 	if a.updateMenu != nil {
 		_ = a.updateMenu.SetVisible(!scanning)
-		// FS: unavailable commands disabled — Update only after a successful target scan.
+		// FS: unavailable commands disabled вЂ” Update only after a successful target scan.
 		canUpdate := !scanning && a.treemapComplete && a.targetPath != ""
 		_ = a.updateMenu.SetEnabled(canUpdate)
 	}
@@ -923,21 +923,21 @@ func (a *app) refreshVolumeToolbar() {
 		return
 	}
 	if a.volBarRoot == "" || a.targetPath == "" {
-		_ = a.volTotalLbl.SetText("Total at —: —")
+		_ = a.volTotalLbl.SetText("Total at вЂ”: вЂ”")
 		if a.volFreeLbl != nil {
-			_ = a.volFreeLbl.SetText("Free at —:")
+			_ = a.volFreeLbl.SetText("Free at вЂ”:")
 		}
-		_ = a.volFreeBtn.SetText("—")
+		_ = a.volFreeBtn.SetText("вЂ”")
 		return
 	}
 	letter := volume.DriveLabel(a.volBarRoot)
 	tot, fr, err := volume.DiskSpace(a.volBarRoot)
 	if err != nil {
-		_ = a.volTotalLbl.SetText("Total at " + letter + ": —")
+		_ = a.volTotalLbl.SetText("Total at " + letter + ": вЂ”")
 		if a.volFreeLbl != nil {
 			_ = a.volFreeLbl.SetText("Free at " + letter + ":")
 		}
-		_ = a.volFreeBtn.SetText("—")
+		_ = a.volFreeBtn.SetText("вЂ”")
 		return
 	}
 	a.driveTotal, a.driveFree = tot, fr

@@ -3,8 +3,8 @@ package scan
 import (
 	"sort"
 
-	"whatrwipe/win-go/internal/config"
-	"whatrwipe/win-go/internal/model"
+	"trashadvisor/win-go/internal/config"
+	"trashadvisor/win-go/internal/model"
 )
 
 type treemapCand struct {
@@ -26,7 +26,7 @@ func isExecutablePath(path string, cfg config.Treemap) bool {
 }
 
 // BuildTreemapItems builds tiles for the current context folder (nested file system objects
-// one level down), honoring treemap.maxTiles and clump aggregation (funcspec § Treemap → Tiles).
+// one level down), honoring treemap.maxTiles and clump aggregation (funcspec В§ Treemap в†’ Tiles).
 func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Treemap) []model.TreeItem {
 	if cur == nil {
 		return nil

@@ -1,6 +1,6 @@
 //go:build windows
 
-// About art: place PNG at codebase/assets/art/about-bunny.png — build.ps1 copies it into assets/art for //go:embed.
+// About art: place PNG at codebase/assets/art/about-bunny.png вЂ” build.ps1 copies it into assets/art for //go:embed.
 
 package ui
 
@@ -11,7 +11,7 @@ import (
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 
-	aboutart "whatrwipe/win-go/assets/art"
+	aboutart "trashadvisor/win-go/assets/art"
 )
 
 type dpiPicker interface {
@@ -32,7 +32,7 @@ func ownerDPI(owner walk.Form) int {
 func aboutTextLabels(versionDotted string) []Widget {
 	w := 300
 	return []Widget{
-		Label{Text: "WhatToWipe is a disk space analyzer.", MaxSize: Size{Width: w, Height: 0}},
+		Label{Text: "Trash Advisor is a disk space analyzer.", MaxSize: Size{Width: w, Height: 0}},
 		Label{Text: "It scans a folder, shows its subfolders as a treemap,", MaxSize: Size{Width: w, Height: 0}},
 		Label{Text: "and helps you decide what to keep, move, or remove.", MaxSize: Size{Width: w, Height: 0}},
 		Label{Text: "Version " + versionDotted, MaxSize: Size{Width: w, Height: 0}},
@@ -40,12 +40,12 @@ func aboutTextLabels(versionDotted string) []Widget {
 }
 
 func aboutPlainFallback(versionDotted string) string {
-	return "WhatToWipe is a disk space analyzer.\n\n" +
+	return "Trash Advisor is a disk space analyzer.\n\n" +
 		"It scans a folder, shows its subfolders as a treemap, and helps you decide what to keep, move, or remove.\n\n" +
 		"Version " + versionDotted
 }
 
-// aboutImageCellSize returns a 1/96" layout cell that matches the image aspect ratio and fits inside maxW×maxH.
+// aboutImageCellSize returns a 1/96" layout cell that matches the image aspect ratio and fits inside maxWГ—maxH.
 func aboutImageCellSize(img walk.Image, maxW, maxH int) walk.Size {
 	if img == nil || maxW <= 0 || maxH <= 0 {
 		return walk.Size{Width: maxW, Height: maxH}
@@ -89,7 +89,7 @@ func loadAboutArtImage(owner walk.Form) walk.Image {
 func showAboutDialog(owner walk.Form, versionDotted string) {
 	art := loadAboutArtImage(owner)
 	if art == nil {
-		walk.MsgBox(owner, "About WhatToWipe", aboutPlainFallback(versionDotted), walk.MsgBoxOK|walk.MsgBoxIconInformation)
+		walk.MsgBox(owner, "About Trash Advisor", aboutPlainFallback(versionDotted), walk.MsgBoxOK|walk.MsgBoxIconInformation)
 		return
 	}
 
@@ -137,7 +137,7 @@ func showAboutDialog(owner walk.Form, versionDotted string) {
 
 	_, _ = Dialog{
 		AssignTo:      &dlg,
-		Title:         "About WhatToWipe",
+		Title:         "About Trash Advisor",
 		FixedSize:     true,
 		Size:          Size{Width: dlgW, Height: dlgH},
 		DefaultButton: &ok,

@@ -1,8 +1,8 @@
-# The WhatToWipe Utility. Functional Specification
+# The Trash Advisor Utility. Functional Specification
 
 ## Purpose
 
-The WhatToWipe utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
+The Trash Advisor utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
 
 
 ## Concepts and Terms
@@ -44,7 +44,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Node folder:* A folder that contains at least one nested folder.
 
-*Program:* If not specified, the WhatToWipe utility.
+*Program:* If not specified, the Trash Advisor utility.
 
 *Scanning a folder:* An automatic activity during which the program collects data on the folder and all inner file system objects recursively.
 
@@ -185,7 +185,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **File → Open a Folder** command.
+1. The user selects the **File в†’ Open a Folder** command.
 
    **System Response**
 
@@ -288,7 +288,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **Inspect → Update** command.
+1. The user selects the **Inspect в†’ Update** command.
 
    **System Response**
 
@@ -370,15 +370,15 @@ Any of the following conditions is met:
 
 1. Reconfigure the user interface.
 
-   - Hide the **Inspect → Update** command.
-   - Show the **Inspect → Stop** command.
+   - Hide the **Inspect в†’ Update** command.
+   - Show the **Inspect в†’ Stop** command.
    - Set the mouse pointer to the busy state.
 
 2. Scan the context folder hierarchy.
 
    Handle the possible issues as stated below.
 
-   If the user selects the **Inspect → Stop** command:
+   If the user selects the **Inspect в†’ Stop** command:
 
    - Stop scanning.
    - Recognize the result as negative.
@@ -398,8 +398,8 @@ Any of the following conditions is met:
 
 3. Reconfigure the user interface.
 
-   - Hide the **Inspect → Stop** command.
-   - Show the **Inspect → Update** command.
+   - Hide the **Inspect в†’ Stop** command.
+   - Show the **Inspect в†’ Update** command.
    - Set the mouse pointer to the default state.
 
 **Rules**
@@ -499,7 +499,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **Inspect → Up** command.
+1. The user selects the **Inspect в†’ Up** command.
 
    **System Response**
 
@@ -556,7 +556,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the  **Inspect → Explore** command.
+1. The user selects the  **Inspect в†’ Explore** command.
 
    **System Response**
 
@@ -773,7 +773,7 @@ Neither modal dialog box is open.
 
 **Steps**
 
-1. The user selects the **Help → About** command.
+1. The user selects the **Help в†’ About** command.
 
    **System Response**
 
@@ -789,8 +789,8 @@ Neither modal dialog box is open.
 
 While the **About** dialog box is open, the following text must be visible:
 
-- The product name **WhatToWipe**.
-- The application version as a single dotted string **Major.Minor.Patch.Build**, where Major, Minor, Patch, and Build are decimal integers and the string is identical to the **File version** value shown in Windows File Explorer for the running executable (Properties → Details).
+- The product name **Trash Advisor**.
+- The application version as a single dotted string **Major.Minor.Patch.Build**, where Major, Minor, Patch, and Build are decimal integers and the string is identical to the **File version** value shown in Windows File Explorer for the running executable (Properties в†’ Details).
 
 **Result**
 
@@ -823,7 +823,7 @@ Neither modal dialog box is open.
 
 **Steps**
 
-1. The user selects the **File → Exit** command.
+1. The user selects the **File в†’ Exit** command.
 
    **System Response**
 
@@ -846,13 +846,13 @@ The following commands must be available for the user in the main window.
 
 | Command                  | Toolbar     | Hot Keys      | Action                               |
 |--------------------------|-------------|---------------|--------------------------------------|
-| **File → Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
-| **File → Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
-| **Inspect → Up**         | **Up**      | **Backspace** | *Returning to the Superfolder*       |
-| **Inspect → Explore...** | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
-| **Inspect → Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
-| **Inspect → Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
-| **Help → About...**      |             |               | *Displaying the Program Information* |
+| **File в†’ Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
+| **File в†’ Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
+| **Inspect в†’ Up**         | **Up**      | **Backspace** | *Returning to the Superfolder*       |
+| **Inspect в†’ Explore...** | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
+| **Inspect в†’ Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
+| **Inspect в†’ Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
+| **Help в†’ About...**      |             |               | *Displaying the Program Information* |
 
 Selecting menu commands, clicking on toolbar buttons, and pressing hot keys must be treated as equivalent actions according to the table above.
 
@@ -863,7 +863,7 @@ These rules must be fulfilled at any moment. Elements corresponding to unavailab
 
 The following groups of commands must be treated as mutually exclusive:
 
-- Group *UpdateStop*: **Inspect → Update**, **Inspect → Stop**
+- Group *UpdateStop*: **Inspect в†’ Update**, **Inspect в†’ Stop**
 
 The following rules must be implemented for the mutually exclusive elements:
 
@@ -939,7 +939,7 @@ The toolbar must contain the following elements.
 | **Total**   | Indicator | Volume capacity    | `Total capacity of the volume` | `Total at X:` |
 | **Free**    | Indicator | Volume free space  | `Free space on the volume`     | `Free at X:`  |
 
-Toolbar button icons must be rasterized at 24×24 pixels in the toolbar’s image list at 96 DPI. The implementation scales this nominal size with the toolbar host DPI so icons remain sharp on high-DPI displays. Icons must remain visually distinct and legible at that size.
+Toolbar button icons must be rasterized at 24Г—24 pixels in the toolbarвЂ™s image list at 96 DPI. The implementation scales this nominal size with the toolbar host DPI so icons remain sharp on high-DPI displays. Icons must remain visually distinct and legible at that size.
 
 The **Total** element must be implemented as a static text. The static text must be `Total at X:`. The `X` stands for the volume label (**current volume** letter or name); the text must also show total capacity for that volume.
 
@@ -999,7 +999,7 @@ If `N` is greater than `treemap.maxTiles`, the treemap must show:
 
 For equal sizes, ordering is implementation-defined.
 
-Each tile’s area is proportional to the volume share of the represented entry (or represented clump sum).
+Each tileвЂ™s area is proportional to the volume share of the represented entry (or represented clump sum).
 
 File tiles must use the packing type recorded in the descriptor for the represented entry.
 
@@ -1008,7 +1008,7 @@ File tiles must use the packing type recorded in the descriptor for the represen
 
 ##### Padding and Clipping
 
-The padding rectangle is the rectangle inside the tile’s external rectangle whose left edge is shifted inward by (Left padding), top edge by (Top padding), right edge by (Right padding), and bottom edge by (Bottom padding).
+The padding rectangle is the rectangle inside the tileвЂ™s external rectangle whose left edge is shifted inward by (Left padding), top edge by (Top padding), right edge by (Right padding), and bottom edge by (Bottom padding).
 
 The following padding must be provided inside a tile.
 
@@ -1074,7 +1074,7 @@ The following linear sizes must apply to the parts of the tile label.
 | Details line height              | Details font size * `treemap.detailsLineHeight`       |
 | Interval above the details block | Details font size * `treemap.aboveDetailsHeightRatio` |
 
-A label fits the tile if it can be displayed within the tile’s external rectangle without being clipped.
+A label fits the tile if it can be displayed within the tileвЂ™s external rectangle without being clipped.
 
 The possible methods for displaying a label are listed below, from most preferable to least preferable:
 
@@ -1274,9 +1274,9 @@ Program configuration includes a set of parameters that describe the behavior an
 
 Values of the configuration parameters must be stored in a configuration file.
 
-The configuration file name must be `WhatToWipe.config.txt`.
+The configuration file name must be `Trash Advisor.config.txt`.
 
-The configuration folder path must be `%LocalAppData%\WhatToWipe`.
+The configuration folder path must be `%LocalAppData%\Trash Advisor`.
 
 The executable must contain a built-in default configuration.
 

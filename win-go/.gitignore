@@ -1,5 +1,5 @@
-# Only artifacts dropped in the module root — not dist/ (bundle lives there).
-/WhatToWipe.exe
-/WhatToWipe.config.txt
-# Ignore the binary in dist/ only; keep WhatToWipe.config.txt visible next to the exe.
+# Only artifacts dropped in the module root вЂ” not dist/ (bundle lives there).
+/Trash Advisor.exe
+/Trash Advisor.config.txt
+# Ignore the binary in dist/ only; keep Trash Advisor.config.txt visible next to the exe.
 dist/*.exe

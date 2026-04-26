@@ -12,7 +12,7 @@ if "%~2"=="" (
 
 rem Script dir always ends with \ ; paths below do not depend on caller cwd.
 set "SCRIPT_DIR=%~dp0"
-for %%I in ("%SCRIPT_DIR%..\installer\WhatToWipe.iss") do set "ISS_FILE=%%~fI"
+for %%I in ("%SCRIPT_DIR%..\installer\Trash Advisor.iss") do set "ISS_FILE=%%~fI"
 if not exist "%ISS_FILE%" (
   echo Inno script not found: "%ISS_FILE%"
   exit /b 9
@@ -25,8 +25,8 @@ if not exist "%SOURCE_DIR%" (
   exit /b 3
 )
 
-if not exist "%SOURCE_DIR%\WhatToWipe.exe" (
-  echo Required file is missing: "%SOURCE_DIR%\WhatToWipe.exe"
+if not exist "%SOURCE_DIR%\Trash Advisor.exe" (
+  echo Required file is missing: "%SOURCE_DIR%\Trash Advisor.exe"
   exit /b 4
 )
 

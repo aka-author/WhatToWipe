@@ -1,6 +1,6 @@
 # Repository folder structure (rules)
 
-This document defines how directories and specification files are organized for WhatToWipe. It is a house rule for contributors and tooling. It does not change product meaning; [specs/funcspec.md](./specs/funcspec.md) remains the functional source of truth.
+This document defines how directories and specification files are organized for Trash Advisor. It is a house rule for contributors and tooling. It does not change product meaning; [specs/funcspec.md](./specs/funcspec.md) remains the functional source of truth.
 
 ## 1. Goals
 
@@ -35,20 +35,20 @@ Informative architecture notes use the parallel name in the **same** directory:
 
 `docs/specs/arch-<platform>-<stack>.md`
 
-**Supported today:** Windows + Go only — `techspec-win-go.md`, `arch-win-go.md`. Do not add spec files or repo-root **`win-go/`** siblings for other OSes until those targets are actually supported.
+**Supported today:** Windows + Go only вЂ” `techspec-win-go.md`, `arch-win-go.md`. Do not add spec files or repo-root **`win-go/`** siblings for other OSes until those targets are actually supported.
 
 Rules for the slug `<platform>-<stack>` in the filename:
 
 - Use lowercase ASCII, words separated by a single hyphen.
-- `<platform>` is a short OS or environment id (`win`, `darwin`, `linux`, …).
-- `<stack>` is the primary language or UI stack id (`go`, `swift`, …).
+- `<platform>` is a short OS or environment id (`win`, `darwin`, `linux`, вЂ¦).
+- `<stack>` is the primary language or UI stack id (`go`, `swift`, вЂ¦).
 - Do not rename an existing techspec without a repo-wide migration (grep links, CI, reviews).
 
 If one target needs several normative add-ons (rare), use an extra hyphenated suffix (`techspec-win-go-msix.md`) or a clearly named sidecar Markdown file.
 
 ### 2.3 Implementation folder at repo root
 
-The folder **`win-go/`** at the repository root matches the `win-go` slug in `techspec-win-go.md`. When you add another supported target, add matching `techspec-*.md` / `arch-*.md` under `docs/specs/` and a same-named **`<slug>/`** folder here—do not keep empty “future” trees beforehand.
+The folder **`win-go/`** at the repository root matches the `win-go` slug in `techspec-win-go.md`. When you add another supported target, add matching `techspec-*.md` / `arch-*.md` under `docs/specs/` and a same-named **`<slug>/`** folder hereвЂ”do not keep empty вЂњfutureвЂќ trees beforehand.
 
 ### 2.4 Verification and engineering notes
 
@@ -76,7 +76,7 @@ Do not duplicate FS or techspec text inside source folders; link to `docs/specs/
 
 Compiled binaries must not live **inside** the `codebase/` git repository.
 
-**Current practice:** `win-go/build.ps1` emits `WhatToWipe.exe` to `<ProjectRoot>/bin/win/current`, where `ProjectRoot = codebase/..`. Installer builds go to `<ProjectRoot>/delivery/win/<yyyy-MM-dd_HH-mm>`.
+**Current practice:** `win-go/build.ps1` emits `Trash Advisor.exe` to `<ProjectRoot>/bin/win/current`, where `ProjectRoot = codebase/..`. Installer builds go to `<ProjectRoot>/delivery/win/<yyyy-MM-dd_HH-mm>`.
 
 Rules:
 

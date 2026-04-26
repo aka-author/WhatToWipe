@@ -9,7 +9,7 @@ import (
 	"github.com/lxn/walk"
 )
 
-// Verbatim English messages from docs/specs/funcspec.md § Errors (user-facing).
+// Verbatim English messages from docs/specs/funcspec.md В§ Errors (user-facing).
 const (
 	specErr001 = "The folder could not be opened for scanning. Check that it still exists and that you have permission to read it."
 	specErr003 = "The folder could not be opened in File Explorer."
@@ -28,12 +28,12 @@ func (a *app) showErrorAlert(code, message string) {
 		return
 	}
 	text := fmt.Sprintf("Error code: %s\n\n%s", code, message)
-	walk.MsgBox(a.mw, "WhatToWipe", text, walk.MsgBoxOK|walk.MsgBoxApplModal|walk.MsgBoxIconError)
+	walk.MsgBox(a.mw, "Trash Advisor", text, walk.MsgBoxOK|walk.MsgBoxApplModal|walk.MsgBoxIconError)
 }
 
 func (a *app) showInterruptionAlert(message string) {
 	if a == nil || a.mw == nil {
 		return
 	}
-	walk.MsgBox(a.mw, "WhatToWipe", message, walk.MsgBoxOK|walk.MsgBoxApplModal|walk.MsgBoxIconInformation)
+	walk.MsgBox(a.mw, "Trash Advisor", message, walk.MsgBoxOK|walk.MsgBoxApplModal|walk.MsgBoxIconInformation)
 }

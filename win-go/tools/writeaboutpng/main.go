@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"whatrwipe/win-go/internal/ui"
+	"trashadvisor/win-go/internal/ui"
 )
 
 func main() {
-	// aboutBunnyPlaceholder is in package ui — call via exported helper.
+	// aboutBunnyPlaceholder is in package ui вЂ” call via exported helper.
 	_ = ui.WriteDefaultAboutPNGForEmbed(filepath.Join("..", "..", "internal", "ui", "about-bunny.png"))
 }

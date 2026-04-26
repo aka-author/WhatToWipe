@@ -3,7 +3,7 @@ package layout
 import (
 	"image"
 
-	"whatrwipe/win-go/internal/model"
+	"trashadvisor/win-go/internal/model"
 )
 
 // Squarified lays out treemap tiles from child metrics (samples squarify, adapted to model types).

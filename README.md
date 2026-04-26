@@ -1,4 +1,4 @@
-# WhatToWipe / Shitwiper codebase
+# Trash Advisor / Shitwiper codebase
 
 Git repo = **`codebase`**. Full rules: [docs/folder-structure.md](docs/folder-structure.md).
 

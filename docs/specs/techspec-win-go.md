@@ -1,4 +1,4 @@
-# WhatToWipe: Technical Specification (Windows, Go)
+# Trash Advisor: Technical Specification (Windows, Go)
 
 ## 1. Purpose and Precedence
 
@@ -11,7 +11,7 @@ Out of scope here: component layout, libraries, and algorithms (see design notes
 
 ## 2. How to Read This Document
 
-Words like “must”, “must not”, and “should” carry their usual English force: “must” means the implementation is not compliant if it fails the point; “should” is a strong recommendation. This file does not use the RFC 2119 keyword capitalization style.
+Words like вЂњmustвЂќ, вЂњmust notвЂќ, and вЂњshouldвЂќ carry their usual English force: вЂњmustвЂќ means the implementation is not compliant if it fails the point; вЂњshouldвЂќ is a strong recommendation. This file does not use the RFC 2119 keyword capitalization style.
 
 
 ## 3. Normative References
@@ -42,8 +42,8 @@ Words like “must”, “must not”, and “should” carry their usual Englis
 
 | ID | Requirement |
 |----|-------------|
-| WR-01 | The release executable must be a normal Windows PE that can carry the metadata Windows Explorer shows under Properties → Details, so the FS rules that tie About to file version can be met in the usual way. |
-| WR-02 | The build must embed a `VERSIONINFO` resource with string file info populated so Explorer’s Details view is meaningful. At minimum the `FileVersion` and `ProductVersion` string fields must be set in a way that matches how you read them back for the FS About string; other common fields (`CompanyName`, `FileDescription`, `LegalCopyright`, `OriginalFilename`, `ProductName`) should be filled for a shipping binary so support staff can identify the build. The exact About text remains defined only in FS. |
+| WR-01 | The release executable must be a normal Windows PE that can carry the metadata Windows Explorer shows under Properties в†’ Details, so the FS rules that tie About to file version can be met in the usual way. |
+| WR-02 | The build must embed a `VERSIONINFO` resource with string file info populated so ExplorerвЂ™s Details view is meaningful. At minimum the `FileVersion` and `ProductVersion` string fields must be set in a way that matches how you read them back for the FS About string; other common fields (`CompanyName`, `FileDescription`, `LegalCopyright`, `OriginalFilename`, `ProductName`) should be filled for a shipping binary so support staff can identify the build. The exact About text remains defined only in FS. |
 | WR-03 | Release builds must avoid aggressive stripping profiles that remove standard PE metadata expected by Windows tooling and endpoint scanners. If size optimization is used, it must preserve normal executable metadata and diagnostics needed for support triage. |
 | WR-04 | Release executables should be Authenticode-signed. If signing is not available for a specific build, that build must be explicitly marked as unsigned in release notes or artifacts metadata. |
 | WR-05 | The release copy/deployment step must tolerate transient file locks caused by antivirus scanning (for example with bounded retry), rather than failing immediately on first access-denied or sharing-violation errors. |
@@ -73,14 +73,14 @@ These rows add platform behavior FS does not enumerate. They must still produce 
 | IO-04 | Network paths: if the share goes away or stops responding, the scan must end in a controlled failure path (FS negative outcomes), not an unbounded hang. I/O on UNC or mapped drives must use bounded waits (per-operation or watchdog); use a default ceiling of 30 seconds per stuck operation or path group unless you document a different default and how to configure it. |
 | IO-05 | Volume snapshot or transient file locking is OS-defined; the implementation should retry or skip with a recorded error rather than blocking the UI thread. |
 
-How you obtain “total capacity of the drive” for FS drive share is not spelled in FS; you must use one consistent Windows API interpretation (for example total bytes on the volume that holds the scan root) and document it for verification.
+How you obtain вЂњtotal capacity of the driveвЂќ for FS drive share is not spelled in FS; you must use one consistent Windows API interpretation (for example total bytes on the volume that holds the scan root) and document it for verification.
 
 
 ## 9. Responsiveness During Scan and Layout
 
 | ID | Requirement |
 |----|-------------|
-| RS-01 | Stop and Esc must remain usable while scanning; the UI thread must not be wedged for so long that the user cannot invoke them. There is no fixed millisecond budget here, but “indefinite hang” is a defect. |
+| RS-01 | Stop and Esc must remain usable while scanning; the UI thread must not be wedged for so long that the user cannot invoke them. There is no fixed millisecond budget here, but вЂњindefinite hangвЂќ is a defect. |
 | RS-02 | Heavy treemap layout over very large child lists should not run unbounded work on the UI thread during a single paint; cache layout until data, size, or DPI changes, or split work, so menus and Stop stay reachable. |
 
 
@@ -112,8 +112,8 @@ Screen reader names or live regions for custom-drawn treemap tiles are recommend
 
 | ID | Requirement |
 |----|-------------|
-| VR-01 | Each requirement row in §5 through §12 must have a written test plan entry, an automated test, or an explicit waiver before release. |
-| VR-02 | Any waiver against a “must” in this document must be explicit, with a short reason and a plan to get back to compliance. |
+| VR-01 | Each requirement row in В§5 through В§12 must have a written test plan entry, an automated test, or an explicit waiver before release. |
+| VR-02 | Any waiver against a вЂњmustвЂќ in this document must be explicit, with a short reason and a plan to get back to compliance. |
 
 Product acceptance is still defined only by FS and whatever verification you attach to FS itself.
 
@@ -121,4 +121,4 @@ Product acceptance is still defined only by FS and whatever verification you att
 
 These are examples, not extra requirements: PL-01/PL-02 via PE subsystem and GUI subsystem checks or clean VM smoke; DP-01/DP-02 with golden measurements or screenshots at 100%, 125%, 150% scale and after moving the window between displays; WR-01/WR-02 by dumping `VERSIONINFO` strings and comparing to About output; IO fixtures for long paths, denied ACLs, cyclic junctions, stalled UNC with timeout; RS-01 subjective large-directory manual pass; MEM-01 stress fixture; A11Y manual keyboard and high-contrast passes; UX-01 by starting Update on a complete view, cancelling, and asserting the prior snapshot is shown when FS allows.
 
-For reviewers: keep one short note in the repo (path up to you) that records the shipped choices for IO-01 long-path mechanism, IO-03 reparse policy, drive-total API for share math, and logging per architecture §7, so VR-01 evidence is easy to find.
+For reviewers: keep one short note in the repo (path up to you) that records the shipped choices for IO-01 long-path mechanism, IO-03 reparse policy, drive-total API for share math, and logging per architecture В§7, so VR-01 evidence is easy to find.

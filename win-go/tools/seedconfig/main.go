@@ -1,4 +1,4 @@
-// seedconfig writes canonical WhatToWipe.config.txt into a target directory from current spec defaults.
+// seedconfig writes canonical Trash Advisor.config.txt into a target directory from current spec defaults.
 // This tool is on-demand; invoke it explicitly when you need to refresh a config file.
 package main
 
@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"whatrwipe/win-go/internal/config"
+	"trashadvisor/win-go/internal/config"
 )
 
 func main() {

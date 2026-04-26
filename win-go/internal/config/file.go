@@ -11,16 +11,16 @@ import (
 	"strings"
 )
 
-// ConfigFileName stores human-readable setup values (funcspec § Program Setup Configuration).
-const ConfigFileName = "WhatToWipe.config.txt"
+// ConfigFileName stores human-readable setup values (funcspec В§ Program Setup Configuration).
+const ConfigFileName = "Trash Advisor.config.txt"
 
-// ConfigPath returns the absolute path to the per-user configuration file in %LocalAppData%\WhatToWipe.
+// ConfigPath returns the absolute path to the per-user configuration file in %LocalAppData%\Trash Advisor.
 func ConfigPath() (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "WhatToWipe", ConfigFileName), nil
+	return filepath.Join(base, "Trash Advisor", ConfigFileName), nil
 }
 
 // LoadTreemapFromPath loads treemap keys from a given file path (e.g. seedconfig for dist/; not ConfigPath()).

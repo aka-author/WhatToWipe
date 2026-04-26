@@ -1,4 +1,4 @@
-module whatrwipe/win-go
+module trashadvisor/win-go
 
 go 1.22
 
