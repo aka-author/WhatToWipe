@@ -85,7 +85,7 @@ func SaveTreemap(path string, t Treemap) error {
 	var b strings.Builder
 	w := func(key, val string) { fmt.Fprintf(&b, "%s = %s\n", key, val) }
 	w("treemap.maxTiles", strconv.Itoa(nonzeroOr(t.MaxTiles, 20)))
-	w("treemap.clumpThreshold", fmtPercentRatio(t.ClumpThreshold, 0.02))
+	w("treemap.clumpThreshold", fmtPercentRatio(t.ClumpThreshold, 0.01))
 	w("treemap.minTileWidth", fmtPt(nonzeroOr(t.MinTileWidthPt, 50)))
 	w("treemap.minTileHeight", fmtPt(nonzeroOr(t.MinTileHeightPt, 50)))
 	w("treemap.tilePaddingLeft", fmtPt(nonzeroOr(t.TilePaddingLeftPt, 5)))

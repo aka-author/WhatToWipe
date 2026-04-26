@@ -1343,7 +1343,7 @@ The groups of configuration parameters are described below in this section.
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
 | `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   |
-| `treemap.clumpThreshold`          | Minimum percentage for not going to clump    |        2% |  +   |
+| `treemap.clumpThreshold`          | Minimum percentage for not going to clump    |        1% |  +   |
 | `treemap.tilePaddingLeft`         | Left padding in a tile                       |       5pt |  +   |
 | `treemap.tilePaddingTop`          | Top padding in a tile                        |       5pt |  +   |
 | `treemap.tilePaddingRight`        | Right padding in a tile                      |       5pt |  +   |

@@ -47,7 +47,7 @@ type Treemap struct {
 func DefaultTreemap() Treemap {
 	return Treemap{
 		MaxTiles:            20,
-		ClumpThreshold:      0.02,
+		ClumpThreshold:      0.01,
 		MinTileWidthPt:      50,
 		MinTileHeightPt:     50,
 		TilePaddingLeftPt:   5,
