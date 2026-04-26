@@ -206,14 +206,12 @@ func (ie *treemapInlineEditor) beginEdit(row int, font bool) {
 				break
 			}
 		}
-		ie.fontCombo.SetBounds(b)
 		ie.fontCombo.SetVisible(true)
 		ie.fontCombo.BringToTop()
 		_ = ie.fontCombo.SetFocus()
 		return
 	}
 	_ = ie.line.SetText(treemapValueColString(ie.edited, row))
-	ie.line.SetBounds(b)
 	ie.line.SetVisible(true)
 	ie.line.BringToTop()
 	_ = ie.line.SetFocus()
