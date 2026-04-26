@@ -1234,10 +1234,9 @@ func (a *app) startLabelSolve() {
 					done = true
 					return
 				}
-				start := time.Now()
 				changed := false
 				a.withMeasureCanvas(func() {
-					for a.labelSolveNext < len(a.blocks) && time.Since(start) < 4*time.Millisecond {
+					if a.labelSolveNext < len(a.blocks) {
 						i := a.labelSolveNext
 						a.labelCache[i] = a.resolveTileLabel(a.blocks[i])
 						a.labelSolved[i] = true
