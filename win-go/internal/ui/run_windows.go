@@ -20,14 +20,14 @@ import (
 	. "github.com/lxn/walk/declarative"
 	"github.com/lxn/win"
 
-	"trashadvisor/win-go/internal/art"
-	"trashadvisor/win-go/internal/config"
-	"trashadvisor/win-go/internal/format"
-	"trashadvisor/win-go/internal/layout"
-	"trashadvisor/win-go/internal/model"
-	"trashadvisor/win-go/internal/scan"
-	"trashadvisor/win-go/internal/volume"
-	"trashadvisor/win-go/internal/winver"
+	"eraserewrite/win-go/internal/art"
+	"eraserewrite/win-go/internal/config"
+	"eraserewrite/win-go/internal/format"
+	"eraserewrite/win-go/internal/layout"
+	"eraserewrite/win-go/internal/model"
+	"eraserewrite/win-go/internal/scan"
+	"eraserewrite/win-go/internal/volume"
+	"eraserewrite/win-go/internal/winver"
 )
 
 type scanKind int
@@ -113,7 +113,7 @@ type app struct {
 	scanProgShownAt time.Time
 }
 
-// Run starts the Trash Advisor main window (FS + techspec shell).
+// Run starts the Erase & Rewrite main window (FS + techspec shell).
 func Run() error {
 	tc, cfgErr := config.LoadOrInitTreemap()
 	if cfgErr != nil {
@@ -137,7 +137,7 @@ func Run() error {
 
 	mwDecl := MainWindow{
 		AssignTo: &a.mw,
-		Title:    "Trash Advisor",
+		Title:    "Erase & Rewrite",
 		Size:     Size{1024, 760},
 		OnSizeChanged: func() {
 			a.setScanChrome(a.scanning.Load())
@@ -148,7 +148,7 @@ func Run() error {
 				Items: []MenuItem{
 					Action{
 						AssignTo:    &a.openAction,
-						Text:        "&Open a FolderвЂ¦",
+						Text:        "&Open a FolderРІР‚В¦",
 						Image:       a.openBmp,
 						Shortcut:    Shortcut{walk.ModControl, walk.KeyO},
 						OnTriggered: a.onOpenFolder,
@@ -265,7 +265,7 @@ func (a *app) chartChildren() []Widget {
 				},
 				Label{
 					AssignTo:    &a.volTotalLbl,
-					Text:        "Total at вЂ”: вЂ”",
+					Text:        "Total at -: -",
 					MaxSize:     Size{Width: 520, Height: 0},
 					ToolTipText: "Total capacity of the volume",
 				},
@@ -274,12 +274,12 @@ func (a *app) chartChildren() []Widget {
 					Children: []Widget{
 						Label{
 							AssignTo:    &a.volFreeLbl,
-							Text:        "Free at вЂ”:",
+							Text:        "Free at -:",
 							ToolTipText: "Free space on the volume",
 						},
 						PushButton{
 							AssignTo:    &a.volFreeBtn,
-							Text:        "вЂ”",
+							Text:        "-",
 							Enabled:     false,
 							ToolTipText: "Free space on the volume. Click to refresh.",
 							OnClicked: func() {
@@ -339,7 +339,7 @@ func (a *app) chartChildren() []Widget {
 				a.rebuildTreemap()
 			},
 			OnMouseMove: func(x, y int, _ walk.MouseButton) {
-				if a.scanning.Load() {
+				if a.scanning.Load() || a.labelSolving {
 					if a.chart != nil {
 						a.chart.SetCursor(walk.CursorWait())
 					}
@@ -637,7 +637,7 @@ func (a *app) busyPointerTwoSeconds() {
 
 // explorePathInShell implements *Checking a Folder of Interest* then opening the folder in the
 // shell (funcspec: Exploring the Context Folder / Exploring a Subfolder). unsetOnFailure mirrors
-// negative outcome for Inspect в†’ Explore (treemap unset); tile Explore leaves the treemap unchanged.
+// negative outcome for Inspect РІвЂ вЂ™ Explore (treemap unset); tile Explore leaves the treemap unchanged.
 func (a *app) explorePathInShell(path string, unsetTreemapOnFailure bool) {
 	if a.mw == nil {
 		return
@@ -829,6 +829,7 @@ func (a *app) startScan(folder string, kind scanKind) {
 }
 
 func (a *app) setScanChrome(scanning bool) {
+	busyCursor := scanning || a.labelSolving
 	// WM_SIZE/OnSizeChanged can fire while MainWindow is still being constructed; menu actions are nil until defer completes.
 	if a.openAction != nil && a.upAction != nil && a.manageAction != nil && a.updateMenu != nil && a.stopMenu != nil && a.mw != nil {
 		a.tooltipsOnce.Do(func() {
@@ -847,7 +848,7 @@ func (a *app) setScanChrome(scanning bool) {
 	}
 	if a.updateMenu != nil {
 		_ = a.updateMenu.SetVisible(!scanning)
-		// FS: unavailable commands disabled вЂ” Update only after a successful target scan.
+		// FS: unavailable commands disabled РІР‚вЂќ Update only after a successful target scan.
 		canUpdate := !scanning && a.treemapComplete && a.targetPath != ""
 		_ = a.updateMenu.SetEnabled(canUpdate)
 	}
@@ -885,14 +886,14 @@ func (a *app) setScanChrome(scanning bool) {
 		a.volFreeBtn.SetEnabled(hasVol)
 	}
 	if a.chart != nil {
-		if scanning {
+		if busyCursor {
 			a.chart.SetCursor(walk.CursorWait())
 		} else {
 			a.chart.SetCursor(walk.CursorArrow())
 		}
 	}
 	if a.mw != nil {
-		if scanning {
+		if busyCursor {
 			if !a.scanCursorSaved {
 				a.scanCursorPrev = a.mw.Cursor()
 				a.scanCursorSaved = true
@@ -923,21 +924,21 @@ func (a *app) refreshVolumeToolbar() {
 		return
 	}
 	if a.volBarRoot == "" || a.targetPath == "" {
-		_ = a.volTotalLbl.SetText("Total at вЂ”: вЂ”")
+		_ = a.volTotalLbl.SetText("Total at -: -")
 		if a.volFreeLbl != nil {
-			_ = a.volFreeLbl.SetText("Free at вЂ”:")
+			_ = a.volFreeLbl.SetText("Free at -:")
 		}
-		_ = a.volFreeBtn.SetText("вЂ”")
+		_ = a.volFreeBtn.SetText("-")
 		return
 	}
 	letter := volume.DriveLabel(a.volBarRoot)
 	tot, fr, err := volume.DiskSpace(a.volBarRoot)
 	if err != nil {
-		_ = a.volTotalLbl.SetText("Total at " + letter + ": вЂ”")
+		_ = a.volTotalLbl.SetText("Total at " + letter + ": -")
 		if a.volFreeLbl != nil {
 			_ = a.volFreeLbl.SetText("Free at " + letter + ":")
 		}
-		_ = a.volFreeBtn.SetText("вЂ”")
+		_ = a.volFreeBtn.SetText("-")
 		return
 	}
 	a.driveTotal, a.driveFree = tot, fr
@@ -1153,7 +1154,7 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 			return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: pt, withDetails: false}
 		}
 	}
-	short := shortenedHeadingVariants(b.Name)
+	short := shortenedHeadingVariants(b.Name, a.labelPlaceholder())
 	for pt := maxPt; pt >= minPt; pt-- {
 		for _, heading := range short {
 			if a.tileLabelFits(b, heading, pt, true) {
@@ -1208,6 +1209,7 @@ func (a *app) startLabelSolve() {
 		return
 	}
 	a.labelSolving = true
+	a.setScanChrome(a.scanning.Load())
 	seq := atomic.AddUint64(&a.labelSolveSeq, 1)
 	go func() {
 		for {
@@ -1219,6 +1221,7 @@ func (a *app) startLabelSolve() {
 				}
 				if a.labelSolveNext >= len(a.blocks) {
 					a.labelSolving = false
+					a.setScanChrome(a.scanning.Load())
 					done = true
 					return
 				}
@@ -1238,6 +1241,7 @@ func (a *app) startLabelSolve() {
 				}
 				if a.labelSolveNext >= len(a.blocks) {
 					a.labelSolving = false
+					a.setScanChrome(a.scanning.Load())
 					done = true
 				}
 			})
@@ -1347,7 +1351,7 @@ func (a *app) tileNeedsTooltipAt(index int) bool {
 	if ch.mode == labelModeHidden {
 		return true
 	}
-	return strings.Contains(ch.heading, "...")
+	return strings.Contains(ch.heading, a.labelPlaceholder())
 }
 
 func tileTooltipText(b model.BlockLayout) string {
@@ -1444,7 +1448,7 @@ func (a *app) drawTileLabelAuto(canvas *walk.Canvas, b model.BlockLayout, choice
 				pt = 8
 			}
 		}
-		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), "...", pt, false)
+		a.drawTreemapTileLabel(canvas, vb, a.chart.DPI(), a.labelDummy(), pt, false)
 		return
 	}
 	vb := a.withExternalRect(b)
@@ -1551,28 +1555,38 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi int, heading string, n
 	return lay, true
 }
 
-func shortenedHeadingVariants(s string) []string {
+func shortenedHeadingVariants(s string, placeholder string) []string {
+	placeholder = strings.TrimSpace(placeholder)
+	if placeholder == "" {
+		placeholder = "..."
+	}
 	r := []rune(s)
 	n := len(r)
+	ph := []rune(placeholder)
+	phLen := len(ph)
+	if phLen == 0 {
+		ph = []rune("...")
+		phLen = len(ph)
+	}
 	if n == 0 {
 		return nil
 	}
-	if n < 3 {
+	if n <= phLen {
 		return nil
 	}
-	if n == 3 {
-		return []string{"..."}
+	if n == phLen+1 {
+		return []string{placeholder}
 	}
-	removedStart := (n - 3) / 2
+	removedStart := (n - phLen) / 2
 	leftKeep := removedStart
-	rightStart := removedStart + 3
+	rightStart := removedStart + phLen
 	rightKeep := n - rightStart
 	build := func() string {
 		var b strings.Builder
 		if leftKeep > 0 {
 			b.WriteString(string(r[:leftKeep]))
 		}
-		b.WriteString("...")
+		b.WriteString(placeholder)
 		if rightKeep > 0 {
 			b.WriteString(string(r[n-rightKeep:]))
 		}
@@ -1596,6 +1610,22 @@ func shortenedHeadingVariants(s string) []string {
 		removeLeftNext = true
 	}
 	return out
+}
+
+func (a *app) labelPlaceholder() string {
+	s := strings.TrimSpace(a.treemapCfg.LabelPlaceholder)
+	if s == "" {
+		return "..."
+	}
+	return s
+}
+
+func (a *app) labelDummy() string {
+	s := strings.TrimSpace(a.treemapCfg.LabelDummy)
+	if s == "" {
+		return "..."
+	}
+	return s
 }
 
 func (a *app) hitTest(x, y int) int {

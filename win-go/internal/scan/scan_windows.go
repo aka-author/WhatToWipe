@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"trashadvisor/win-go/internal/model"
+	"eraserewrite/win-go/internal/model"
 )
 
 // ScanTree walks the folder tree from root. onProgress receives the folder path currently scanned (FS: status bar during scan).

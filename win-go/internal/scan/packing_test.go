@@ -3,7 +3,7 @@ package scan
 import (
 	"testing"
 
-	"trashadvisor/win-go/internal/model"
+	"eraserewrite/win-go/internal/model"
 )
 
 func TestClassifyArchiveLayout(t *testing.T) {

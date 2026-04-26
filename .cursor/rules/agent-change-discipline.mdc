@@ -20,6 +20,17 @@ Do **not** make changes that were **not requested**, including “helpful” cle
 - **Follow instructions verbatim.** Execute only explicitly requested actions and constraints from the user's message.
 - **No guesswork.** Do not infer missing intent or add implicit steps; ask when something is not explicit.
 
+## Deadly scope restriction (no redundant actions)
+
+- Execute only the explicitly requested action(s) from the current message.
+- Do not run build, test, lint, installer, commit, or push unless those exact actions are explicitly requested in the same message.
+- Do not run verification commands unless verification is explicitly requested.
+- Do not add follow-up, convenience, or “helpful” extra steps.
+- If one task is requested, do exactly one task and stop.
+- If scope is ambiguous, ask one short clarifying question and wait.
+- If the user asks a question, answer in text only; do not call tools unless explicitly requested.
+- Before any tool call, restate the exact words from the current user message that authorize that specific action; if absent, do nothing.
+
 ## What counts as a direct instruction
 
 - Clear imperatives: *change*, *fix*, *add*, *remove*, *implement*, *update*, *rename*, *revert*, *delete*, *create*, *apply the patch*, *run migration*, etc., aimed at concrete work.

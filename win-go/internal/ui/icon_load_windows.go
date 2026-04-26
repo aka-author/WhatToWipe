@@ -12,7 +12,7 @@ func loadEmbeddedAppIcon() (*walk.Icon, error) {
 	if len(appICOEmbed) == 0 {
 		return nil, os.ErrNotExist
 	}
-	f, err := os.CreateTemp("", "trashadvisor-app-*.ico")
+	f, err := os.CreateTemp("", "eraserewrite-app-*.ico")
 	if err != nil {
 		return nil, err
 	}

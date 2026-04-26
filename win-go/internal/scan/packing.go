@@ -8,7 +8,7 @@ import (
 
 	"github.com/nwaples/rardecode"
 
-	"trashadvisor/win-go/internal/model"
+	"eraserewrite/win-go/internal/model"
 )
 
 type arcEntry struct {

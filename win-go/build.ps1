@@ -243,7 +243,7 @@ if ($GitRoot) {
 
 # Build output target: <Shitwiper>/bin/win/current (relative to repo layout: win-go is under codebase)
 $OutDir = Join-Path $WinBinRoot "current"
-$Exe = Join-Path $OutDir "Trash Advisor.exe"
+$Exe = Join-Path $OutDir "Erase & Rewrite.exe"
 
 Prepare-CurrentBuildFolder -WinBinRoot $WinBinRoot -CurrentDir $OutDir
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
@@ -261,13 +261,13 @@ if (-not (Test-Path -LiteralPath $Exe)) {
 
 # Optional Authenticode signing (recommended for lower AV false-positive risk).
 # Enable by setting:
-#   TRASH_ADVISOR_SIGNTOOL = full path to signtool.exe
-#   TRASH_ADVISOR_SIGN_ARGS = additional args before target exe (certificate selection, timestamp server, etc.)
-if ($env:TRASH_ADVISOR_SIGNTOOL) {
-    $signTool = $env:TRASH_ADVISOR_SIGNTOOL
+#   ERASE_REWRITE_SIGNTOOL = full path to signtool.exe
+#   ERASE_REWRITE_SIGN_ARGS = additional args before target exe (certificate selection, timestamp server, etc.)
+if ($env:ERASE_REWRITE_SIGNTOOL) {
+    $signTool = $env:ERASE_REWRITE_SIGNTOOL
     $signArgs = @("sign")
-    if ($env:TRASH_ADVISOR_SIGN_ARGS) {
-        $signArgs += $env:TRASH_ADVISOR_SIGN_ARGS -split "\s+"
+    if ($env:ERASE_REWRITE_SIGN_ARGS) {
+        $signArgs += $env:ERASE_REWRITE_SIGN_ARGS -split "\s+"
     }
     $signArgs += $Exe
     & $signTool @signArgs

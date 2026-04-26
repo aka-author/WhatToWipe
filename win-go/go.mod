@@ -1,4 +1,4 @@
-module trashadvisor/win-go
+module eraserewrite/win-go
 
 go 1.22
 

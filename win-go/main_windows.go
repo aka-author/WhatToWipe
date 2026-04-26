@@ -10,12 +10,12 @@ import (
 
 	"github.com/lxn/walk"
 
-	"trashadvisor/win-go/internal/ui"
+	"eraserewrite/win-go/internal/ui"
 )
 
 func main() {
 	if err := ui.Run(); err != nil {
-		walk.MsgBox(nil, "Trash Advisor", err.Error(), walk.MsgBoxIconError)
+		walk.MsgBox(nil, "Erase & Rewrite", err.Error(), walk.MsgBoxIconError)
 		os.Exit(1)
 	}
 }

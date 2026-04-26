@@ -33,6 +33,8 @@ type Treemap struct {
 	DetailsFontSizeRatio float64
 	DetailsLineHeight    float64
 	AboveDetailsRatio    float64
+	LabelPlaceholder     string
+	LabelDummy           string
 
 	// Host-OS executable file type lists (comma-separated tokens, with or without leading dot).
 	// Used for treemap interaction; see funcspec Exploring a File and Treemap Configuration Parameters.
@@ -72,8 +74,10 @@ func DefaultTreemap() Treemap {
 		DetailsFontSizeRatio: 0.8,
 		DetailsLineHeight:    1.5,
 		AboveDetailsRatio:    1.0,
+		LabelPlaceholder:     "...",
+		LabelDummy:           "...",
 
-		WinExeFiles: "com, exe, dll, scr, msi",
+		WinExeFiles: "bat, com, exe, dll, scr, msi",
 	}
 }
 

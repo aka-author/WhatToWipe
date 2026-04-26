@@ -24,7 +24,9 @@ treemap.headingLineHeight = 1.2
 treemap.detailsFontSizeRatio = 0.8
 treemap.detailsLineHeight = 1.5
 treemap.aboveDetailsHeightRatio = 1
-treemap.win.exeFiles = com, exe, dll, scr, msi
+treemap.labelPlaceholder = ...
+treemap.labelDummy = ...
+treemap.win.exeFiles = bat, com, exe, dll, scr, msi
 treemap.linux.exeFiles = 
 treemap.macos.exeFiles = 
 

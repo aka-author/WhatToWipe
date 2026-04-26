@@ -1,16 +1,16 @@
 END USER LICENSE AGREEMENT (EULA)
-Trash Advisor
+Erase & Rewrite
 
 IMPORTANT: PLEASE READ THIS END USER LICENSE AGREEMENT CAREFULLY.
 BY INSTALLING, COPYING, OR USING THE SOFTWARE, YOU AGREE TO BE BOUND
 BY THE TERMS OF THIS AGREEMENT.
 
 1. PARTIES
-This End User License Agreement ("Agreement") is between you ("User")
-and the copyright owner/licensor of Trash Advisor ("Licensor").
+This End User License Agreement ("Agreement") is between you ("User") 
+and Mikhail Ostrogorskiy, the copyright owner and licensor ("Licensor").
 
 2. SOFTWARE
-"Software" means the Trash Advisor application, including executable files,
+"Software" means the Erase & Rewrite application, including executable files,
 documentation, updates, and related materials provided by Licensor.
 
 3. LICENSE GRANT

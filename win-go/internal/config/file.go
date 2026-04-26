@@ -11,16 +11,16 @@ import (
 	"strings"
 )
 
-// ConfigFileName stores human-readable setup values (funcspec В§ Program Setup Configuration).
-const ConfigFileName = "Trash Advisor.config.txt"
+// ConfigFileName stores human-readable setup values (funcspec Р’В§ Program Setup Configuration).
+const ConfigFileName = "Erase & Rewrite.config.txt"
 
-// ConfigPath returns the absolute path to the per-user configuration file in %LocalAppData%\Trash Advisor.
+// ConfigPath returns the absolute path to the per-user configuration file in %LocalAppData%\Erase & Rewrite.
 func ConfigPath() (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "Trash Advisor", ConfigFileName), nil
+	return filepath.Join(base, "Erase & Rewrite", ConfigFileName), nil
 }
 
 // LoadTreemapFromPath loads treemap keys from a given file path (e.g. seedconfig for dist/; not ConfigPath()).
@@ -114,6 +114,16 @@ func SaveTreemap(path string, t Treemap) error {
 	w("treemap.detailsFontSizeRatio", fmtRatio(t.DetailsFontSizeRatio, 0.8))
 	w("treemap.detailsLineHeight", fmtRatio(t.DetailsLineHeight, 1.5))
 	w("treemap.aboveDetailsHeightRatio", fmtRatio(t.AboveDetailsRatio, 1.0))
+	labelPlaceholder := strings.TrimSpace(t.LabelPlaceholder)
+	if labelPlaceholder == "" {
+		labelPlaceholder = DefaultTreemap().LabelPlaceholder
+	}
+	w("treemap.labelPlaceholder", labelPlaceholder)
+	labelDummy := strings.TrimSpace(t.LabelDummy)
+	if labelDummy == "" {
+		labelDummy = DefaultTreemap().LabelDummy
+	}
+	w("treemap.labelDummy", labelDummy)
 	wf := strings.TrimSpace(t.WinExeFiles)
 	if wf == "" {
 		wf = DefaultTreemap().WinExeFiles
@@ -239,6 +249,10 @@ func applyTreemapLines(d *Treemap, data []byte) {
 			if f, ok := parseRatio(val); ok {
 				d.AboveDetailsRatio = f
 			}
+		case "treemap.labelplaceholder":
+			d.LabelPlaceholder = val
+		case "treemap.labeldummy":
+			d.LabelDummy = val
 		case "treemap.win.exefiles":
 			d.WinExeFiles = val
 		case "treemap.linux.exefiles":

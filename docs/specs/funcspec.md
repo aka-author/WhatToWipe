@@ -1,8 +1,8 @@
-# The Trash Advisor Utility. Functional Specification
+# The WhatToWipe Utility. Functional Specification
 
 ## Purpose
 
-The Trash Advisor utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
+The WhatToWipe utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
 
 
 ## Concepts and Terms
@@ -44,7 +44,7 @@ The Trash Advisor utility helps users see how disk space is used. It shows how l
 
 *Node folder:* A folder that contains at least one nested folder.
 
-*Program:* If not specified, the Trash Advisor utility.
+*Program:* If not specified, the WhatToWipe utility.
 
 *Scanning a folder:* An automatic activity during which the program collects data on the folder and all inner file system objects recursively.
 
@@ -185,7 +185,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **File в†’ Open a Folder** command.
+1. The user selects the **File → Open a Folder** command.
 
    **System Response**
 
@@ -288,7 +288,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **Inspect в†’ Update** command.
+1. The user selects the **Inspect → Update** command.
 
    **System Response**
 
@@ -370,15 +370,15 @@ Any of the following conditions is met:
 
 1. Reconfigure the user interface.
 
-   - Hide the **Inspect в†’ Update** command.
-   - Show the **Inspect в†’ Stop** command.
+   - Hide the **Inspect → Update** command.
+   - Show the **Inspect → Stop** command.
    - Set the mouse pointer to the busy state.
 
 2. Scan the context folder hierarchy.
 
    Handle the possible issues as stated below.
 
-   If the user selects the **Inspect в†’ Stop** command:
+   If the user selects the **Inspect → Stop** command:
 
    - Stop scanning.
    - Recognize the result as negative.
@@ -398,8 +398,8 @@ Any of the following conditions is met:
 
 3. Reconfigure the user interface.
 
-   - Hide the **Inspect в†’ Stop** command.
-   - Show the **Inspect в†’ Update** command.
+   - Hide the **Inspect → Stop** command.
+   - Show the **Inspect → Update** command.
    - Set the mouse pointer to the default state.
 
 **Rules**
@@ -499,7 +499,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the **Inspect в†’ Up** command.
+1. The user selects the **Inspect → Up** command.
 
    **System Response**
 
@@ -556,7 +556,7 @@ All of the following conditions are met:
 
 **Steps**
 
-1. The user selects the  **Inspect в†’ Explore** command.
+1. The user selects the  **Inspect → Explore** command.
 
    **System Response**
 
@@ -773,7 +773,7 @@ Neither modal dialog box is open.
 
 **Steps**
 
-1. The user selects the **Help в†’ About** command.
+1. The user selects the **Help → About** command.
 
    **System Response**
 
@@ -789,8 +789,8 @@ Neither modal dialog box is open.
 
 While the **About** dialog box is open, the following text must be visible:
 
-- The product name **Trash Advisor**.
-- The application version as a single dotted string **Major.Minor.Patch.Build**, where Major, Minor, Patch, and Build are decimal integers and the string is identical to the **File version** value shown in Windows File Explorer for the running executable (Properties в†’ Details).
+- The product name **WhatToWipe**.
+- The application version as a single dotted string **Major.Minor.Patch.Build**, where Major, Minor, Patch, and Build are decimal integers and the string is identical to the **File version** value shown in Windows File Explorer for the running executable (Properties → Details).
 
 **Result**
 
@@ -823,7 +823,7 @@ Neither modal dialog box is open.
 
 **Steps**
 
-1. The user selects the **File в†’ Exit** command.
+1. The user selects the **File → Exit** command.
 
    **System Response**
 
@@ -846,13 +846,13 @@ The following commands must be available for the user in the main window.
 
 | Command                  | Toolbar     | Hot Keys      | Action                               |
 |--------------------------|-------------|---------------|--------------------------------------|
-| **File в†’ Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
-| **File в†’ Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
-| **Inspect в†’ Up**         | **Up**      | **Backspace** | *Returning to the Superfolder*       |
-| **Inspect в†’ Explore...** | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
-| **Inspect в†’ Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
-| **Inspect в†’ Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
-| **Help в†’ About...**      |             |               | *Displaying the Program Information* |
+| **File → Open a Folder** | **Open**    | **Ctrl+O**    | *Choosing a Target Folder*           |
+| **File → Exit**          |             | **Ctrl+X**    | *Quitting the Current Session*       |
+| **Inspect → Up**         | **Up**      | **Backspace** | *Returning to the Superfolder*       |
+| **Inspect → Explore...** | **Explore** | **Ctrl+E**    | *Exploring the Context Folder*       |
+| **Inspect → Update**     | **Update**  | **Ctrl+S**    | *Updating the Context Folder*        |
+| **Inspect → Stop**       | **Stop**    | **Esc**       | Terminating scanning                 |
+| **Help → About...**      |             |               | *Displaying the Program Information* |
 
 Selecting menu commands, clicking on toolbar buttons, and pressing hot keys must be treated as equivalent actions according to the table above.
 
@@ -863,7 +863,7 @@ These rules must be fulfilled at any moment. Elements corresponding to unavailab
 
 The following groups of commands must be treated as mutually exclusive:
 
-- Group *UpdateStop*: **Inspect в†’ Update**, **Inspect в†’ Stop**
+- Group *UpdateStop*: **Inspect → Update**, **Inspect → Stop**
 
 The following rules must be implemented for the mutually exclusive elements:
 
@@ -939,7 +939,7 @@ The toolbar must contain the following elements.
 | **Total**   | Indicator | Volume capacity    | `Total capacity of the volume` | `Total at X:` |
 | **Free**    | Indicator | Volume free space  | `Free space on the volume`     | `Free at X:`  |
 
-Toolbar button icons must be rasterized at 24Г—24 pixels in the toolbarвЂ™s image list at 96 DPI. The implementation scales this nominal size with the toolbar host DPI so icons remain sharp on high-DPI displays. Icons must remain visually distinct and legible at that size.
+Toolbar button icons must be rasterized at 24×24 pixels in the toolbar’s image list at 96 DPI. The implementation scales this nominal size with the toolbar host DPI so icons remain sharp on high-DPI displays. Icons must remain visually distinct and legible at that size.
 
 The **Total** element must be implemented as a static text. The static text must be `Total at X:`. The `X` stands for the volume label (**current volume** letter or name); the text must also show total capacity for that volume.
 
@@ -999,7 +999,7 @@ If `N` is greater than `treemap.maxTiles`, the treemap must show:
 
 For equal sizes, ordering is implementation-defined.
 
-Each tileвЂ™s area is proportional to the volume share of the represented entry (or represented clump sum).
+Each tile’s area is proportional to the volume share of the represented entry (or represented clump sum).
 
 File tiles must use the packing type recorded in the descriptor for the represented entry.
 
@@ -1008,7 +1008,7 @@ File tiles must use the packing type recorded in the descriptor for the represen
 
 ##### Padding and Clipping
 
-The padding rectangle is the rectangle inside the tileвЂ™s external rectangle whose left edge is shifted inward by (Left padding), top edge by (Top padding), right edge by (Right padding), and bottom edge by (Bottom padding).
+The padding rectangle is the rectangle inside the tile’s external rectangle whose left edge is shifted inward by (Left padding), top edge by (Top padding), right edge by (Right padding), and bottom edge by (Bottom padding).
 
 The following padding must be provided inside a tile.
 
@@ -1061,6 +1061,47 @@ Labels are displayed horizontally.
 The lines of the label follow from top to bottom.
 
 
+##### Shortening Labels
+
+A shortened label is a label that displays a placeholder in the middele instead of a longer substring. For example, a label `karabas-barabas.pdf` is full, while the label `karab...s.pdf` is shortened. 
+       
+The difference between the number of charactes before the placeholder and after the placeholder must not be larger that 1. 
+
+The program must use a placeholder that is defined in the `treemap.labelPlaceholder` configuretion parameter.
+
+The shortening labels quality rule says: the fewer charcters replaces a placeholder, the better a label. For example, the label `karabas-barabas.pdf` is better than `karabas...bas.pdf`, wich is better than `karab...s.pdf`. 
+
+
+##### Label Font Size
+
+The minimal font size allowed for a label is provided in the `treemap.headingMinFontSize` configuration parameter.
+
+The maximal font size allowed for a label is provided in the `treemap.headingMaxFontSize` configuration parameter.
+
+Each integer fontsize from the minimal to maximal is allowed.
+
+The font size quality rule says: the larger font a label typed with, the better a label. 
+
+
+##### Label Forms
+
+The following forms are allowed for labels: 
+
+- Deteiled
+- Brief
+
+A label in the detailed form contains the followng parts:
+
+- Heading
+- Details
+
+A label in the brief form contains the following parts:
+
+- Heading
+
+The label form quality rule says: a label in detailed form is better than in the brief form. 
+
+
 ##### Formatting
 
 The following linear sizes must apply to the parts of the tile label.
@@ -1074,39 +1115,16 @@ The following linear sizes must apply to the parts of the tile label.
 | Details line height              | Details font size * `treemap.detailsLineHeight`       |
 | Interval above the details block | Details font size * `treemap.aboveDetailsHeightRatio` |
 
-A label fits the tile if it can be displayed within the tileвЂ™s external rectangle without being clipped.
 
-The possible methods for displaying a label are listed below, from most preferable to least preferable:
+A label fits the tile if it can be displayed within the tile’s external rectangle without being clipped.
 
-- Horizontally, with details
-- Horizontally, without details
-- Horizontally, with details and a shortened heading
-- Horizontally, without details and a shortened heading
-- Label is not displayed
+The program must choose the heading foont size based on the following rules listed from the higest to the lowes priority. 
 
-When displaying a label for a tile, the program must test the methods from most preferable to least preferable and use the first method that works.
+1. Label form quality rule
+2. Shortening labels quality rule. 
+3. Font size quality rule.
 
-The method "Label is not displayed" works in all cases.
-
-If the selected method is "Label is not displayed", then the program must nevertheless output a dummy label `...` using font size `treemap.headingMinFontSize`.
-
-The following procedure must be applied to determine whether the label fits the tile and to select appropriate font sizes. Iterate font sizes from `treemap.headingMaxFontSize` to `treemap.headingMinFontSize` with a step of 1. Stop as soon as the label fits within that external rectangle and take the current font size. If `treemap.headingMinFontSize` is reached, then take it.
-
-The font-size procedure is scoped to one method at a time.
-
-In methods that use a shortened heading, the program must shorten only the heading text.
-
-The first shortened variant must be produced by removing exactly three consecutive characters from the middle of the original heading and inserting `...` at that position.
-
-If this variant does not fit, the next variants must be generated iteratively as follows:
-
-- Remove one additional character immediately adjacent to `...` on the left side, then check fit.
-- Remove one additional character immediately adjacent to `...` on the right side, then check fit.
-- Repeat these two steps in alternating order (left, right, left, right, ...).
-
-Each iteration must keep one contiguous prefix and one contiguous suffix of the original heading, separated by `...`.
-
-If the heading becomes only `...` and still does not fit, the current method must fail.
+If no allowed label variant fits a tile (including brief form, shortening, and minimal allowed font size), the tile must display `treemap.labelDummy`.
 
 
 ##### Colors
@@ -1270,13 +1288,13 @@ An interruption alert must get closed when the user performs one of the followin
 
 ### Storing and Applying Configuration
 
+#### OS-Agnostic
+
 Program configuration includes a set of parameters that describe the behavior and appearance of a certain program installation.
 
 Values of the configuration parameters must be stored in a configuration file.
 
-The configuration file name must be `Trash Advisor.config.txt`.
-
-The configuration folder path must be `%LocalAppData%\Trash Advisor`.
+The configuration file name must be `WhatToWipe.config.txt`.
 
 The executable must contain a built-in default configuration.
 
@@ -1289,6 +1307,11 @@ After creating the configuration file, the program must write the built-in defau
 On subsequent starts, the program must load configuration from the configuration file in the configuration folder.
 
 A configuration file must be a human-readable text file.
+
+
+#### Windows
+
+The configuration folder path must be `%LocalAppData%\WhatToWipe`.
 
 
 ### Configuration Parameter Structure
@@ -1334,6 +1357,8 @@ The groups of configuration parameters are described below in this section.
 | `treemap.nativeClumpTextColor`    | Native clump tile text color                 | #000000 |  +   |
 | `treemap.packedClumpBgColor`      | Packed clump tile background color           | #323232 |  +   |
 | `treemap.packedClumpTextColor`    | Packed clump tile text color                 | #ffffff |  +   |
+| `treemap.labelPlaceholder`        | A placeholder for long labels                | ...       |  +   |
+| `treemap.labelDummy`              | A label shown is nothing fits                | ...       |  +   |
 | `treemap.tileFontName`            | Tile text font                               | Segoe UI  |  +   |
 | `treemap.headingMaxFontSize`      | Maximal size of a label heading              |      30pt |  +   |
 | `treemap.headingMinFontSize`      | Minimal size of a label heading              |       8pt |  +   |
