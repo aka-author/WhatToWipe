@@ -60,6 +60,7 @@ type app struct {
 	volFreeLbl   *walk.Label
 	volFreeBtn   *walk.PushButton
 	aboutAction  *walk.Action
+	settingsAction *walk.Action
 
 	openBmp   *walk.Bitmap
 	upBmp     *walk.Bitmap
@@ -195,6 +196,16 @@ func Run() error {
 						Shortcut:    Shortcut{0, walk.KeyEscape},
 						Visible:     false,
 						OnTriggered: a.onStop,
+					},
+				},
+			},
+			Menu{
+				Text: "&Tools",
+				Items: []MenuItem{
+					Action{
+						AssignTo:    &a.settingsAction,
+						Text:        "&Settings\u2026",
+						OnTriggered: a.onSettings,
 					},
 				},
 			},
@@ -546,6 +557,15 @@ func (a *app) onManage() {
 func (a *app) onAbout() {
 	ver := appVersionDotted()
 	showAboutDialog(a.mw, ver)
+}
+
+func (a *app) onSettings() {
+	updated, ok := showTreemapSettingsDialog(a.mw, a.treemapCfg)
+	if !ok {
+		return
+	}
+	a.treemapCfg = updated
+	a.rebuildTreemap()
 }
 
 func appVersionDotted() string {
