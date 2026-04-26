@@ -1212,53 +1212,25 @@ func (a *app) ensureLabelSolveInitialized() {
 }
 
 func (a *app) startLabelSolve() {
-	if a.labelSolving || a.chart == nil || len(a.blocks) == 0 {
+	if a.chart == nil || len(a.blocks) == 0 || !a.labelCacheValid {
 		return
 	}
 	a.labelSolving = true
 	a.setScanChrome(a.scanning.Load())
-	seq := atomic.AddUint64(&a.labelSolveSeq, 1)
-	go func() {
-		for {
-			var done bool
-			a.mw.Synchronize(func() {
-				if seq != atomic.LoadUint64(&a.labelSolveSeq) || !a.labelCacheValid || a.chart == nil {
-					a.labelSolving = false
-					a.setScanChrome(a.scanning.Load())
-					done = true
-					return
-				}
-				if a.labelSolveNext >= len(a.blocks) {
-					a.labelSolving = false
-					a.setScanChrome(a.scanning.Load())
-					done = true
-					return
-				}
-				changed := false
-				a.withMeasureCanvas(func() {
-					if a.labelSolveNext < len(a.blocks) {
-						i := a.labelSolveNext
-						a.labelCache[i] = a.resolveTileLabel(a.blocks[i])
-						a.labelSolved[i] = true
-						a.labelSolveNext++
-						changed = true
-					}
-				})
-				if changed && a.chart != nil {
-					a.chart.Invalidate()
-				}
-				if a.labelSolveNext >= len(a.blocks) {
-					a.labelSolving = false
-					a.setScanChrome(a.scanning.Load())
-					done = true
-				}
-			})
-			if done {
-				return
-			}
-			time.Sleep(1 * time.Millisecond)
+	a.labelSolveNext = 0
+	a.withMeasureCanvas(func() {
+		for a.labelSolveNext < len(a.labelCache) && a.labelSolveNext < len(a.blocks) {
+			i := a.labelSolveNext
+			a.labelCache[i] = a.resolveTileLabel(a.blocks[i])
+			a.labelSolved[i] = true
+			a.labelSolveNext++
 		}
-	}()
+	})
+	a.labelSolving = false
+	a.setScanChrome(a.scanning.Load())
+	if a.chart != nil {
+		a.chart.Invalidate()
+	}
 }
 
 func (a *app) withMeasureCanvas(fn func()) {
