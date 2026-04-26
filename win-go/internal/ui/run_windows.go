@@ -1144,32 +1144,50 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 	if minPt > maxPt {
 		minPt = maxPt
 	}
-	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, b.Name, pt, true) {
-			return labelChoice{mode: labelModeHorizWithDetails, heading: b.Name, pt: pt, withDetails: true}
-		}
+	if pt, ok := a.findBestFontSizeForMode(b, b.Name, minPt, maxPt, true); ok {
+		return labelChoice{mode: labelModeHorizWithDetails, heading: b.Name, pt: pt, withDetails: true}
 	}
-	for pt := maxPt; pt >= minPt; pt-- {
-		if a.tileLabelFits(b, b.Name, pt, false) {
-			return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: pt, withDetails: false}
-		}
+	if pt, ok := a.findBestFontSizeForMode(b, b.Name, minPt, maxPt, false); ok {
+		return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: pt, withDetails: false}
 	}
 	short := prioritizedShortHeadings(b.Name, a.labelPlaceholder())
-	for pt := maxPt; pt >= minPt; pt-- {
-		for _, heading := range short {
-			if a.tileLabelFits(b, heading, pt, true) {
-				return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: pt, withDetails: true}
-			}
+	for _, heading := range short {
+		if pt, ok := a.findBestFontSizeForMode(b, heading, minPt, maxPt, true); ok {
+			return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: pt, withDetails: true}
 		}
 	}
-	for pt := maxPt; pt >= minPt; pt-- {
-		for _, heading := range short {
-			if a.tileLabelFits(b, heading, pt, false) {
-				return labelChoice{mode: labelModeHorizNoDetailsShort, heading: heading, pt: pt, withDetails: false}
-			}
+	for _, heading := range short {
+		if pt, ok := a.findBestFontSizeForMode(b, heading, minPt, maxPt, false); ok {
+			return labelChoice{mode: labelModeHorizNoDetailsShort, heading: heading, pt: pt, withDetails: false}
 		}
 	}
 	return labelChoice{mode: labelModeHidden, pt: minPt}
+}
+
+// findBestFontSizeForMode finds the largest fitting font for a fixed heading/mode.
+// It uses bounded binary search so label resolution time is predictable per tile.
+func (a *app) findBestFontSizeForMode(b model.BlockLayout, heading string, minPt, maxPt int, withDetails bool) (int, bool) {
+	if minPt <= 0 || maxPt <= 0 || minPt > maxPt {
+		return 0, false
+	}
+	if !a.tileLabelFits(b, heading, minPt, withDetails) {
+		return 0, false
+	}
+	if a.tileLabelFits(b, heading, maxPt, withDetails) {
+		return maxPt, true
+	}
+	lo, hi := minPt, maxPt
+	best := minPt
+	for lo <= hi {
+		mid := lo + (hi-lo)/2
+		if a.tileLabelFits(b, heading, mid, withDetails) {
+			best = mid
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+	return best, true
 }
 
 func (a *app) ensureLabelSolveInitialized() {
