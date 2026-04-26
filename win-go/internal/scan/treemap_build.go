@@ -67,8 +67,8 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	if cur.Size > 0 && clumpThreshold > 0 {
 		limit := float64(cur.Size) * clumpThreshold
 		for _, c := range cands {
-			// Spec rule: small file objects always go to clump.
-			if !c.isFolder && float64(c.size) < limit {
+			// Spec rule: small file system objects always go to clump.
+			if float64(c.size) < limit {
 				forcedClump = append(forcedClump, c)
 				continue
 			}

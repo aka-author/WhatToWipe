@@ -1005,6 +1005,8 @@ Each tile’s area is proportional to the volume share of the represented entry 
 
 File tiles must use the packing type recorded in the descriptor for the represented entry.
 
+If a file system object shares less than `treemap.clumpThreshold` of the overall size of the context folder, it goes into the clump.
+
 
 #### Tile Layout
 
@@ -1341,6 +1343,7 @@ The groups of configuration parameters are described below in this section.
 | Name                              | Description                                  | Default   | User |
 |-----------------------------------|----------------------------------------------|-----------|------|
 | `treemap.maxTiles`                | Maximum number of tiles                      |        20 |  +   |
+| `treemap.clumpThreshold`          | Minimum percentage for not going to clump    |        5% |  +   |
 | `treemap.tilePaddingLeft`         | Left padding in a tile                       |       5pt |  +   |
 | `treemap.tilePaddingTop`          | Top padding in a tile                        |       5pt |  +   |
 | `treemap.tilePaddingRight`        | Right padding in a tile                      |       5pt |  +   |
