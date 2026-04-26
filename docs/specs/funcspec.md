@@ -912,15 +912,17 @@ The main window must have a unique icon.
 The menu must have the following structure.
 
 - **File**
-  - **Open a Folder**
-  - --- (separator)
-  - **Exit**
+   - **Open a Folder**
+   - --- (separator)
+   - **Exit**
 - **Inspect**
-  - **Up**
-  - **Explore**
-  - --- (separator)
-  - **Update**
-  - **Stop**
+   - **Up**
+   - **Explore**
+   - --- (separator)
+   - **Update**
+   - **Stop**
+- **Tools**
+   - **Settings...** 
 - **Help**
   - **About**
 
@@ -1286,6 +1288,40 @@ An interruption alert must get closed when the user performs one of the followin
 - Presses one of the following keys:
    - **Enter**
    - **Esc**
+
+
+### Settigs Form 
+
+The program must provide a settings form.
+
+The settings form must open when the user clicks **Tools → Settings...** in the menu.
+
+The settings form must be implemented as a grid (table-like form), not as tabs.
+
+The grid must contain one row per configurable treemap parameter from **Treemap Configuration Parameters**.
+
+Each row must include:
+
+- Parameter name
+- Value editor
+
+Rows for color parameters must also include:
+
+- A live color preview (swatch)
+- A color picker action
+
+When the settings form opens, it must display the current effective values for all listed parameters.
+
+The settings form must provide the following actions:
+
+- **Apply**: validate inputs, save valid values, and apply them immediately.
+- **OK**: perform **Apply**, then close the form.
+- **Cancel**: close the form without applying pending edits.
+- **Reset Treemap Defaults**: restore all treemap parameter editors to built-in default values.
+
+If at least one entered value is invalid, the form must not apply changes and must display a validation error.
+
+The settings form must not apply partial updates: either all edited values are valid and applied, or none are applied.
 
 
 ## Program Setup Configuration

@@ -17,33 +17,43 @@ import (
 )
 
 type colorField struct {
-	edit  *walk.LineEdit
+	edit   *walk.LineEdit
 	swatch *walk.Label
-	brush *walk.SolidColorBrush
+	brush  *walk.SolidColorBrush
 }
 
-func (cf *colorField) setHex(hex string) error {
+func (cf *colorField) dispose() {
+	if cf.brush != nil {
+		cf.brush.Dispose()
+		cf.brush = nil
+	}
+}
+
+func (cf *colorField) updateSwatchFromText() {
+	if cf == nil || cf.edit == nil || cf.swatch == nil {
+		return
+	}
+	c, err := parseHexColor(cf.edit.Text())
+	if err != nil {
+		return
+	}
+	cf.dispose()
+	b, berr := walk.NewSolidColorBrush(walk.RGB(c.R, c.G, c.B))
+	if berr != nil {
+		return
+	}
+	cf.brush = b
+	cf.swatch.SetBackground(b)
+}
+
+func (cf *colorField) setHex(hex string) {
 	if cf.edit != nil {
 		_ = cf.edit.SetText(strings.ToUpper(hex))
 	}
-	c, err := parseHexColor(hex)
-	if err != nil {
-		return err
-	}
-	if cf.swatch != nil {
-		if cf.brush != nil {
-			cf.brush.Dispose()
-		}
-		b, berr := walk.NewSolidColorBrush(walk.RGB(c.R, c.G, c.B))
-		if berr == nil {
-			cf.brush = b
-			cf.swatch.SetBackground(b)
-		}
-	}
-	return nil
+	cf.updateSwatchFromText()
 }
 
-func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.Treemap, bool) {
+func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
 	edited := current
 	def := config.DefaultTreemap()
 
@@ -101,33 +111,33 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 		_ = linuxExeEdit.SetText(strings.TrimSpace(t.LinuxExeFiles))
 		_ = macExeEdit.SetText(strings.TrimSpace(t.MacOSExeFiles))
 
-		_ = cfNativeFolderBg.setHex(formatRGBHex(t.NativeFolderBg))
-		_ = cfNativeFolderText.setHex(formatRGBHex(t.NativeFolderText))
-		_ = cfPackedFolderBg.setHex(formatRGBHex(t.PackedFolderBg))
-		_ = cfPackedFolderText.setHex(formatRGBHex(t.PackedFolderText))
-		_ = cfNativeFileBg.setHex(formatRGBHex(t.NativeFileBg))
-		_ = cfNativeFileText.setHex(formatRGBHex(t.NativeFileText))
-		_ = cfPackedFileBg.setHex(formatRGBHex(t.PackedFileBg))
-		_ = cfPackedFileText.setHex(formatRGBHex(t.PackedFileText))
-		_ = cfNativeClumpBg.setHex(formatRGBHex(t.NativeClumpBg))
-		_ = cfNativeClumpText.setHex(formatRGBHex(t.NativeClumpText))
-		_ = cfPackedClumpBg.setHex(formatRGBHex(t.PackedClumpBg))
-		_ = cfPackedClumpText.setHex(formatRGBHex(t.PackedClumpText))
+		cfNativeFolderBg.setHex(formatRGBHex(t.NativeFolderBg))
+		cfNativeFolderText.setHex(formatRGBHex(t.NativeFolderText))
+		cfPackedFolderBg.setHex(formatRGBHex(t.PackedFolderBg))
+		cfPackedFolderText.setHex(formatRGBHex(t.PackedFolderText))
+		cfNativeFileBg.setHex(formatRGBHex(t.NativeFileBg))
+		cfNativeFileText.setHex(formatRGBHex(t.NativeFileText))
+		cfPackedFileBg.setHex(formatRGBHex(t.PackedFileBg))
+		cfPackedFileText.setHex(formatRGBHex(t.PackedFileText))
+		cfNativeClumpBg.setHex(formatRGBHex(t.NativeClumpBg))
+		cfNativeClumpText.setHex(formatRGBHex(t.NativeClumpText))
+		cfPackedClumpBg.setHex(formatRGBHex(t.PackedClumpBg))
+		cfPackedClumpText.setHex(formatRGBHex(t.PackedClumpText))
 	}
 
 	chooseColor := func(cf *colorField) {
 		if cf == nil || cf.edit == nil {
 			return
 		}
-		cur, err := parseHexColor(cf.edit.Text())
+		start, err := parseHexColor(cf.edit.Text())
 		if err != nil {
-			cur = color.RGBA{A: 255}
+			start = color.RGBA{A: 255}
 		}
-		picked, ok := pickColor(owner, cur)
+		picked, ok := pickColor(owner, start)
 		if !ok {
 			return
 		}
-		_ = cf.setHex(formatRGBHex(picked))
+		cf.setHex(formatRGBHex(picked))
 	}
 
 	applyEdits := func() error {
@@ -320,15 +330,20 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 			walk.MsgBox(dlg, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 			return false
 		}
+		if onApply != nil {
+			onApply(edited)
+		}
 		return true
 	}
 
-	row := func(name string, assign **walk.LineEdit) Widget {
+	paramRow := func(name string, assign **walk.LineEdit) Widget {
 		return Composite{
-			Layout: Grid{Columns: 2, MarginsZero: true},
+			Layout: Grid{Columns: 4, MarginsZero: true},
 			Children: []Widget{
 				Label{Text: name},
 				LineEdit{AssignTo: assign},
+				HSpacer{},
+				HSpacer{},
 			},
 		}
 	}
@@ -337,8 +352,18 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 			Layout: Grid{Columns: 4, MarginsZero: true},
 			Children: []Widget{
 				Label{Text: name},
-				LineEdit{AssignTo: &cf.edit},
-				Label{AssignTo: &cf.swatch, Text: "      ", MinSize: Size{Width: 46, Height: 20}, MaxSize: Size{Width: 46, Height: 20}},
+				LineEdit{
+					AssignTo: &cf.edit,
+					OnTextChanged: func() {
+						cf.updateSwatchFromText()
+					},
+				},
+				Label{
+					AssignTo: &cf.swatch,
+					Text:     "      ",
+					MinSize:  Size{Width: 46, Height: 20},
+					MaxSize:  Size{Width: 46, Height: 20},
+				},
 				PushButton{
 					Text: "Pick\u2026",
 					OnClicked: func() {
@@ -367,23 +392,23 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 			Composite{
 				Layout: VBox{MarginsZero: true, Spacing: 6},
 				Children: []Widget{
-					row("treemap.maxTiles", &maxTilesEdit),
-					row("treemap.clumpThreshold (e.g. 1% or 0.01)", &clumpThresholdEdit),
-					row("treemap.minTileWidth (pt)", &minTileWidthEdit),
-					row("treemap.minTileHeight (pt)", &minTileHeightEdit),
-					row("treemap.tilePaddingLeft (pt)", &padLeftEdit),
-					row("treemap.tilePaddingTop (pt)", &padTopEdit),
-					row("treemap.tilePaddingRight (pt)", &padRightEdit),
-					row("treemap.tilePaddingBottom (pt)", &padBottomEdit),
-					row("treemap.tileFontName", &tileFontEdit),
-					row("treemap.headingMaxFontSize (pt)", &headingMaxEdit),
-					row("treemap.headingMinFontSize (pt)", &headingMinEdit),
-					row("treemap.headingLineHeight", &headingLineHeightEdit),
-					row("treemap.detailsFontSizeRatio", &detailsFontRatioEdit),
-					row("treemap.detailsLineHeight", &detailsLineHeightEdit),
-					row("treemap.aboveDetailsHeightRatio", &aboveDetailsEdit),
-					row("treemap.labelPlaceholder", &labelPlaceholderEdit),
-					row("treemap.labelDummy", &labelDummyEdit),
+					paramRow("treemap.maxTiles", &maxTilesEdit),
+					paramRow("treemap.clumpThreshold (e.g. 1% or 0.01)", &clumpThresholdEdit),
+					paramRow("treemap.minTileWidth (pt)", &minTileWidthEdit),
+					paramRow("treemap.minTileHeight (pt)", &minTileHeightEdit),
+					paramRow("treemap.tilePaddingLeft (pt)", &padLeftEdit),
+					paramRow("treemap.tilePaddingTop (pt)", &padTopEdit),
+					paramRow("treemap.tilePaddingRight (pt)", &padRightEdit),
+					paramRow("treemap.tilePaddingBottom (pt)", &padBottomEdit),
+					paramRow("treemap.tileFontName", &tileFontEdit),
+					paramRow("treemap.headingMaxFontSize (pt)", &headingMaxEdit),
+					paramRow("treemap.headingMinFontSize (pt)", &headingMinEdit),
+					paramRow("treemap.headingLineHeight", &headingLineHeightEdit),
+					paramRow("treemap.detailsFontSizeRatio", &detailsFontRatioEdit),
+					paramRow("treemap.detailsLineHeight", &detailsLineHeightEdit),
+					paramRow("treemap.aboveDetailsHeightRatio", &aboveDetailsEdit),
+					paramRow("treemap.labelPlaceholder", &labelPlaceholderEdit),
+					paramRow("treemap.labelDummy", &labelDummyEdit),
 					colorRow("treemap.nativeFolderBgColor", cfNativeFolderBg),
 					colorRow("treemap.nativeFolderTextColor", cfNativeFolderText),
 					colorRow("treemap.packedFolderBgColor", cfPackedFolderBg),
@@ -396,9 +421,9 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 					colorRow("treemap.nativeClumpTextColor", cfNativeClumpText),
 					colorRow("treemap.packedClumpBgColor", cfPackedClumpBg),
 					colorRow("treemap.packedClumpTextColor", cfPackedClumpText),
-					row("treemap.win.exeFiles", &winExeEdit),
-					row("treemap.linux.exeFiles", &linuxExeEdit),
-					row("treemap.macos.exeFiles", &macExeEdit),
+					paramRow("treemap.win.exeFiles", &winExeEdit),
+					paramRow("treemap.linux.exeFiles", &linuxExeEdit),
+					paramRow("treemap.macos.exeFiles", &macExeEdit),
 				},
 			},
 			Composite{
@@ -438,22 +463,16 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap) (config.
 			},
 		},
 	}
+
 	if err := decl.Create(owner); err != nil {
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return current, false
+		return
 	}
 	setFields(current)
-	result := dlg.Run()
+	_ = dlg.Run()
 	for _, cf := range colorFields {
-		if cf.brush != nil {
-			cf.brush.Dispose()
-			cf.brush = nil
-		}
+		cf.dispose()
 	}
-	if result != walk.DlgCmdOK {
-		return current, false
-	}
-	return edited, true
 }
 
 func pickColor(owner walk.Form, start color.RGBA) (color.RGBA, bool) {
@@ -511,5 +530,5 @@ func parseHexColor(s string) (color.RGBA, error) {
 }
 
 func formatRGBHex(c color.RGBA) string {
-	return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
 }

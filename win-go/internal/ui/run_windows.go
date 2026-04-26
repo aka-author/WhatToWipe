@@ -560,12 +560,10 @@ func (a *app) onAbout() {
 }
 
 func (a *app) onSettings() {
-	updated, ok := showTreemapSettingsDialog(a.mw, a.treemapCfg)
-	if !ok {
-		return
-	}
-	a.treemapCfg = updated
-	a.rebuildTreemap()
+	showTreemapSettingsDialog(a.mw, a.treemapCfg, func(updated config.Treemap) {
+		a.treemapCfg = updated
+		a.rebuildTreemap()
+	})
 }
 
 func appVersionDotted() string {
