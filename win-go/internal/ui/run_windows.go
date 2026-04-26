@@ -1145,10 +1145,14 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 		minPt = maxPt
 	}
 	// Simplified flow:
-	// 1) binary-search full form only
-	// 2) if full form fails at smallest font, show dummy
+	// 1) binary-search full form over font sizes
+	// 2) if full form fails, binary-search shortening at smallest font
+	// 3) if shortening also fails, show dummy
 	if pt, ok := a.findBestFontSizeForMode(b, b.Name, minPt, maxPt, true); ok {
 		return labelChoice{mode: labelModeHorizWithDetails, heading: b.Name, pt: pt, withDetails: true}
+	}
+	if heading, ok := a.findBestShortenedHeadingAtMinFont(b, b.Name, minPt, true); ok {
+		return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: minPt, withDetails: true}
 	}
 	return labelChoice{mode: labelModeHidden, pt: minPt}
 }
@@ -1177,6 +1181,70 @@ func (a *app) findBestFontSizeForMode(b model.BlockLayout, heading string, minPt
 		}
 	}
 	return best, true
+}
+
+// findBestShortenedHeadingAtMinFont finds the least-shortened heading that still fits at minPt.
+// It binary-searches the kept character count around placeholder insertion.
+func (a *app) findBestShortenedHeadingAtMinFont(b model.BlockLayout, heading string, minPt int, withDetails bool) (string, bool) {
+	if minPt <= 0 {
+		return "", false
+	}
+	ph := a.labelPlaceholder()
+	r := []rune(heading)
+	phRunes := []rune(ph)
+	if len(r) == 0 || len(phRunes) == 0 || len(r) <= len(phRunes) {
+		return "", false
+	}
+	maxKeep := len(r) - len(phRunes)
+	if maxKeep <= 0 {
+		return "", false
+	}
+	if !a.tileLabelFits(b, ph, minPt, withDetails) {
+		return "", false
+	}
+	lo, hi := 0, maxKeep
+	bestKeep := -1
+	bestHeading := ""
+	for lo <= hi {
+		mid := lo + (hi-lo)/2
+		candidate := shortenedHeadingByKeep(heading, ph, mid)
+		if a.tileLabelFits(b, candidate, minPt, withDetails) {
+			bestKeep = mid
+			bestHeading = candidate
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+	if bestKeep < 0 {
+		return "", false
+	}
+	return bestHeading, true
+}
+
+func shortenedHeadingByKeep(s, placeholder string, keep int) string {
+	r := []rune(s)
+	n := len(r)
+	if keep <= 0 {
+		return placeholder
+	}
+	if keep >= n {
+		return s
+	}
+	leftKeep := keep / 2
+	rightKeep := keep - leftKeep
+	if leftKeep+rightKeep > n {
+		return s
+	}
+	var b strings.Builder
+	if leftKeep > 0 {
+		b.WriteString(string(r[:leftKeep]))
+	}
+	b.WriteString(placeholder)
+	if rightKeep > 0 {
+		b.WriteString(string(r[n-rightKeep:]))
+	}
+	return b.String()
 }
 
 func (a *app) ensureLabelSolveInitialized() {
