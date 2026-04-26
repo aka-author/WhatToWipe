@@ -1155,6 +1155,9 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 	if heading, ok := a.findBestShortenedHeadingAtMinFont(b, b.Name, minPt, true); ok {
 		return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: minPt, withDetails: true}
 	}
+	if a.tileLabelFits(b, b.Name, minPt, false) {
+		return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: minPt, withDetails: false}
+	}
 	if heading, ok := a.findBestShortenedHeadingAtMinFont(b, b.Name, minPt, false); ok {
 		return labelChoice{mode: labelModeHorizNoDetailsShort, heading: heading, pt: minPt, withDetails: false}
 	}
