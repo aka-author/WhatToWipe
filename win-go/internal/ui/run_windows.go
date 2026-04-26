@@ -1188,7 +1188,7 @@ func (a *app) findBestFontSizeForMode(b model.BlockLayout, heading string, minPt
 }
 
 // findBestShortenedHeadingAtMinFont finds the least-shortened heading that still fits at minPt.
-// It binary-searches the kept character count around placeholder insertion.
+// It checks candidates from best quality (least shortened) to worst quality.
 func (a *app) findBestShortenedHeadingAtMinFont(b model.BlockLayout, heading string, minPt int, withDetails bool) (string, bool) {
 	if minPt <= 0 {
 		return "", false
@@ -1206,24 +1206,13 @@ func (a *app) findBestShortenedHeadingAtMinFont(b model.BlockLayout, heading str
 	if !a.tileLabelFits(b, ph, minPt, withDetails) {
 		return "", false
 	}
-	lo, hi := 0, maxKeep
-	bestKeep := -1
-	bestHeading := ""
-	for lo <= hi {
-		mid := lo + (hi-lo)/2
-		candidate := shortenedHeadingByKeep(heading, ph, mid)
+	for keep := maxKeep; keep >= 0; keep-- {
+		candidate := shortenedHeadingByKeep(heading, ph, keep)
 		if a.tileLabelFits(b, candidate, minPt, withDetails) {
-			bestKeep = mid
-			bestHeading = candidate
-			lo = mid + 1
-		} else {
-			hi = mid - 1
+			return candidate, true
 		}
 	}
-	if bestKeep < 0 {
-		return "", false
-	}
-	return bestHeading, true
+	return "", false
 }
 
 func shortenedHeadingByKeep(s, placeholder string, keep int) string {

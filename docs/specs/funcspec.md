@@ -1063,13 +1063,13 @@ The lines of the label follow from top to bottom.
 
 ##### Shortening Labels
 
-A shortened label is a label that displays a placeholder in the middele instead of a longer substring. For example, a label `karabas-barabas.pdf` is full, while the label `karab...s.pdf` is shortened. 
+A shortened label is a label that displays a placeholder in the middle instead of a longer substring. For example, `karabas-barabas.pdf` is a full label, while `karab...s.pdf` is a shortened label.
        
-The difference between the number of charactes before the placeholder and after the placeholder must not be larger that 1. 
+The difference between the number of characters before and after the placeholder must not be larger than 1.
 
-The program must use a placeholder that is defined in the `treemap.labelPlaceholder` configuretion parameter.
+The program must use the placeholder provided in the `treemap.labelPlaceholder` configuration parameter.
 
-The shortening labels quality rule says: the fewer charcters replaces a placeholder, the better a label. For example, the label `karabas-barabas.pdf` is better than `karabas...bas.pdf`, wich is better than `karab...s.pdf`. 
+The shortening-label quality rule is: the fewer characters replaced by a placeholder, the better the label. For example, `karabas-barabas.pdf` is better than `karabas...bas.pdf`, which is better than `karab...s.pdf`.
 
 
 ##### Label Font Size
@@ -1078,19 +1078,19 @@ The minimal font size allowed for a label is provided in the `treemap.headingMin
 
 The maximal font size allowed for a label is provided in the `treemap.headingMaxFontSize` configuration parameter.
 
-Each integer fontsize from the minimal to maximal is allowed.
+Each integer font size from minimum to maximum is allowed.
 
-The font size quality rule says: the larger font a label typed with, the better a label. 
+The font-size quality rule is: the larger the font used to render a label, the better the label.
 
 
 ##### Label Forms
 
-The following forms are allowed for labels: 
+The following forms are allowed for labels:
 
-- Deteiled
+- Detailed
 - Brief
 
-A label in the detailed form contains the followng parts:
+A label in detailed form contains the following parts:
 
 - Heading
 - Details
@@ -1099,7 +1099,7 @@ A label in the brief form contains the following parts:
 
 - Heading
 
-The label form quality rule says: a label in detailed form is better than in the brief form. 
+The label-form quality rule is: a label in detailed form is better than a label in brief form.
 
 
 ##### Formatting
@@ -1118,11 +1118,11 @@ The following linear sizes must apply to the parts of the tile label.
 
 A label fits the tile if it can be displayed within the tile’s external rectangle without being clipped.
 
-The program must choose the heading foont size based on the following rules listed from the higest to the lowes priority. 
+The program must choose heading font size based on the following rules, listed from highest to lowest priority:
 
 1. Label form quality rule
-2. Shortening labels quality rule. 
-3. Font size quality rule.
+2. Shortening labels quality rule
+3. Font size quality rule
 
 If no allowed label variant fits a tile (including brief form, shortening, and minimal allowed font size), the tile must display `treemap.labelDummy`.
 
@@ -1362,7 +1362,7 @@ The groups of configuration parameters are described below in this section.
 | `treemap.tileFontName`            | Tile text font                               | Segoe UI  |  +   |
 | `treemap.headingMaxFontSize`      | Maximal size of a label heading              |      30pt |  +   |
 | `treemap.headingMinFontSize`      | Minimal size of a label heading              |       8pt |  +   |
-| `treemap.headingLineHeight`       | Line height / font size in the heading       |       1.2 |  +   |
+| `treemap.headingLineHeight`       | Line height / font size in the heading       |         1 |  +   |
 | `treemap.detailsFontSizeRatio`    | Details font size / Heading font size        |       0.8 |  +   |
 | `treemap.detailsLineHeight`       | Line height / font size in the details block |       1.5 |  +   |
 | `treemap.aboveDetailsHeightRatio` | Interval / Details font size                 |         1 |  +   |

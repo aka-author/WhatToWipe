@@ -19,6 +19,10 @@ Do **not** make changes that were **not requested**, including “helpful” cle
 - **No substituting your plan for theirs.** If they describe a workflow (e.g. “use this script”), do not extend it with unrequested integration or refactors.
 - **Follow instructions verbatim.** Execute only explicitly requested actions and constraints from the user's message.
 - **No guesswork.** Do not infer missing intent or add implicit steps; ask when something is not explicit.
+- **Literal implementation only.** Implement exactly the requested mechanism/algorithm, not a broader or alternative design.
+- **Do not over-engineer.** Prefer the simplest direct implementation that satisfies the stated request.
+- **Do not over-optimize.** Do not introduce performance optimizations unless the user explicitly asks for optimization.
+- **Do not do things too early.** Do not add anticipatory changes for possible future needs; change only what is needed now.
 
 ## Deadly scope restriction (no redundant actions)
 

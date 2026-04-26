@@ -63,6 +63,17 @@ Pure function from child metrics and a pixel rectangle to tile rectangles. Areas
 
 Paint, labels, tooltips, hit testing. Measure fonts with the same DPI you use to paint (techspec DP-01). Fancy versus shabby and strings still come only from FS.
 
+#### Label fit algorithm (current implementation)
+
+The current label-fit flow is intentionally simple and bounded:
+
+1. Try the full heading in detailed form (heading + details) with a binary search on font size between `treemap.headingMinFontSize` and `treemap.headingMaxFontSize`.
+2. If full heading does not fit even at minimal font, try shortening at minimal font (detailed form), checking candidates from least shortened to most shortened.
+3. If that fails, repeat shortening at minimal font in brief form (heading only), again from least shortened to most shortened.
+4. If no variant fits, render `treemap.labelDummy`.
+
+Binary search for font size always returns the largest fitting integer size in the configured range. Shortening keeps the placeholder centered, and candidate headings are checked in quality order so the first fit is the least-shortened variant.
+
 ### Shell helpers
 
 Folder picker and Explorer launch for Explore. Meet FS dialog constraints. If `ShellExecute` or equivalent fails, show a clear error to the user (FS does not define the string; avoid silent failure).
