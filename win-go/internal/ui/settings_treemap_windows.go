@@ -101,8 +101,9 @@ func subitemBoundsDlg96(dlg *walk.Dialog, lv win.HWND, row, col int) walk.Rectan
 		return walk.Rectangle{}
 	}
 	var r win.RECT
-	r.Left = int32(col)
-	r.Top = win.LVIR_LABEL
+	// LVM_GETSUBITEMRECT expects RECT.Top = subitem index, RECT.Left = LVIR_* code.
+	r.Top = int32(col)
+	r.Left = win.LVIR_LABEL
 	if win.FALSE == win.SendMessage(lv, win.LVM_GETSUBITEMRECT, uintptr(row), uintptr(unsafe.Pointer(&r))) {
 		return walk.Rectangle{}
 	}
