@@ -950,6 +950,8 @@ The **Free** element must be implemented as a compound that contains the followi
 
 The **Total** and **Free** indicators are the *volume indicators* together.
 
+If a drive indicator contains a duplicated colon, it must be reduced to a single colon. For example, the text `Total at C::` should be optimized to `Total at C:`.
+
 The static label must be *Free at X:*. The *X* stands for the current volume letter or name.
 
 The button must display the volume free space. When the user clicks on the button the volume free space updates.

@@ -32,7 +32,7 @@ func ownerDPI(owner walk.Form) int {
 func aboutTextLabels(versionDotted string) []Widget {
 	w := 300
 	return []Widget{
-		Label{Text: "Erase & Rewrite is a disk space analyzer.", MaxSize: Size{Width: w, Height: 0}},
+		Label{Text: "Erase && Rewrite is a disk space analyzer.", MaxSize: Size{Width: w, Height: 0}},
 		Label{Text: "It scans a folder, shows its subfolders as a treemap,", MaxSize: Size{Width: w, Height: 0}},
 		Label{Text: "and helps you decide what to keep, move, or remove.", MaxSize: Size{Width: w, Height: 0}},
 		Label{Text: "Version " + versionDotted, MaxSize: Size{Width: w, Height: 0}},
@@ -88,8 +88,12 @@ func loadAboutArtImage(owner walk.Form) walk.Image {
 
 func showAboutDialog(owner walk.Form, versionDotted string) {
 	art := loadAboutArtImage(owner)
+	var dlgIcon *walk.Icon
+	if ic, err := loadEmbeddedAppIcon(); err == nil {
+		dlgIcon = ic
+	}
 	if art == nil {
-		walk.MsgBox(owner, "About Erase & Rewrite", aboutPlainFallback(versionDotted), walk.MsgBoxOK|walk.MsgBoxIconInformation)
+		walk.MsgBox(owner, "About Erase && Rewrite", aboutPlainFallback(versionDotted), walk.MsgBoxOK|walk.MsgBoxIconInformation)
 		return
 	}
 
@@ -137,7 +141,8 @@ func showAboutDialog(owner walk.Form, versionDotted string) {
 
 	_, _ = Dialog{
 		AssignTo:      &dlg,
-		Title:         "About Erase & Rewrite",
+		Title:         "About Erase && Rewrite",
+		Icon:          dlgIcon,
 		FixedSize:     true,
 		Size:          Size{Width: dlgW, Height: dlgH},
 		DefaultButton: &ok,

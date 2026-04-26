@@ -931,7 +931,7 @@ func (a *app) refreshVolumeToolbar() {
 		_ = a.volFreeBtn.SetText("-")
 		return
 	}
-	letter := volume.DriveLabel(a.volBarRoot)
+	letter := normalizeDriveIndicatorToken(volume.DriveLabel(a.volBarRoot))
 	tot, fr, err := volume.DiskSpace(a.volBarRoot)
 	if err != nil {
 		_ = a.volTotalLbl.SetText("Total at " + letter + ": -")
@@ -947,6 +947,19 @@ func (a *app) refreshVolumeToolbar() {
 		_ = a.volFreeLbl.SetText("Free at " + letter + ":")
 	}
 	_ = a.volFreeBtn.SetText(format.ObjectSize(int64(fr)))
+}
+
+func normalizeDriveIndicatorToken(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "?"
+	}
+	// Prevent duplicated colon in labels like "Total at C::".
+	s = strings.TrimRight(s, ":")
+	if s == "" {
+		return "?"
+	}
+	return s
 }
 
 func (a *app) statusForContext() string {
