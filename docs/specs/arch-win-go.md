@@ -69,8 +69,9 @@ The current label-fit flow is intentionally simple and bounded:
 
 1. Try the full heading in detailed form (heading + details) with a binary search on font size between `treemap.headingMinFontSize` and `treemap.headingMaxFontSize`.
 2. If full heading does not fit even at minimal font, try shortening at minimal font (detailed form), checking candidates from least shortened to most shortened.
-3. If that fails, repeat shortening at minimal font in brief form (heading only), again from least shortened to most shortened.
-4. If no variant fits, render `treemap.labelDummy`.
+3. If that fails, try full heading at minimal font in brief form (heading only).
+4. If full brief still does not fit, try shortening at minimal font in brief form, again from least shortened to most shortened.
+5. If no variant fits, render `treemap.labelDummy`.
 
 Binary search for font size always returns the largest fitting integer size in the configured range. Shortening keeps the placeholder centered, and candidate headings are checked in quality order so the first fit is the least-shortened variant.
 
