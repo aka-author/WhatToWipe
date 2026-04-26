@@ -1,5 +1,5 @@
-// seedconfig writes canonical WhatToWipe.config.txt into a directory from current spec defaults.
-// build.ps1 runs this after every build so dist/ and bin/win always match default config values.
+// seedconfig writes canonical WhatToWipe.config.txt into a target directory from current spec defaults.
+// This tool is on-demand; invoke it explicitly when you need to refresh a config file.
 package main
 
 import (
