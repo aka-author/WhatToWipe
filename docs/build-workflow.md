@@ -7,6 +7,7 @@ This document describes how the WhatToWipe Windows binary is produced, how the I
 - **`codebase/`** — Git repository root (contains `win-go/`, `scripts/`, `installer/`, `docs/`).
 - **`win-go/`** — Go module; `build.ps1` lives here.
 - **Project root** — parent of `codebase/` (the script calls it `$ShitwiperRoot`; equivalent to `codebase\..`). Build output goes under **`<ProjectRoot>\bin\win\`**, not under `codebase\` only.
+- **`<ProjectRoot>\tools\`** — location for helper tool executables. Tool `.exe` files must not stay in `win-go\`.
 
 So with a clone at `<ProjectRoot>\codebase\`, the exe lands in **`<ProjectRoot>\bin\win\current\`**.
 
@@ -47,12 +48,13 @@ Or `cd` into `win-go` and run `.\build.ps1`.
 1. Walk parents of `win-go/` to find **`.git`** (`$GitRoot`). If missing, git commits and real branch/commit in history are skipped (warning only).
 2. **Bump build** in `win-go/versioninfo.json`: increment numeric `FixedFileInfo.*.Build` only; string `FileVersion` / `ProductVersion` use **four uppercase hex digits** for the fourth segment (e.g. `0.1.0.000A`). Fails if build would exceed `0xFFFF`.
 3. Copy or generate **About** PNG into `win-go/assets/art/`; run **`go run ./tools/genicons`**; run **`go generate .`** (includes Windows resource / `goversioninfo`).
-4. If `$GitRoot` exists: **`git add -A`** then **`git commit -m "build: version {productVer}"`** (full-repo snapshot; throws if nothing staged).
-5. **`Prepare-CurrentBuildFolder`**: if `bin\win\current` is non-empty: if a **`*.date`** marker exists and `{WinBinRoot}\{markerStem}` does not exist yet, move all items into that archive folder; otherwise clear `current` (details in script comments).
-6. **`go build`** → `WhatToWipe.exe` under `current` (`CGO_ENABLED=0`, `-H windowsgui`, `-trimpath`, `-buildvcs=false`).
-7. Optional **Authenticode** if `WHATTOWIPE_SIGNTOOL` is set (see below).
-8. Copy `versioninfo.json` beside the exe; write **`.date`** marker (name + body), **`build-meta.json`**, append **`docs/history/builds.txt`**.
-9. If `$GitRoot` exists: **`git add -A`** and **`git commit -m "docs: append build {productVer} to history"`**.
+4. Move any root-level `win-go\*.exe` helper artifacts to **`<ProjectRoot>\tools\`** (enforced by the build script).
+5. If `$GitRoot` exists: **`git add -A`** then **`git commit -m "build: version {productVer}"`** (full-repo snapshot; throws if nothing staged).
+6. **`Prepare-CurrentBuildFolder`**: if `bin\win\current` is non-empty: if a **`*.date`** marker exists and `{WinBinRoot}\{markerStem}` does not exist yet, move all items into that archive folder; otherwise clear `current` (details in script comments).
+7. **`go build`** → `WhatToWipe.exe` under `current` (`CGO_ENABLED=0`, `-H windowsgui`, `-trimpath`, `-buildvcs=false`).
+8. Optional **Authenticode** if `WHATTOWIPE_SIGNTOOL` is set (see below).
+9. Copy `versioninfo.json` beside the exe; write **`.date`** marker (name + body), **`build-meta.json`**, append **`docs/history/builds.txt`**.
+10. If `$GitRoot` exists: **`git add -A`** and **`git commit -m "docs: append build {productVer} to history"`**.
 
 ### Environment variables (exe build only)
 

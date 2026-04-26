@@ -4,6 +4,7 @@ $ErrorActionPreference = "Stop"
 $ModuleRoot = $PSScriptRoot
 $CodebaseRoot = Split-Path $ModuleRoot -Parent
 $ShitwiperRoot = Split-Path $CodebaseRoot -Parent
+$ToolsRoot = Join-Path $ShitwiperRoot "tools"
 $goCmd = Get-Command go -ErrorAction SilentlyContinue
 $go = if ($goCmd) { $goCmd.Source } else { "go" }
 # Central path to Windows version resource template that feeds goversioninfo.
@@ -83,6 +84,21 @@ function Clear-DirectoryContents {
     }
     Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue | ForEach-Object {
         Remove-Item -LiteralPath $_.FullName -Recurse -Force
+    }
+}
+
+function Relocate-WinGoRootExeArtifacts {
+    param(
+        [Parameter(Mandatory = $true)][string]$ModuleRoot,
+        [Parameter(Mandatory = $true)][string]$ToolsRoot
+    )
+    New-Item -ItemType Directory -Force -Path $ToolsRoot | Out-Null
+
+    # Tool executables must not stay in win-go root; move them to <ProjectRoot>\tools.
+    $rootExeFiles = @(Get-ChildItem -LiteralPath $ModuleRoot -File -Filter "*.exe" -ErrorAction SilentlyContinue)
+    foreach ($exeFile in $rootExeFiles) {
+        $dst = Join-Path $ToolsRoot $exeFile.Name
+        Move-Item -LiteralPath $exeFile.FullName -Destination $dst -Force
     }
 }
 
@@ -182,6 +198,9 @@ $WinBinRoot = Join-Path $ShitwiperRoot "bin\win"
 if (-not $GitRoot) {
     Write-Warning "No Git repository found above win-go; skipping pre-build commit and trace (branch/commit unknown)."
 }
+
+# Keep root-level tool executables out of win-go; enforce <ProjectRoot>\tools location.
+Relocate-WinGoRootExeArtifacts -ModuleRoot $ModuleRoot -ToolsRoot $ToolsRoot
 
 # Bump version before go:generate so generated .syso embeds updated version metadata.
 Increment-VersionBuildNumber -Path $VersionInfoPath
