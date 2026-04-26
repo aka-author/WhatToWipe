@@ -1154,7 +1154,7 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 			return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: pt, withDetails: false}
 		}
 	}
-	short := shortenedHeadingVariants(b.Name, a.labelPlaceholder())
+	short := prioritizedShortHeadings(b.Name, a.labelPlaceholder())
 	for pt := maxPt; pt >= minPt; pt-- {
 		for _, heading := range short {
 			if a.tileLabelFits(b, heading, pt, true) {
@@ -1555,7 +1555,7 @@ func (a *app) computeLabelLayout(b model.BlockLayout, dpi int, heading string, n
 	return lay, true
 }
 
-func shortenedHeadingVariants(s string, placeholder string) []string {
+func prioritizedShortHeadings(s string, placeholder string) []string {
 	placeholder = strings.TrimSpace(placeholder)
 	if placeholder == "" {
 		placeholder = "..."
@@ -1574,14 +1574,27 @@ func shortenedHeadingVariants(s string, placeholder string) []string {
 	if n <= phLen {
 		return nil
 	}
-	if n == phLen+1 {
-		return []string{placeholder}
+	appendUnique := func(out []string, seen map[string]struct{}, v string) []string {
+		v = strings.TrimSpace(v)
+		if v == "" || v == s {
+			return out
+		}
+		if _, ok := seen[v]; ok {
+			return out
+		}
+		seen[v] = struct{}{}
+		return append(out, v)
 	}
-	removedStart := (n - phLen) / 2
-	leftKeep := removedStart
-	rightStart := removedStart + phLen
-	rightKeep := n - rightStart
-	build := func() string {
+	build := func(leftKeep, rightKeep int) string {
+		if leftKeep < 0 {
+			leftKeep = 0
+		}
+		if rightKeep < 0 {
+			rightKeep = 0
+		}
+		if leftKeep+rightKeep >= n {
+			return s
+		}
 		var b strings.Builder
 		if leftKeep > 0 {
 			b.WriteString(string(r[:leftKeep]))
@@ -1592,24 +1605,32 @@ func shortenedHeadingVariants(s string, placeholder string) []string {
 		}
 		return b.String()
 	}
-	out := []string{build()}
-	removeLeftNext := true
-	for leftKeep > 0 || rightKeep > 0 {
-		if removeLeftNext {
-			if leftKeep > 0 {
-				leftKeep--
-				out = append(out, build())
-			}
-			removeLeftNext = false
-			continue
-		}
-		if rightKeep > 0 {
-			rightKeep--
-			out = append(out, build())
-		}
-		removeLeftNext = true
+	keepTotal := n - phLen
+	if keepTotal <= 0 {
+		return []string{placeholder}
 	}
+	leftBalanced := keepTotal / 2
+	rightBalanced := keepTotal - leftBalanced
+
+	// Priority order:
+	// 1) balanced middle cut, 2) prefix-biased, 3) suffix-biased,
+	// 4) stronger balanced cut, 5) stronger prefix cut, 6) placeholder only.
+	seen := make(map[string]struct{}, 8)
+	out := make([]string, 0, 6)
+	out = appendUnique(out, seen, build(leftBalanced, rightBalanced))
+	out = appendUnique(out, seen, build(keepTotal*2/3, keepTotal/3))
+	out = appendUnique(out, seen, build(keepTotal/3, keepTotal*2/3))
+	out = appendUnique(out, seen, build(leftBalanced/2, rightBalanced/2))
+	out = appendUnique(out, seen, build(maxInt(1, keepTotal/4), maxInt(1, keepTotal/6)))
+	out = appendUnique(out, seen, placeholder)
 	return out
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func (a *app) labelPlaceholder() string {
