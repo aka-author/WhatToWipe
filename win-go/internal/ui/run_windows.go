@@ -1223,6 +1223,8 @@ func (a *app) startLabelSolve() {
 			var done bool
 			a.mw.Synchronize(func() {
 				if seq != atomic.LoadUint64(&a.labelSolveSeq) || !a.labelCacheValid || a.chart == nil {
+					a.labelSolving = false
+					a.setScanChrome(a.scanning.Load())
 					done = true
 					return
 				}
