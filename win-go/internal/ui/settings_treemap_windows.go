@@ -360,95 +360,73 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return true
 	}
 
+	var settingsParamGrid *walk.Composite
+
 	gridRows := []Widget{
+		Label{
+			Text:       "Treemap configuration parameters",
+			ColumnSpan: 2,
+		},
 		Label{Text: "treemap.maxTiles"},
-		LineEdit{AssignTo: &maxTilesEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &maxTilesEdit, StretchFactor: 1},
 		Label{Text: "treemap.clumpThreshold"},
-		LineEdit{AssignTo: &clumpThresholdEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &clumpThresholdEdit, StretchFactor: 1},
 		Label{Text: "treemap.minTileWidth (pt)"},
-		LineEdit{AssignTo: &minTileWidthEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &minTileWidthEdit, StretchFactor: 1},
 		Label{Text: "treemap.minTileHeight (pt)"},
-		LineEdit{AssignTo: &minTileHeightEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &minTileHeightEdit, StretchFactor: 1},
 		Label{Text: "treemap.tilePaddingLeft (pt)"},
-		LineEdit{AssignTo: &padLeftEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &padLeftEdit, StretchFactor: 1},
 		Label{Text: "treemap.tilePaddingTop (pt)"},
-		LineEdit{AssignTo: &padTopEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &padTopEdit, StretchFactor: 1},
 		Label{Text: "treemap.tilePaddingRight (pt)"},
-		LineEdit{AssignTo: &padRightEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &padRightEdit, StretchFactor: 1},
 		Label{Text: "treemap.tilePaddingBottom (pt)"},
-		LineEdit{AssignTo: &padBottomEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &padBottomEdit, StretchFactor: 1},
 		Label{Text: "treemap.tileFontName"},
-		ComboBox{AssignTo: &tileFontCombo, Model: fontModel, Editable: false},
-		HSpacer{},
-		HSpacer{},
+		ComboBox{AssignTo: &tileFontCombo, Model: fontModel, Editable: false, StretchFactor: 1},
 		Label{Text: "treemap.headingMaxFontSize (pt)"},
-		LineEdit{AssignTo: &headingMaxEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &headingMaxEdit, StretchFactor: 1},
 		Label{Text: "treemap.headingMinFontSize (pt)"},
-		LineEdit{AssignTo: &headingMinEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &headingMinEdit, StretchFactor: 1},
 		Label{Text: "treemap.headingLineHeight"},
-		LineEdit{AssignTo: &headingLineHeightEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &headingLineHeightEdit, StretchFactor: 1},
 		Label{Text: "treemap.detailsFontSizeRatio"},
-		LineEdit{AssignTo: &detailsFontRatioEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &detailsFontRatioEdit, StretchFactor: 1},
 		Label{Text: "treemap.detailsLineHeight"},
-		LineEdit{AssignTo: &detailsLineHeightEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &detailsLineHeightEdit, StretchFactor: 1},
 		Label{Text: "treemap.aboveDetailsHeightRatio"},
-		LineEdit{AssignTo: &aboveDetailsEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &aboveDetailsEdit, StretchFactor: 1},
 		Label{Text: "treemap.labelPlaceholder"},
-		LineEdit{AssignTo: &labelPlaceholderEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &labelPlaceholderEdit, StretchFactor: 1},
 		Label{Text: "treemap.labelDummy"},
-		LineEdit{AssignTo: &labelDummyEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &labelDummyEdit, StretchFactor: 1},
 	}
 	addColor := func(name string, cf *colorField) {
 		gridRows = append(gridRows,
 			Label{Text: name},
-			LineEdit{
-				AssignTo: &cf.edit,
-				OnTextChanged: func() {
-					cf.updateSwatchFromText()
-				},
-			},
-			Label{
-				AssignTo: &cf.swatch,
-				Text:     "      ",
-				MinSize:  Size{Width: 46, Height: 20},
-				MaxSize:  Size{Width: 46, Height: 20},
-			},
-			PushButton{
-				Text: "Pick\u2026",
-				OnClicked: func() {
-					chooseColor(cf)
+			Composite{
+				Layout: HBox{MarginsZero: true, Spacing: 8},
+				Children: []Widget{
+					LineEdit{
+						AssignTo:      &cf.edit,
+						StretchFactor: 1,
+						OnTextChanged: func() {
+							cf.updateSwatchFromText()
+						},
+					},
+					Label{
+						AssignTo: &cf.swatch,
+						Text:     "      ",
+						MinSize:  Size{Width: 46, Height: 20},
+						MaxSize:  Size{Width: 46, Height: 20},
+					},
+					PushButton{
+						Text: "Pick\u2026",
+						OnClicked: func() {
+							chooseColor(cf)
+						},
+					},
 				},
 			},
 		)
@@ -467,17 +445,11 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	addColor("treemap.packedClumpTextColor", cfPackedClumpText)
 	gridRows = append(gridRows,
 		Label{Text: "treemap.win.exeFiles"},
-		LineEdit{AssignTo: &winExeEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &winExeEdit, StretchFactor: 1},
 		Label{Text: "treemap.linux.exeFiles"},
-		LineEdit{AssignTo: &linuxExeEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &linuxExeEdit, StretchFactor: 1},
 		Label{Text: "treemap.macos.exeFiles"},
-		LineEdit{AssignTo: &macExeEdit},
-		HSpacer{},
-		HSpacer{},
+		LineEdit{AssignTo: &macExeEdit, StretchFactor: 1},
 	)
 
 	var icon *walk.Icon
@@ -494,10 +466,17 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		DefaultButton: &okBtn,
 		Layout:        VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
-			Label{Text: "Treemap Configuration Parameters"},
-			Composite{
-				Layout: Grid{Columns: 4, MarginsZero: true, Spacing: 6},
-				Children: gridRows,
+			ScrollView{
+				HorizontalFixed: true,
+				StretchFactor:     1,
+				Layout:            VBox{MarginsZero: true},
+				Children: []Widget{
+					Composite{
+						AssignTo: &settingsParamGrid,
+						Layout:   Grid{Columns: 2, MarginsZero: true, Spacing: 8},
+						Children: gridRows,
+					},
+				},
 			},
 			Composite{
 				Layout: HBox{MarginsZero: true, Spacing: 8},
@@ -540,6 +519,12 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	if err := decl.Create(owner); err != nil {
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
+	}
+	if settingsParamGrid != nil {
+		if gl, ok := settingsParamGrid.Layout().(*walk.GridLayout); ok {
+			_ = gl.SetColumnStretchFactor(0, 1)
+			_ = gl.SetColumnStretchFactor(1, 4)
+		}
 	}
 	setFields(current)
 	_ = dlg.Run()
