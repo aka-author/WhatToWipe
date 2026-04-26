@@ -37,7 +37,7 @@ func BuildTreemapItems(cur *model.FolderNode, driveTotal uint64, cfg config.Tree
 	}
 	clumpThreshold := cfg.ClumpThreshold
 	if clumpThreshold <= 0 {
-		clumpThreshold = 0.05
+		clumpThreshold = 0.02
 	}
 
 	var cands []treemapCand
