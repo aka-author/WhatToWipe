@@ -1147,12 +1147,16 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 	// Simplified flow:
 	// 1) binary-search full form over font sizes
 	// 2) if full form fails, binary-search shortening at smallest font
-	// 3) if shortening also fails, show dummy
+	// 3) if detailed shortening fails, binary-search shortening in brief form at smallest font
+	// 4) if still fails, show dummy
 	if pt, ok := a.findBestFontSizeForMode(b, b.Name, minPt, maxPt, true); ok {
 		return labelChoice{mode: labelModeHorizWithDetails, heading: b.Name, pt: pt, withDetails: true}
 	}
 	if heading, ok := a.findBestShortenedHeadingAtMinFont(b, b.Name, minPt, true); ok {
 		return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: minPt, withDetails: true}
+	}
+	if heading, ok := a.findBestShortenedHeadingAtMinFont(b, b.Name, minPt, false); ok {
+		return labelChoice{mode: labelModeHorizNoDetailsShort, heading: heading, pt: minPt, withDetails: false}
 	}
 	return labelChoice{mode: labelModeHidden, pt: minPt}
 }
