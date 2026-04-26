@@ -1144,21 +1144,19 @@ func (a *app) resolveTileLabel(b model.BlockLayout) labelChoice {
 	if minPt > maxPt {
 		minPt = maxPt
 	}
+	// Explicit flow requested by user:
+	// 1) binary-search full form
+	// 2) only if full form fails at smallest font, binary-search shortened forms
+	// 3) if shortened also fails, show dummy.
 	if pt, ok := a.findBestFontSizeForMode(b, b.Name, minPt, maxPt, true); ok {
 		return labelChoice{mode: labelModeHorizWithDetails, heading: b.Name, pt: pt, withDetails: true}
 	}
-	if pt, ok := a.findBestFontSizeForMode(b, b.Name, minPt, maxPt, false); ok {
-		return labelChoice{mode: labelModeHorizNoDetails, heading: b.Name, pt: pt, withDetails: false}
-	}
-	short := prioritizedShortHeadings(b.Name, a.labelPlaceholder())
-	for _, heading := range short {
-		if pt, ok := a.findBestFontSizeForMode(b, heading, minPt, maxPt, true); ok {
-			return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: pt, withDetails: true}
-		}
-	}
-	for _, heading := range short {
-		if pt, ok := a.findBestFontSizeForMode(b, heading, minPt, maxPt, false); ok {
-			return labelChoice{mode: labelModeHorizNoDetailsShort, heading: heading, pt: pt, withDetails: false}
+	if !a.tileLabelFits(b, b.Name, minPt, true) {
+		short := prioritizedShortHeadings(b.Name, a.labelPlaceholder())
+		for _, heading := range short {
+			if pt, ok := a.findBestFontSizeForMode(b, heading, minPt, maxPt, true); ok {
+				return labelChoice{mode: labelModeHorizWithDetailsShort, heading: heading, pt: pt, withDetails: true}
+			}
 		}
 	}
 	return labelChoice{mode: labelModeHidden, pt: minPt}
