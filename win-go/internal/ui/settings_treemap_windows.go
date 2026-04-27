@@ -44,32 +44,28 @@ func primarySysListView(tv *walk.TableView) win.HWND {
 	return best
 }
 
-func treemapHitTestCell(tv *walk.TableView) (lv win.HWND, row, col int, ok bool) {
-	if tv == nil {
-		return 0, 0, 0, false
+func treemapHitTestCellOnListView(lv win.HWND) (row, col int, ok bool) {
+	if lv == 0 {
+		return 0, 0, false
 	}
 	var pt win.POINT
 	win.GetCursorPos(&pt)
-	lv = primarySysListView(tv)
-	if lv == 0 {
-		return 0, 0, 0, false
-	}
 	ptc := pt
 	if !win.ScreenToClient(lv, &ptc) {
-		return 0, 0, 0, false
+		return 0, 0, false
 	}
 	var cr win.RECT
 	win.GetClientRect(lv, &cr)
 	if ptc.X < cr.Left || ptc.X >= cr.Right || ptc.Y < cr.Top || ptc.Y >= cr.Bottom {
-		return 0, 0, 0, false
+		return 0, 0, false
 	}
 	var hti win.LVHITTESTINFO
 	hti.Pt = ptc
 	ret := int32(win.SendMessage(lv, win.LVM_SUBITEMHITTEST, 0, uintptr(unsafe.Pointer(&hti))))
 	if ret == -1 || hti.IItem < 0 || hti.ISubItem < 0 {
-		return 0, 0, 0, false
+		return 0, 0, false
 	}
-	return lv, int(hti.IItem), int(hti.ISubItem), true
+	return int(hti.IItem), int(hti.ISubItem), true
 }
 
 func subitemBoundsDlg96(dlg *walk.Dialog, lv win.HWND, row, col int) walk.Rectangle {
@@ -93,6 +89,37 @@ func subitemBoundsDlg96(dlg *walk.Dialog, lv win.HWND, row, col int) walk.Rectan
 	return dlg.AsFormBase().RectangleTo96DPI(rp)
 }
 
+func clampRectToRect(inner, outer walk.Rectangle) (walk.Rectangle, bool) {
+	if inner.Width <= 0 || inner.Height <= 0 || outer.Width <= 0 || outer.Height <= 0 {
+		return walk.Rectangle{}, false
+	}
+	x1 := inner.X
+	y1 := inner.Y
+	x2 := inner.X + inner.Width
+	y2 := inner.Y + inner.Height
+	ox1 := outer.X
+	oy1 := outer.Y
+	ox2 := outer.X + outer.Width
+	oy2 := outer.Y + outer.Height
+	if x2 <= ox1 || x1 >= ox2 || y2 <= oy1 || y1 >= oy2 {
+		return walk.Rectangle{}, false
+	}
+	if x1 < ox1 {
+		x1 = ox1
+	}
+	if y1 < oy1 {
+		y1 = oy1
+	}
+	if x2 > ox2 {
+		x2 = ox2
+	}
+	if y2 > oy2 {
+		y2 = oy2
+	}
+	out := walk.Rectangle{X: x1, Y: y1, Width: x2 - x1, Height: y2 - y1}
+	return out, out.Width >= 8 && out.Height >= 8
+}
+
 type treemapInlineEditor struct {
 	dlg       *walk.Dialog
 	tv        *walk.TableView
@@ -101,6 +128,7 @@ type treemapInlineEditor struct {
 	fontModel []string
 	line      *walk.LineEdit
 	fontCombo *walk.ComboBox
+	lv        win.HWND
 	row       int
 	editing   bool
 	fontEdit  bool
@@ -135,14 +163,19 @@ func (ie *treemapInlineEditor) beginEdit(row int, font bool) {
 		return
 	}
 	ie.endEdit(true)
-	lv := primarySysListView(ie.tv)
-	if lv == 0 {
+	if ie.lv == 0 {
 		return
 	}
-	b := subitemBoundsDlg96(ie.dlg, lv, row, 1)
+	b := subitemBoundsDlg96(ie.dlg, ie.lv, row, 1)
 	if b.Width < 10 || b.Height < 10 {
 		return
 	}
+	tvBounds := ie.tv.Bounds()
+	cb, ok := clampRectToRect(b, tvBounds)
+	if !ok {
+		return
+	}
+	b = cb
 	ie.row = row
 	ie.editing = true
 	ie.fontEdit = font
@@ -304,7 +337,12 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		fontModel: fontModel,
 		line:      line,
 		fontCombo: fontCombo,
+		lv:        primarySysListView(gridTV),
 		row:       -1,
+	}
+	if editor.lv == 0 {
+		walk.MsgBox(owner, "Settings", "Cannot initialize table editor host", walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
 	}
 	line.EditingFinished().Attach(func() {
 		if editor != nil && editor.editing && !editor.fontEdit {
@@ -357,7 +395,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if button != walk.LeftButton {
 			return
 		}
-		_, row, col, ok := treemapHitTestCell(gridTV)
+		row, col, ok := treemapHitTestCellOnListView(editor.lv)
 		if !ok {
 			return
 		}
