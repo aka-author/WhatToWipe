@@ -274,11 +274,10 @@ func buildRowWidgets(s *SettingsState, bindings []rowControlBinding, showError f
 func buildEditorWidget(state *RowState, ss *SettingsState, b *rowControlBinding, showError func(string), onChanged func()) Widget {
 	switch state.Schema.Kind {
 	case KindNumeric:
-		var ne *walk.NumberEdit
-		initVal, _ := strconv.ParseFloat(state.LastGood, 64)
-		b.widgetRef = func() walk.Widget { return ne }
+		var le *walk.LineEdit
+		b.widgetRef = func() walk.Widget { return le }
 		commit := func() {
-			if ne == nil {
+			if le == nil {
 				return
 			}
 			if ss.validating {
@@ -286,17 +285,10 @@ func buildEditorWidget(state *RowState, ss *SettingsState, b *rowControlBinding,
 			}
 			ss.validating = true
 			defer func() { ss.validating = false }()
-			f := ne.Value()
-			text := strconv.FormatFloat(f, 'f', state.Schema.Decimals, 64)
-			if state.Schema.Decimals == 0 {
-				text = strconv.Itoa(int(f))
-			}
-			state.PendingValue = text
+			state.PendingValue = strings.TrimSpace(le.Text())
 			if err := validateField(state); err != nil {
 				showError(err.Error())
-				if old, err2 := strconv.ParseFloat(state.LastGood, 64); err2 == nil {
-					_ = ne.SetValue(old)
-				}
+				_ = le.SetText(state.LastGood)
 				state.PendingValue = state.LastGood
 				return
 			}
@@ -304,27 +296,17 @@ func buildEditorWidget(state *RowState, ss *SettingsState, b *rowControlBinding,
 			onChanged()
 		}
 		b.applyValue = func(v string) {
-			if ne == nil {
-				return
-			}
-			if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
-				_ = ne.SetValue(f)
+			if le != nil {
+				_ = le.SetText(v)
 			}
 		}
-		return NumberEdit{
-			AssignTo: &ne,
-			Value:    initVal,
-			MinValue: state.Schema.Min,
-			MaxValue: state.Schema.Max,
-			Decimals: state.Schema.Decimals,
-			OnValueChanged: func() {
-				commit()
-			},
+		return LineEdit{
+			AssignTo:          &le,
+			Text:              state.LastGood,
+			OnEditingFinished: commit,
 			OnKeyDown: func(key walk.Key) {
 				if key == walk.KeyEscape {
-					if old, err := strconv.ParseFloat(state.LastGood, 64); err == nil {
-						_ = ne.SetValue(old)
-					}
+					_ = le.SetText(state.LastGood)
 					state.PendingValue = state.LastGood
 					onChanged()
 				}
