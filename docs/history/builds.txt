@@ -42,3 +42,4 @@ version	branch	commit_full	commit_short
 0.1.0.002D	dev	660cb87019b0b6cb848cbaecc97a6b2c2f1f0459	660cb87
 0.1.0.002E	dev	b1a9e8d2f71a5b70ea81c25e3a2ce05a203da300	b1a9e8d
 0.1.0.002F	dev	721fd38b3efe8a686df3eedced8330bc4fa20a2b	721fd38
+0.1.0.0030	dev	a25a5944dd54cdb82d7a465e84ca94fdebeffa65	a25a594
