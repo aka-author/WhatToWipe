@@ -137,7 +137,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		AssignTo:  &dlg,
 		Title:     "Settings",
 		FixedSize: false,
-		MinSize:   Size{Width: 980, Height: 640},
+		MinSize:   Size{},
 		Size:      Size{Width: 1080, Height: 760},
 		Layout:    VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
@@ -145,7 +145,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 				AssignTo:             &gridParent,
 				StretchFactor:        1,
 				AlwaysConsumeSpace:   true,
-				MinSize:              Size{Width: 600, Height: 400},
+				MinSize:              Size{Width: 0, Height: 0},
 				Layout:               VBox{MarginsZero: true},
 			},
 			Label{
@@ -157,7 +157,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 				Layout: HBox{MarginsZero: true, Spacing: 8},
 				Children: []Widget{
 					PushButton{
-						Text: "Reset Treemap Defaults",
+						Text:        "Reset",
+						ToolTipText: "Reset all treemap settings to built-in application defaults",
 						OnClicked: func() {
 							next := treemapToStates(config.DefaultTreemap(), treemapSchemas)
 							for i := range s.states {
@@ -187,6 +188,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		log.Printf("ERROR: settings dialog create failed: %v", err)
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
+	}
+	// Clear outer min/max so shrink limit comes only from layout (see walk FormBase WM_GETMINMAXINFO).
+	if err := dlg.SetMinMaxSize(walk.Size{}, walk.Size{}); err != nil {
+		log.Printf("WARN: settings dialog SetMinMaxSize: %v", err)
 	}
 
 	if gridParent == nil {
