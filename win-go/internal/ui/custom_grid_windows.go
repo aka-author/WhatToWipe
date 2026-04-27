@@ -494,7 +494,6 @@ func (h *customWin32GridHost) handleListViewMessage(msg uint32, wParam, lParam u
 				return 0
 			}
 		}
-	case win.WM_COMMAND:
 		if h.activeKind == KindColor && h.activeBtn != 0 && win.HWND(lParam) == h.activeBtn {
 			code := uint16((wParam >> 16) & 0xFFFF)
 			if code == win.BN_CLICKED {
