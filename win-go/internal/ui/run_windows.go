@@ -560,7 +560,14 @@ func (a *app) onAbout() {
 }
 
 func (a *app) onSettings() {
-	showSchemaTestDialog(a.mw)
+	showTreemapSettingsDialog(a.mw, a.treemapCfg, func(next config.Treemap) {
+		a.treemapCfg = next
+		a.chartDirty = true
+		a.invalidateLabelCache()
+		if a.chart != nil {
+			a.chart.Invalidate()
+		}
+	})
 }
 
 func appVersionDotted() string {

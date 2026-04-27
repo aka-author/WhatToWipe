@@ -111,6 +111,9 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 			ScrollView{
 				AssignTo:      &sv,
 				StretchFactor: 1,
+				AlwaysConsumeSpace: true,
+				VerticalFixed: false,
+				Layout:        VBox{MarginsZero: true},
 				Children: []Widget{
 					Composite{
 						AssignTo: &gridHost,
