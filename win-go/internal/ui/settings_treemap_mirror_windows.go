@@ -5,7 +5,6 @@ package ui
 import (
 	"fmt"
 	"image/color"
-	"strconv"
 	"strings"
 
 	"github.com/lxn/walk"
@@ -81,55 +80,14 @@ func (m *treemapGridModel) Value(row, col int) interface{} {
 }
 
 func treemapValueColString(t *config.Treemap, row int) string {
-	if t == nil {
+	if t == nil || row < 0 || row >= len(treemapSchemas) {
 		return ""
 	}
-	switch row {
-	case 0:
-		return strconv.Itoa(t.MaxTiles)
-	case 1:
-		return strconv.FormatFloat(t.ClumpThreshold*100.0, 'f', -1, 64) + "%"
-	case 2:
-		return strconv.Itoa(t.MinTileWidthPt)
-	case 3:
-		return strconv.Itoa(t.MinTileHeightPt)
-	case 4:
-		return strconv.Itoa(t.TilePaddingLeftPt)
-	case 5:
-		return strconv.Itoa(t.TilePaddingTopPt)
-	case 6:
-		return strconv.Itoa(t.TilePaddingRightPt)
-	case 7:
-		return strconv.Itoa(t.TilePaddingBottomPt)
-	case 8:
-		return strings.TrimSpace(t.TileFontName)
-	case 9:
-		return strconv.Itoa(t.HeadingMaxFontSizePt)
-	case 10:
-		return strconv.Itoa(t.HeadingMinFontSizePt)
-	case 11:
-		return strconv.FormatFloat(t.HeadingLineHeight, 'f', -1, 64)
-	case 12:
-		return strconv.FormatFloat(t.DetailsFontSizeRatio, 'f', -1, 64)
-	case 13:
-		return strconv.FormatFloat(t.DetailsLineHeight, 'f', -1, 64)
-	case 14:
-		return strconv.FormatFloat(t.AboveDetailsRatio, 'f', -1, 64)
-	case 15:
-		return t.LabelPlaceholder
-	case 16:
-		return t.LabelDummy
-	case 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28:
-		return strings.TrimSpace(colorHexAtRow(t, row))
-	case 29:
-		return strings.TrimSpace(t.WinExeFiles)
-	case 30:
-		return strings.TrimSpace(t.LinuxExeFiles)
-	case 31:
-		return strings.TrimSpace(t.MacOSExeFiles)
-	default:
+	v, err := treemapValueByKey(t, treemapSchemas[row].Key)
+	if err != nil {
 		return ""
 	}
+	return v
 }
 
 func colorHexAtRow(t *config.Treemap, row int) string {
@@ -193,111 +151,10 @@ func setTreemapColorByRow(t *config.Treemap, row int, c color.RGBA) {
 }
 
 func treemapSetValueColFromString(t *config.Treemap, row int, s string) error {
-	s = strings.TrimSpace(s)
-	switch row {
-	case 0:
-		v, err := strconv.Atoi(s)
-		if err != nil || v < 1 {
-			return fmt.Errorf("must be an integer >= 1")
-		}
-		t.MaxTiles = v
-		return nil
-	case 1:
-		cl, err := parsePercentOrRatio(s)
-		if err != nil || cl <= 0 {
-			return fmt.Errorf("must be positive (for example 1%% or 0.01)")
-		}
-		t.ClumpThreshold = cl
-		return nil
-	case 2, 3:
-		v, err := strconv.Atoi(s)
-		if err != nil || v < 1 {
-			return fmt.Errorf("must be an integer >= 1")
-		}
-		if row == 2 {
-			t.MinTileWidthPt = v
-		} else {
-			t.MinTileHeightPt = v
-		}
-		return nil
-	case 4, 5, 6, 7:
-		v, err := strconv.Atoi(s)
-		if err != nil || v < 0 {
-			return fmt.Errorf("must be an integer >= 0")
-		}
-		switch row {
-		case 4:
-			t.TilePaddingLeftPt = v
-		case 5:
-			t.TilePaddingTopPt = v
-		case 6:
-			t.TilePaddingRightPt = v
-		case 7:
-			t.TilePaddingBottomPt = v
-		}
-		return nil
-	case 8:
-		if s == "" {
-			return fmt.Errorf("font name must not be empty")
-		}
-		t.TileFontName = s
-		return nil
-	case 9, 10:
-		v, err := strconv.Atoi(s)
-		if err != nil || v < 1 {
-			return fmt.Errorf("must be an integer >= 1")
-		}
-		if row == 9 {
-			t.HeadingMaxFontSizePt = v
-		} else {
-			t.HeadingMinFontSizePt = v
-		}
-		return nil
-	case 11, 12, 13, 14:
-		v, err := strconv.ParseFloat(s, 64)
-		if err != nil || v <= 0 {
-			return fmt.Errorf("must be > 0")
-		}
-		switch row {
-		case 11:
-			t.HeadingLineHeight = v
-		case 12:
-			t.DetailsFontSizeRatio = v
-		case 13:
-			t.DetailsLineHeight = v
-		case 14:
-			t.AboveDetailsRatio = v
-		}
-		return nil
-	case 15, 16:
-		if s == "" {
-			return fmt.Errorf("must not be empty")
-		}
-		if row == 15 {
-			t.LabelPlaceholder = s
-		} else {
-			t.LabelDummy = s
-		}
-		return nil
-	case 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28:
-		c, err := parseHexColor(s)
-		if err != nil {
-			return err
-		}
-		setTreemapColorByRow(t, row, c)
-		return nil
-	case 29:
-		t.WinExeFiles = s
-		return nil
-	case 30:
-		t.LinuxExeFiles = s
-		return nil
-	case 31:
-		t.MacOSExeFiles = s
-		return nil
-	default:
+	if row < 0 || row >= len(treemapSchemas) {
 		return fmt.Errorf("unknown row")
 	}
+	return treemapSetValueByKey(t, treemapSchemas[row].Key, s)
 }
 
 func validateTreemap(t *config.Treemap) error {
