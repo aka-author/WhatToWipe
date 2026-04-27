@@ -139,11 +139,21 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		},
 	}
 	if err := decl.Create(owner); err != nil {
+		log.Printf("ERROR: settings dialog create failed: %v", err)
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
+	}
+	log.Printf("DEBUG: gridHost nil? %v", gridHost == nil)
+	log.Printf("DEBUG: sv nil? %v", sv == nil)
+	log.Printf("DEBUG: state count: %d", len(s.states))
+	if gridHost == nil || sv == nil {
+		walk.MsgBox(owner, "Settings", "Settings grid host did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
 	onChanged := func() { clearError() }
 
+	dlg.SetSuspended(true)
+	gridHost.SetSuspended(true)
 	for i := range s.states {
 		lbl, _ := walk.NewTextLabel(gridHost)
 		_ = lbl.SetText(s.states[i].Schema.Label)
@@ -152,8 +162,15 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		bindings[i] = buildEditorControl(gridHost, &s.states[i], s, showError, onChanged)
 		bindings[i].scrollParent = sv
 	}
+	gridHost.SetMinMaxSize(
+		walk.Size{Width: 640, Height: len(s.states) * 34},
+		walk.Size{},
+	)
+	gridHost.SetSuspended(false)
+	dlg.SetSuspended(false)
 	// Force layout + repaint after dynamic row creation so controls are visible immediately.
 	gridHost.RequestLayout()
+	dlg.RequestLayout()
 	sv.Invalidate()
 	dlg.Invalidate()
 
