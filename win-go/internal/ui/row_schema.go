@@ -38,7 +38,7 @@ type RowState struct {
 	LastGood     string
 }
 
-var exeFilesRE = regexp.MustCompile(`^[A-Za-z0-9., _-]*$`)
+var exeFilesRE = regexp.MustCompile(`^[^#\r\n]*$`)
 
 var treemapSchemas = []RowSchema{
 	{Key: "treemap.maxTiles", Label: "treemap.maxTiles", Kind: KindNumeric, Min: 1, Max: 9999, Decimals: 0},
@@ -88,10 +88,7 @@ func loadFontOptions() []string {
 			return err
 		}
 		for _, n := range names {
-			n = strings.TrimSpace(n)
-			if idx := strings.Index(n, " ("); idx >= 0 {
-				n = strings.TrimSpace(n[:idx])
-			}
+			n = normalizeFontDisplayName(n)
 			if n != "" {
 				seen[n] = struct{}{}
 			}
@@ -121,4 +118,30 @@ func fallbackFonts() []string {
 		"Arial", "Calibri", "Consolas", "Courier New",
 		"Georgia", "Segoe UI", "Tahoma", "Times New Roman", "Verdana",
 	}
+}
+
+func normalizeFontDisplayName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	if idx := strings.Index(name, " ("); idx >= 0 {
+		name = strings.TrimSpace(name[:idx])
+	}
+	for _, suffix := range []string{
+		" bold italic",
+		" bold",
+		" italic",
+		" regular",
+		" narrow",
+		" light",
+		" semibold",
+		" medium",
+		" black",
+	} {
+		if strings.HasSuffix(strings.ToLower(name), suffix) {
+			name = strings.TrimSpace(name[:len(name)-len(suffix)])
+		}
+	}
+	return strings.TrimSpace(name)
 }

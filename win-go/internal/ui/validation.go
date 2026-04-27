@@ -29,6 +29,9 @@ func validateField(state *RowState) error {
 		}
 		return nil
 	case KindNumeric:
+		if val == "" {
+			return fmt.Errorf("%s must not be empty; enter a numeric value", state.Schema.Label)
+		}
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return fmt.Errorf("%s must be a number", state.Schema.Label)
