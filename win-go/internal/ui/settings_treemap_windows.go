@@ -134,6 +134,17 @@ type treemapInlineEditor struct {
 	fontEdit  bool
 }
 
+func (ie *treemapInlineEditor) ensureListView() bool {
+	if ie == nil || ie.tv == nil {
+		return false
+	}
+	if ie.lv != 0 {
+		return true
+	}
+	ie.lv = primarySysListView(ie.tv)
+	return ie.lv != 0
+}
+
 func (ie *treemapInlineEditor) endEdit(commit bool) {
 	if ie == nil || !ie.editing {
 		return
@@ -163,7 +174,7 @@ func (ie *treemapInlineEditor) beginEdit(row int, font bool) {
 		return
 	}
 	ie.endEdit(true)
-	if ie.lv == 0 {
+	if !ie.ensureListView() {
 		return
 	}
 	b := subitemBoundsDlg96(ie.dlg, ie.lv, row, 1)
@@ -337,12 +348,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		fontModel: fontModel,
 		line:      line,
 		fontCombo: fontCombo,
-		lv:        primarySysListView(gridTV),
 		row:       -1,
-	}
-	if editor.lv == 0 {
-		walk.MsgBox(owner, "Settings", "Cannot initialize table editor host", walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
 	}
 	line.EditingFinished().Attach(func() {
 		if editor != nil && editor.editing && !editor.fontEdit {
@@ -393,6 +399,9 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	})
 	gridTV.MouseDown().Attach(func(_, _ int, button walk.MouseButton) {
 		if button != walk.LeftButton {
+			return
+		}
+		if editor == nil || !editor.ensureListView() {
 			return
 		}
 		row, col, ok := treemapHitTestCellOnListView(editor.lv)
