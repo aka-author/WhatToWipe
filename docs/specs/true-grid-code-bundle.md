@@ -1441,3 +1441,115 @@ func SaveTreemap(path string, t Treemap) error {
 Note:
 - This bundle is intended for architecture review and includes the core related files requested.
 - If you want, I can extend this bundle with additional full files (`run_windows.go`, `fontlist_windows.go`) in the same format.
+
+---
+
+## Architect Request: Current Defects and Precise Questions
+
+### Context
+
+We implemented a custom Win32 true grid host using `SysListView32` for rendering plus owner-managed in-cell editors in `win-go/internal/ui/custom_grid_windows.go`.
+
+Current implementation includes:
+- In-place text editor (`EDIT`) for text/numeric fields
+- In-place combo editor (`COMBOBOX`) for dropdown fields
+- In-place color editor (`EDIT` + right-side `...` button)
+- Keyboard hooks for `Enter`, `Esc`, `Up`, `Down`
+- Validation flow and config mapping in existing `validation.go` and `config_mapper.go`
+
+The user confirms this is still not acceptable due to 4 concrete defects.
+
+### Defect 1: Parameter column is too wide
+
+Observed:
+- Parameter column still dominates visual width and feels oversized.
+- Value column does not have enough practical focus.
+
+Expected:
+- Parameter column should be compact, just enough for readable keys.
+- Value column should get priority for editing ergonomics.
+
+Question A1:
+- What exact width policy should be used?
+  - Fixed parameter width + stretch value?
+  - Proportional split?
+  - Min/max clamped split on resize?
+
+Question A2:
+- Should we support user-resizable columns, or enforce locked widths for deterministic UX?
+
+### Defect 2: Parameter labels must not include units
+
+Observed:
+- Some labels include units, e.g. `(... pt)`.
+- User explicitly requests unit-free parameter names.
+
+Expected:
+- Parameter names remain canonical keys/labels without embedded units.
+- Units should be represented in value formatting or placeholder/help only.
+
+Question B1:
+- Confirm canonical approach:
+  - Remove unit suffixes from all `RowSchema.Label`
+  - Keep unit-aware parsing/formatting in value editor only (`20pt`, `4mm`)
+
+Question B2:
+- For point-based fields, should the displayed stored value always normalize to `Npt` after commit, even if user entered `mm`?
+
+### Defect 3: Color pickers not working correctly
+
+Observed:
+- Intended behavior: click cell to edit, then click `...` button to open picker.
+- Reported behavior: picker flow still not reliably usable.
+- Current host handles color through `EDIT` + sibling `BUTTON`, with `WM_COMMAND/BN_CLICKED`.
+
+Expected:
+- Single click on color Value cell opens in-place color editor.
+- Clicking `...` always opens `ChooseColor`.
+- Chosen color updates current editor text immediately.
+- `Enter` commits, `Esc` reverts, focus behavior consistent.
+
+Question C1:
+- Is `WM_COMMAND` from child button guaranteed to route through the subclassed ListView proc in this setup, or should color editor/button be hosted in a dedicated child container window owned by the dialog instead?
+
+Question C2:
+- Should color button trigger immediate commit after picker selection, or only update text and wait for explicit `Enter`/focus-out commit?
+
+Question C3:
+- What is the preferred fallback when picker is canceled?
+  - Keep current typed value untouched (current behavior intent)
+  - Restore pre-open value
+
+### Defect 4: Font combo is not working
+
+Observed:
+- User requires a true combo box behavior (editable combo), not plain list semantics.
+- Current implementation uses `CBS_DROPDOWN`, but behavior is reported as non-working.
+
+Expected:
+- Font row uses editable combo UI.
+- Typing custom font names is possible.
+- Selecting from list works.
+- Commit/revert keys follow grid rules.
+
+Question D1:
+- For editable `COMBOBOX` (`CBS_DROPDOWN`), should commit use:
+  - `CBN_SELCHANGE` + `CBN_EDITCHANGE` + `CBN_KILLFOCUS`, or
+  - only explicit key-driven commit (`Enter`) and focus-out?
+
+Question D2:
+- Do we need to subclass the combo’s inner edit control separately to guarantee `Enter/Esc/Up/Down` semantics, instead of relying on parent combo/ListView message routing?
+
+Question D3:
+- Should `Up/Down` while combo drop-down list is open navigate list items (native combo behavior), and only perform row navigation when list is closed?
+
+### Requested Architect Output
+
+Please provide:
+1. A deterministic event/state model for three editor types (`EDIT`, `COMBOBOX`, `EDIT+BUTTON`), including exact `WM_*`/`CBN_*`/`BN_*` handling.
+2. A recommended ownership model for transient editors:
+   - child of ListView vs child of dialog overlay host
+   - pros/cons for focus and command routing reliability.
+3. Exact column sizing policy with numeric defaults.
+4. Label/value unit policy (labels unit-free; values unit-aware) confirmation.
+5. A minimal acceptance checklist that can be verified manually in one pass.
