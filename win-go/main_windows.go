@@ -7,11 +7,16 @@ package main
 
 import (
 	"os"
+	"runtime"
 
 	"github.com/lxn/walk"
 
 	"eraserewrite/win-go/internal/ui"
 )
+
+func init() {
+	runtime.LockOSThread()
+}
 
 func main() {
 	if err := ui.Run(); err != nil {

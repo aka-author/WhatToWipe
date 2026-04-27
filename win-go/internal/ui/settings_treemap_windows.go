@@ -115,14 +115,14 @@ func updateSwatch(swatch *walk.Composite, value string) {
 
 func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
 	var dlg *walk.Dialog
-	var tv *walk.TableView
+	var gridParent *walk.Composite
 	var errLabel *walk.Label
 	var applyBtn *walk.PushButton
 	var okBtn *walk.PushButton
 	var cancelBtn *walk.PushButton
 
 	s := newSettingsState(treemapToStates(current, treemapSchemas))
-	model := &treemapTrueGridModel{states: s.states}
+	var host *customWin32GridHost
 
 	showError := func(msg string) {
 		if errLabel != nil {
@@ -140,14 +140,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		Size:     Size{Width: 1080, Height: 760},
 		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
-			TableView{
-				AssignTo:      &tv,
+			Composite{
+				AssignTo:      &gridParent,
 				StretchFactor: 1,
-				ColumnsOrderable: false,
-				Columns: []TableViewColumn{
-					{Title: "Value", Width: 640},
-					{Title: "Parameter", Width: 380},
-				},
+				Layout:        VBox{MarginsZero: true},
 			},
 			Label{
 				AssignTo: &errLabel,
@@ -165,7 +161,14 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 								s.states[i].PendingValue = next[i].PendingValue
 								s.states[i].LastGood = next[i].LastGood
 							}
-							model.PublishRowsReset()
+							if host != nil {
+								host.states = s.states
+								host.destroy()
+								host, _ = newCustomWin32GridHost(gridParent, s.states, showError, clearError)
+								if host != nil {
+									host.layout()
+								}
+							}
 							clearError()
 						},
 					},
@@ -183,53 +186,23 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return
 	}
 
-	if tv == nil {
-		walk.MsgBox(owner, "Settings", "Settings table did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
+	if gridParent == nil {
+		walk.MsgBox(owner, "Settings", "Settings grid host did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	tv.SetModel(model)
-
-	enableNativeLabelEdit := func() {
-		style := uint32(win.GetWindowLong(tv.Handle(), win.GWL_STYLE))
-		style |= win.LVS_EDITLABELS
-		win.SetWindowLong(tv.Handle(), win.GWL_STYLE, int32(style))
-		win.SetWindowPos(tv.Handle(), 0, 0, 0, 0, 0, win.SWP_NOMOVE|win.SWP_NOSIZE|win.SWP_NOZORDER|win.SWP_FRAMECHANGED)
+	var err error
+	host, err = newCustomWin32GridHost(gridParent, s.states, showError, clearError)
+	if err != nil {
+		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
 	}
-	enableNativeLabelEdit()
-
-	startEditCurrent := func() {
-		row := tv.CurrentIndex()
-		if row < 0 || row >= len(s.states) {
-			return
-		}
-		win.SendMessage(tv.Handle(), win.LVM_EDITLABEL, uintptr(row), 0)
-	}
-
-	tv.ItemActivated().Attach(func() {
-		startEditCurrent()
-	})
-	tv.KeyDown().Attach(func(key walk.Key) {
-		if key == walk.KeyF2 || key == walk.KeyReturn {
-			startEditCurrent()
-		}
-	})
-
-	syncStatesFromListView := func() {
-		// Read live text from column 0 (Value).
-		buf := make([]uint16, 2048)
-		for i := range s.states {
-			item := win.LVITEM{
-				ISubItem:   0,
-				CchTextMax: int32(len(buf)),
-				PszText:    &buf[0],
-			}
-			win.SendMessage(tv.Handle(), win.LVM_GETITEMTEXT, uintptr(i), uintptr(unsafe.Pointer(&item)))
-			s.states[i].PendingValue = strings.TrimSpace(win.UTF16PtrToString(&buf[0]))
-		}
-	}
+	host.layout()
+	gridParent.SizeChanged().Attach(func() { host.layout() })
 
 	applyFlow := func(closeOnSuccess bool) bool {
-		syncStatesFromListView()
+		if host != nil && !host.commitActive() {
+			return false
+		}
 		if s.saving {
 			return false
 		}
@@ -253,16 +226,20 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if errs := validateAll(s.states); len(errs) > 0 {
 			showError(errs[0].Message)
 			if idx := indexByKey(s.states, errs[0].Key); idx >= 0 {
-				tv.SetCurrentIndex(idx)
-				startEditCurrent()
+				if host != nil {
+					host.setCurrentRow(idx)
+					host.activateEditor(idx)
+				}
 			}
 			return false
 		}
 		if errs := validateObject(s.states); len(errs) > 0 {
 			showError(errs[0].Message)
 			if idx := indexByKey(s.states, errs[0].Key); idx >= 0 {
-				tv.SetCurrentIndex(idx)
-				startEditCurrent()
+				if host != nil {
+					host.setCurrentRow(idx)
+					host.activateEditor(idx)
+				}
 			}
 			return false
 		}
@@ -301,6 +278,9 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	}
 	if cancelBtn != nil {
 		cancelBtn.Clicked().Attach(func() {
+			if host != nil {
+				host.cancelActive()
+			}
 			if s.isDirty() {
 				if walk.MsgBox(dlg, "Settings", "You have unsaved changes. Discard them?", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
 					return
@@ -309,7 +289,15 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 			dlg.Cancel()
 		})
 	}
+	dlg.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
+		if reason == walk.CloseReasonUnknown && host != nil {
+			host.cancelActive()
+		}
+	})
 	_ = dlg.Run()
+	if host != nil {
+		host.destroy()
+	}
 }
 
 func indexByKey(states []RowState, key string) int {
