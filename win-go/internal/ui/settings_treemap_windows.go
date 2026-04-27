@@ -150,7 +150,6 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 				AssignTo:      &tv,
 				StretchFactor: 1,
 				ColumnsOrderable: false,
-				AlternatingRowBGColor: walk.RGB(248, 248, 248),
 				Columns: []TableViewColumn{
 					{Title: "Parameter", Width: 360},
 					{Title: "Value", Width: 620},
@@ -196,7 +195,7 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 	}
 	tv.SetModel(model)
 
-	ed, err := walk.NewLineEdit(tv)
+	ed, err := walk.NewLineEdit(dlg)
 	if err != nil {
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
@@ -234,7 +233,6 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 		_ = editor.SetText(s.states[row].PendingValue)
 		editor.SetVisible(true)
 		_ = editor.SetFocus()
-		editor.SelectAll()
 	}
 
 	commitEdit := func() bool {
