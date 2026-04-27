@@ -560,7 +560,7 @@ func (a *app) onAbout() {
 }
 
 func (a *app) onSettings() {
-	showMinimalTestDialog(a.mw)
+	showSchemaTestDialog(a.mw)
 }
 
 func appVersionDotted() string {

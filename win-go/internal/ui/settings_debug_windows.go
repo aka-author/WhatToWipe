@@ -44,3 +44,42 @@ func showMinimalTestDialog(owner walk.Form) {
 	result := dlg.Run()
 	log.Printf("DEBUG: dialog closed with result %d", result)
 }
+
+func showSchemaTestDialog(owner walk.Form) {
+	var dlg *walk.Dialog
+	var rows []Widget
+	for i := range treemapSchemas {
+		schema := &treemapSchemas[i]
+		rows = append(rows, Label{Text: schema.Label})
+		rows = append(rows, LineEdit{Text: schema.Key})
+	}
+
+	err := Dialog{
+		AssignTo: &dlg,
+		Title:    "Schema Test",
+		MinSize:  Size{Width: 600, Height: 500},
+		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
+		Children: []Widget{
+			ScrollView{
+				Layout: VScroll{},
+				Children: []Widget{
+					Composite{
+						Layout:   Grid{Columns: 2, Spacing: 8},
+						Children: rows,
+					},
+				},
+			},
+			PushButton{
+				Text:      "Close",
+				OnClicked: func() { dlg.Accept() },
+			},
+		},
+	}.Create(owner)
+	if err != nil {
+		walk.MsgBox(owner, "Error", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
+	}
+
+	result := dlg.Run()
+	log.Printf("DEBUG: schema dialog closed with result %d", result)
+}
