@@ -68,9 +68,9 @@ func (m *treemapGridModel) Value(row, col int) interface{} {
 	}
 	switch col {
 	case 0:
-		return treemapGridRowLabels[row]
-	case 1:
 		return treemapValueColString(m.edited, row)
+	case 1:
+		return treemapGridRowLabels[row]
 	case 2:
 		return ""
 	case 3:

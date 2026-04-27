@@ -560,44 +560,10 @@ func (a *app) onAbout() {
 }
 
 func (a *app) onSettings() {
-	if a.launchExternalSettingsGrid() {
-		tc, err := config.LoadOrInitTreemap()
-		if err != nil {
-			walk.MsgBox(a.mw, "Settings", "Settings were closed, but config reload failed: "+err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-			return
-		}
-		a.treemapCfg = tc
+	showTreemapSettingsDialog(a.mw, a.treemapCfg, func(updated config.Treemap) {
+		a.treemapCfg = updated
 		a.rebuildTreemap()
-		return
-	}
-	walk.MsgBox(a.mw, "Settings", "Grid settings app is not available. Build and place EraseAndRewriteSettingsGrid.exe next to the main app or under tools.", walk.MsgBoxOK|walk.MsgBoxIconError)
-}
-
-func (a *app) launchExternalSettingsGrid() bool {
-	exePath, err := os.Executable()
-	if err != nil || exePath == "" {
-		return false
-	}
-	mainDir := filepath.Dir(exePath)
-	candidates := []string{
-		filepath.Join(mainDir, "EraseAndRewriteSettingsGrid.exe"),
-		filepath.Join(mainDir, "..", "EraseAndRewriteSettingsGrid.exe"),
-		filepath.Join(mainDir, "..", "..", "tools", "EraseAndRewriteSettingsGrid.exe"),
-		filepath.Join(mainDir, "..", "..", "..", "tools", "EraseAndRewriteSettingsGrid.exe"),
-	}
-	for _, p := range candidates {
-		if st, statErr := os.Stat(p); statErr != nil || st.IsDir() {
-			continue
-		}
-		cmd := exec.Command(p)
-		cmd.Dir = filepath.Dir(p)
-		runErr := cmd.Run()
-		if runErr != nil {
-			walk.MsgBox(a.mw, "Settings", "Failed to launch grid settings app: "+runErr.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		}
-		return runErr == nil
-	}
-	return false
+	})
 }
 
 func appVersionDotted() string {

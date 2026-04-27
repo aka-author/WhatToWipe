@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/lxn/walk"
@@ -85,8 +86,7 @@ func subitemBoundsDlg96(dlg *walk.Dialog, lv win.HWND, row, col int) walk.Rectan
 	hDlg := dlg.AsFormBase().Handle()
 	win.ScreenToClient(hDlg, &tl)
 	win.ScreenToClient(hDlg, &br)
-	rp := walk.Rectangle{X: int(tl.X), Y: int(tl.Y), Width: int(br.X - tl.X), Height: int(br.Y - tl.Y)}
-	return dlg.AsFormBase().RectangleTo96DPI(rp)
+	return walk.Rectangle{X: int(tl.X), Y: int(tl.Y), Width: int(br.X - tl.X), Height: int(br.Y - tl.Y)}
 }
 
 func clampRectToRect(inner, outer walk.Rectangle) (walk.Rectangle, bool) {
@@ -280,8 +280,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 				NotSortableByHeaderClick: true,
 				MinSize:                  Size{Height: 320},
 				Columns: []TableViewColumn{
-					{Title: "Parameter", Width: 260},
 					{Title: "Value", Width: 360},
+					{Title: "Parameter", Width: 260},
 					{Title: "Swatch", Width: 64},
 					{Title: "Pick", Width: 56},
 				},
@@ -327,73 +327,61 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-
-	line, err := walk.NewLineEdit(dlg)
-	if err != nil {
-		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
-	}
-	fontCombo, err := walk.NewDropDownBox(dlg)
-	if err != nil {
-		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
-	}
-	line.SetVisible(false)
-	fontCombo.SetVisible(false)
-	editor = &treemapInlineEditor{
-		dlg:       dlg,
-		tv:        gridTV,
-		gridModel: gridModel,
-		edited:    &edited,
-		fontModel: fontModel,
-		line:      line,
-		fontCombo: fontCombo,
-		row:       -1,
-	}
-	line.EditingFinished().Attach(func() {
-		if editor != nil && editor.editing && !editor.fontEdit {
-			editor.endEdit(true)
-		}
-	})
-	fontCombo.EditingFinished().Attach(func() {
-		if editor != nil && editor.editing && editor.fontEdit {
-			editor.endEdit(true)
-		}
-	})
-	line.KeyDown().Attach(func(key walk.Key) {
-		if editor == nil || !editor.editing || editor.fontEdit {
+	_ = fontModel
+	var activeEditRow = -1
+	var activeEditLastText string
+	var pollNativeEdit func()
+	pollNativeEdit = func() {
+		if dlg == nil {
 			return
 		}
-		if key == walk.KeyEscape {
-			editor.endEdit(false)
-			_ = gridTV.SetFocus()
-		}
-		if key == walk.KeyReturn {
-			editor.endEdit(true)
-			_ = gridTV.SetFocus()
-		}
-	})
-	fontCombo.KeyDown().Attach(func(key walk.Key) {
-		if editor == nil || !editor.editing || !editor.fontEdit {
+		dlg.Synchronize(func() {
+			if editor == nil || !editor.ensureListView() || activeEditRow < 0 {
+				return
+			}
+			hEdit := win.HWND(win.SendMessage(editor.lv, win.LVM_GETEDITCONTROL, 0, 0))
+			if hEdit == 0 {
+				activeEditRow = -1
+				activeEditLastText = ""
+				return
+			}
+			text := strings.TrimSpace(getWindowText(hEdit))
+			if text != activeEditLastText {
+				if err := treemapSetValueColFromString(&edited, activeEditRow, text); err == nil {
+					activeEditLastText = text
+					gridModel.refreshAll()
+				}
+			}
+			time.AfterFunc(120*time.Millisecond, pollNativeEdit)
+		})
+	}
+	startNativeValueEdit := func(row int) {
+		if editor == nil || row < 0 || row >= len(treemapGridRowLabels) || !editor.ensureListView() {
 			return
 		}
-		if key == walk.KeyEscape {
-			editor.endEdit(false)
-			_ = gridTV.SetFocus()
+		if err := gridTV.SetCurrentIndex(row); err != nil {
+			return
 		}
-		if key == walk.KeyReturn {
-			editor.endEdit(true)
-			_ = gridTV.SetFocus()
+		activeEditRow = row
+		activeEditLastText = treemapValueColString(&edited, row)
+		win.SendMessage(editor.lv, win.LVM_EDITLABEL, uintptr(row), 0)
+		time.AfterFunc(10*time.Millisecond, pollNativeEdit)
+	}
+	if editor == nil {
+		editor = &treemapInlineEditor{
+			dlg:       dlg,
+			tv:        gridTV,
+			gridModel: gridModel,
+			edited:    &edited,
+			fontModel: fontModel,
+			row:       -1,
 		}
-	})
+	}
 	gridTV.KeyDown().Attach(func(key walk.Key) {
-		if editor == nil || editor.editing {
-			return
-		}
 		if key == walk.KeyF2 || key == walk.KeyReturn {
 			row := gridTV.CurrentIndex()
 			if row >= 0 {
-				editor.beginEdit(row, row == 8)
+				startNativeValueEdit(row)
 			}
 		}
 	})
@@ -420,23 +408,23 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 			}
 			return
 		}
-		if col == 1 {
-			editor.beginEdit(row, row == 8)
+		if col == 0 {
+			startNativeValueEdit(row)
 		}
 	})
 	gridTV.ItemActivated().Attach(func() {
 		row := gridTV.CurrentIndex()
 		if row >= 0 {
-			editor.beginEdit(row, row == 8)
+			startNativeValueEdit(row)
 		}
 	})
-	dlg.SizeChanged().Attach(func() {
-		if editor != nil && editor.editing {
-			editor.endEdit(true)
-		}
-	})
+	dlg.SizeChanged().Attach(func() {})
 	if gridTV != nil {
 		gridTV.SetGridlines(true)
+	}
+	if editor != nil && editor.ensureListView() {
+		order := []int32{1, 0, 2, 3}
+		win.SendMessage(editor.lv, win.LVM_SETCOLUMNORDERARRAY, uintptr(len(order)), uintptr(unsafe.Pointer(&order[0])))
 	}
 	setFields(current)
 	_ = dlg.Run()
@@ -496,4 +484,19 @@ func parseHexColor(s string) (color.RGBA, error) {
 
 func formatRGBHex(c color.RGBA) string {
 	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+}
+
+func getWindowText(hwnd win.HWND) string {
+	if hwnd == 0 {
+		return ""
+	}
+	n := int(win.SendMessage(hwnd, win.WM_GETTEXTLENGTH, 0, 0))
+	if n <= 0 {
+		return ""
+	}
+	buf := make([]uint16, n+1)
+	if win.SendMessage(hwnd, win.WM_GETTEXT, uintptr(len(buf)), uintptr(unsafe.Pointer(&buf[0]))) == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf)
 }
