@@ -20,6 +20,7 @@ import (
 type rowControlBinding struct {
 	applyValue   func(string)
 	focusWidget  walk.Widget
+	widgetRef    func() walk.Widget
 	colorSwatch  *walk.Composite
 	colorLine    *walk.LineEdit
 	scrollParent *walk.ScrollView
@@ -33,16 +34,22 @@ func (b *rowControlBinding) setValue(v string) {
 }
 
 func (b *rowControlBinding) focus() {
-	if b == nil || b.focusWidget == nil {
+	if b == nil {
 		return
 	}
-	_ = b.focusWidget.SetFocus()
+	w := b.focusWidget
+	if w == nil && b.widgetRef != nil {
+		w = b.widgetRef()
+	}
+	if w == nil {
+		return
+	}
+	_ = w.SetFocus()
 	if b.scrollParent != nil {
-		bounds := b.focusWidget.BoundsPixels()
 		win.SendMessage(b.scrollParent.Handle(), win.WM_VSCROLL, uintptr(win.SB_TOP), 0)
 		step := 0
 		for step < 200 {
-			cur := b.focusWidget.BoundsPixels()
+			cur := w.BoundsPixels()
 			if cur.Y >= 0 && cur.Y+cur.Height <= b.scrollParent.ClientBoundsPixels().Height {
 				break
 			}
@@ -53,7 +60,6 @@ func (b *rowControlBinding) focus() {
 			}
 			step++
 		}
-		_ = bounds
 	}
 }
 
@@ -92,6 +98,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	clearError := func() {
 		showError("")
 	}
+	onChanged := func() { clearError() }
+	rowWidgets := buildRowWidgets(s, bindings, showError, onChanged)
 
 	decl := Dialog{
 		AssignTo: &dlg,
@@ -107,6 +115,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 					Composite{
 						AssignTo: &gridHost,
 						Layout:   Grid{Columns: 2, Margins: Margins{0, 0, 0, 0}, Spacing: 8},
+						MinSize:  Size{Width: 640, Height: len(s.states) * 34},
+						Children: rowWidgets,
 					},
 				},
 			},
@@ -150,29 +160,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", "Settings grid host did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	onChanged := func() { clearError() }
-
-	dlg.SetSuspended(true)
-	gridHost.SetSuspended(true)
-	for i := range s.states {
-		lbl, _ := walk.NewTextLabel(gridHost)
-		_ = lbl.SetText(s.states[i].Schema.Label)
-		lbl.SetMinMaxSize(walk.Size{Width: 270}, walk.Size{})
-
-		bindings[i] = buildEditorControl(gridHost, &s.states[i], s, showError, onChanged)
+	for i := range bindings {
 		bindings[i].scrollParent = sv
+		bindings[i].setValue(s.states[i].LastGood)
 	}
-	gridHost.SetMinMaxSize(
-		walk.Size{Width: 640, Height: len(s.states) * 34},
-		walk.Size{},
-	)
-	gridHost.SetSuspended(false)
-	dlg.SetSuspended(false)
-	// Force layout + repaint after dynamic row creation so controls are visible immediately.
-	gridHost.RequestLayout()
-	dlg.RequestLayout()
-	sv.Invalidate()
-	dlg.Invalidate()
 
 	applyFlow := func(closeOnSuccess bool) bool {
 		if s.saving {
@@ -264,17 +255,29 @@ func indexByKey(states []RowState, key string) int {
 	return -1
 }
 
-func buildEditorControl(parent walk.Container, state *RowState, ss *SettingsState, showError func(string), onChanged func()) rowControlBinding {
-	b := rowControlBinding{}
+func buildRowWidgets(s *SettingsState, bindings []rowControlBinding, showError func(string), onChanged func()) []Widget {
+	widgets := make([]Widget, 0, len(s.states)*2)
+	for i := range s.states {
+		state := &s.states[i]
+		widgets = append(widgets, Label{
+			Text:    state.Schema.Label,
+			MinSize: Size{Width: 270},
+		})
+		widgets = append(widgets, buildEditorWidget(state, s, &bindings[i], showError, onChanged))
+	}
+	return widgets
+}
+
+func buildEditorWidget(state *RowState, ss *SettingsState, b *rowControlBinding, showError func(string), onChanged func()) Widget {
 	switch state.Schema.Kind {
 	case KindNumeric:
-		ne, _ := walk.NewNumberEdit(parent)
-		_ = ne.SetRange(state.Schema.Min, state.Schema.Max)
-		ne.SetDecimals(state.Schema.Decimals)
-		if f, err := strconv.ParseFloat(state.LastGood, 64); err == nil {
-			_ = ne.SetValue(f)
-		}
+		var ne *walk.NumberEdit
+		initVal, _ := strconv.ParseFloat(state.LastGood, 64)
+		b.widgetRef = func() walk.Widget { return ne }
 		commit := func() {
+			if ne == nil {
+				return
+			}
 			if ss.validating {
 				return
 			}
@@ -297,27 +300,47 @@ func buildEditorControl(parent walk.Container, state *RowState, ss *SettingsStat
 			state.LastGood = state.PendingValue
 			onChanged()
 		}
-		ne.ValueChanged().Attach(commit)
-		ne.KeyDown().Attach(func(key walk.Key) {
-			if key == walk.KeyEscape {
-				if old, err := strconv.ParseFloat(state.LastGood, 64); err == nil {
-					_ = ne.SetValue(old)
-				}
-				state.PendingValue = state.LastGood
-				onChanged()
-			}
-		})
 		b.applyValue = func(v string) {
+			if ne == nil {
+				return
+			}
 			if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
 				_ = ne.SetValue(f)
 			}
 		}
-		b.focusWidget = ne
+		return NumberEdit{
+			AssignTo: &ne,
+			Value:    initVal,
+			MinValue: state.Schema.Min,
+			MaxValue: state.Schema.Max,
+			Decimals: state.Schema.Decimals,
+			OnValueChanged: func() {
+				commit()
+			},
+			OnKeyDown: func(key walk.Key) {
+				if key == walk.KeyEscape {
+					if old, err := strconv.ParseFloat(state.LastGood, 64); err == nil {
+						_ = ne.SetValue(old)
+					}
+					state.PendingValue = state.LastGood
+					onChanged()
+				}
+			},
+		}
 	case KindDropdown:
-		cb, _ := walk.NewComboBox(parent)
-		_ = cb.SetModel(state.Schema.Options)
-		_ = cb.SetText(state.LastGood)
+		var cb *walk.ComboBox
+		b.widgetRef = func() walk.Widget { return cb }
+		idx := -1
+		for i, opt := range state.Schema.Options {
+			if strings.EqualFold(strings.TrimSpace(opt), strings.TrimSpace(state.LastGood)) {
+				idx = i
+				break
+			}
+		}
 		commit := func() {
+			if cb == nil {
+				return
+			}
 			if ss.validating {
 				return
 			}
@@ -333,30 +356,36 @@ func buildEditorControl(parent walk.Container, state *RowState, ss *SettingsStat
 			state.LastGood = state.PendingValue
 			onChanged()
 		}
-		cb.CurrentIndexChanged().Attach(commit)
-		cb.EditingFinished().Attach(commit)
-		cb.KeyDown().Attach(func(key walk.Key) {
-			if key == walk.KeyEscape {
-				_ = cb.SetText(state.LastGood)
-				state.PendingValue = state.LastGood
-				onChanged()
+		b.applyValue = func(v string) {
+			if cb != nil {
+				_ = cb.SetText(v)
 			}
-		})
-		b.applyValue = func(v string) { _ = cb.SetText(v) }
-		b.focusWidget = cb
+		}
+		return ComboBox{
+			AssignTo:              &cb,
+			Editable:              true,
+			Model:                 state.Schema.Options,
+			CurrentIndex:          idx,
+			OnCurrentIndexChanged: commit,
+			OnEditingFinished:     commit,
+			OnKeyDown: func(key walk.Key) {
+				if key == walk.KeyEscape {
+					_ = cb.SetText(state.LastGood)
+					state.PendingValue = state.LastGood
+					onChanged()
+				}
+			},
+		}
 	case KindColor:
-		row, _ := walk.NewComposite(parent)
-		_ = row.SetLayout(walk.NewHBoxLayout())
-		le, _ := walk.NewLineEdit(row)
-		_ = le.SetText(state.LastGood)
-		btn, _ := walk.NewPushButton(row)
-		_ = btn.SetText("...")
-		btn.SetMinMaxSize(walk.Size{Width: 30}, walk.Size{Width: 30})
-		swatch, _ := walk.NewComposite(row)
-		swatch.SetMinMaxSize(walk.Size{Width: 20, Height: 20}, walk.Size{Width: 20, Height: 20})
-		updateSwatch(swatch, state.LastGood)
+		var le *walk.LineEdit
+		var btn *walk.PushButton
+		var swatch *walk.Composite
+		b.widgetRef = func() walk.Widget { return le }
 
 		commit := func() bool {
+			if le == nil {
+				return false
+			}
 			if ss.validating {
 				return false
 			}
@@ -374,32 +403,61 @@ func buildEditorControl(parent walk.Container, state *RowState, ss *SettingsStat
 			onChanged()
 			return true
 		}
-		le.EditingFinished().Attach(func() { _ = commit() })
-		btn.Clicked().Attach(func() {
-			if !commit() {
-				return
-			}
-			chosen := showColorDialog(btn.Handle(), state.LastGood)
-			if chosen == "" {
-				return
-			}
-			state.PendingValue = chosen
-			state.LastGood = chosen
-			_ = le.SetText(chosen)
-			updateSwatch(swatch, chosen)
-			onChanged()
-		})
 		b.applyValue = func(v string) {
+			if le == nil {
+				return
+			}
 			_ = le.SetText(v)
 			updateSwatch(swatch, v)
 		}
-		b.focusWidget = le
 		b.colorLine = le
 		b.colorSwatch = swatch
+		return Composite{
+			Layout: HBox{MarginsZero: true, Spacing: 4},
+			Children: []Widget{
+				LineEdit{
+					AssignTo: &le,
+					Text:     state.LastGood,
+					OnEditingFinished: func() {
+						_ = commit()
+					},
+				},
+				PushButton{
+					AssignTo: &btn,
+					Text:     "...",
+					MaxSize:  Size{Width: 30},
+					OnClicked: func() {
+						if !commit() {
+							return
+						}
+						chosen := showColorDialog(btn.Handle(), state.LastGood)
+						if chosen == "" {
+							return
+						}
+						state.PendingValue = chosen
+						state.LastGood = chosen
+						_ = le.SetText(chosen)
+						updateSwatch(swatch, chosen)
+						onChanged()
+					},
+				},
+				Composite{
+					AssignTo: &swatch,
+					MinSize:  Size{Width: 20, Height: 20},
+					MaxSize:  Size{Width: 20, Height: 20},
+					OnBoundsChanged: func() {
+						updateSwatch(swatch, state.LastGood)
+					},
+				},
+			},
+		}
 	default:
-		le, _ := walk.NewLineEdit(parent)
-		_ = le.SetText(state.LastGood)
+		var le *walk.LineEdit
+		b.widgetRef = func() walk.Widget { return le }
 		commit := func() {
+			if le == nil {
+				return
+			}
 			if ss.validating {
 				return
 			}
@@ -415,18 +473,25 @@ func buildEditorControl(parent walk.Container, state *RowState, ss *SettingsStat
 			state.LastGood = state.PendingValue
 			onChanged()
 		}
-		le.EditingFinished().Attach(commit)
-		le.KeyDown().Attach(func(key walk.Key) {
-			if key == walk.KeyEscape {
-				_ = le.SetText(state.LastGood)
-				state.PendingValue = state.LastGood
-				onChanged()
+		b.applyValue = func(v string) {
+			if le != nil {
+				_ = le.SetText(v)
 			}
-		})
-		b.applyValue = func(v string) { _ = le.SetText(v) }
-		b.focusWidget = le
+		}
+		return LineEdit{
+			AssignTo:          &le,
+			Text:              state.LastGood,
+			OnEditingFinished: commit,
+			OnKeyDown: func(key walk.Key) {
+				if key == walk.KeyEscape {
+					_ = le.SetText(state.LastGood)
+					state.PendingValue = state.LastGood
+					onChanged()
+				}
+			},
+		}
 	}
-	return b
+	return Label{Text: "unsupported"}
 }
 
 func showColorDialog(hwnd win.HWND, current string) string {
