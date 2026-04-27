@@ -104,21 +104,22 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	decl := Dialog{
 		AssignTo: &dlg,
 		Title:    "Settings",
-		MinSize:  Size{Width: 760, Height: 620},
-		Size:     Size{Width: 860, Height: 700},
+		MinSize:  Size{Width: 860, Height: 620},
+		Size:     Size{Width: 960, Height: 720},
 		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
 			ScrollView{
 				AssignTo:      &sv,
 				StretchFactor: 1,
 				AlwaysConsumeSpace: true,
+				HorizontalFixed: true,
 				VerticalFixed: false,
 				Layout:        VBox{MarginsZero: true},
 				Children: []Widget{
 					Composite{
 						AssignTo: &gridHost,
 						Layout:   Grid{Columns: 2, Margins: Margins{0, 0, 0, 0}, Spacing: 8},
-						MinSize:  Size{Width: 640, Height: len(s.states) * 34},
+						MinSize:  Size{Width: 0, Height: len(s.states) * 34},
 						Children: rowWidgets,
 					},
 				},
@@ -264,7 +265,7 @@ func buildRowWidgets(s *SettingsState, bindings []rowControlBinding, showError f
 		state := &s.states[i]
 		widgets = append(widgets, Label{
 			Text:    state.Schema.Label,
-			MinSize: Size{Width: 270},
+			MinSize: Size{Width: 230},
 		})
 		widgets = append(widgets, buildEditorWidget(state, s, &bindings[i], showError, onChanged))
 	}
