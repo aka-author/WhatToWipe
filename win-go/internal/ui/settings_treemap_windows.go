@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"image/color"
 	"log"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -138,7 +136,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	decl := Dialog{
 		AssignTo:  &dlg,
 		Name:      "TreemapSettingsDialog",
-		Persistent: false,
+		Persistent: true,
 		Title:     "Settings",
 		FixedSize: false,
 		MinSize:   Size{},
@@ -193,21 +191,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	// Explicit dialog bounds persistence with fallback guarantees behavior.
-	// Apply after first show-time sizing pass, so walk does not override it.
-	initialBounds, hasInitialBounds := loadSettingsDialogBounds()
-	applyInitialBounds := true
-	dlg.BoundsChanged().Attach(func() {
-		if !applyInitialBounds {
-			return
-		}
-		applyInitialBounds = false
-		if hasInitialBounds {
-			dlg.SetBoundsPixels(clampSettingsDialogBounds(initialBounds))
-			return
-		}
+	// Ensure first open is reasonable; subsequent opens come from persistent state.
+	if state, _ := dlg.ReadState(); strings.TrimSpace(state) == "" {
 		dlg.SetSizePixels(walk.Size{Width: 1080, Height: 760})
-	})
+	}
 	// Clear outer min/max so shrink limit comes only from layout (see walk FormBase WM_GETMINMAXINFO).
 	if err := dlg.SetMinMaxSize(walk.Size{}, walk.Size{}); err != nil {
 		log.Printf("WARN: settings dialog SetMinMaxSize: %v", err)
@@ -326,7 +313,6 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		})
 	}
 	dlg.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
-		saveSettingsDialogBounds(clampSettingsDialogBounds(dlg.BoundsPixels()))
 		if reason == walk.CloseReasonUnknown && host != nil {
 			host.cancelActive()
 		}
@@ -611,50 +597,5 @@ func parseHexColor(s string) (color.RGBA, error) {
 
 func formatRGBHex(c color.RGBA) string {
 	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
-}
-
-func settingsDialogBoundsPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "Erase & Rewrite", "settings-dialog-bounds.txt"), nil
-}
-
-func loadSettingsDialogBounds() (walk.Rectangle, bool) {
-	p, err := settingsDialogBoundsPath()
-	if err != nil {
-		return walk.Rectangle{}, false
-	}
-	b, err := os.ReadFile(p)
-	if err != nil {
-		return walk.Rectangle{}, false
-	}
-	var x, y, w, h int
-	if _, err := fmt.Sscanf(string(b), "%d %d %d %d", &x, &y, &w, &h); err != nil {
-		return walk.Rectangle{}, false
-	}
-	return walk.Rectangle{X: x, Y: y, Width: w, Height: h}, true
-}
-
-func saveSettingsDialogBounds(r walk.Rectangle) {
-	p, err := settingsDialogBoundsPath()
-	if err != nil {
-		return
-	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return
-	}
-	_ = os.WriteFile(p, []byte(fmt.Sprintf("%d %d %d %d", r.X, r.Y, r.Width, r.Height)), 0o644)
-}
-
-func clampSettingsDialogBounds(r walk.Rectangle) walk.Rectangle {
-	if r.Width < 900 {
-		r.Width = 900
-	}
-	if r.Height < 620 {
-		r.Height = 620
-	}
-	return r
 }
 
