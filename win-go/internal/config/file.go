@@ -134,6 +134,10 @@ func SaveTreemap(path string, t Treemap) error {
 	w("treemap.win.exeFiles", wf)
 	w("treemap.linux.exeFiles", strings.TrimSpace(t.LinuxExeFiles))
 	w("treemap.macos.exeFiles", strings.TrimSpace(t.MacOSExeFiles))
+	w("treemap.ui.settingsDialogX", strconv.Itoa(t.SettingsDialogX))
+	w("treemap.ui.settingsDialogY", strconv.Itoa(t.SettingsDialogY))
+	w("treemap.ui.settingsDialogW", strconv.Itoa(nonzeroOr(t.SettingsDialogW, 1080)))
+	w("treemap.ui.settingsDialogH", strconv.Itoa(nonzeroOr(t.SettingsDialogH, 760)))
 	fmt.Fprintf(&b, "\nscanning.updateInterval = %s\n", ScanPathUpdateIntervalFileValue)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
@@ -272,6 +276,22 @@ func applyTreemapLines(d *Treemap, data []byte) {
 			d.LinuxExeFiles = val
 		case "treemap.macos.exefiles":
 			d.MacOSExeFiles = val
+		case "treemap.ui.settingsdialogx":
+			if n, err := strconv.Atoi(val); err == nil {
+				d.SettingsDialogX = n
+			}
+		case "treemap.ui.settingsdialogy":
+			if n, err := strconv.Atoi(val); err == nil {
+				d.SettingsDialogY = n
+			}
+		case "treemap.ui.settingsdialogw":
+			if n, err := strconv.Atoi(val); err == nil && n > 0 {
+				d.SettingsDialogW = n
+			}
+		case "treemap.ui.settingsdialogh":
+			if n, err := strconv.Atoi(val); err == nil && n > 0 {
+				d.SettingsDialogH = n
+			}
 		}
 	}
 }

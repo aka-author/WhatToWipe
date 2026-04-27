@@ -44,6 +44,12 @@ type Treemap struct {
 	WinExeFiles   string
 	LinuxExeFiles string
 	MacOSExeFiles string
+
+	// Settings dialog persisted bounds in outer pixels.
+	SettingsDialogX int
+	SettingsDialogY int
+	SettingsDialogW int
+	SettingsDialogH int
 }
 
 func DefaultTreemap() Treemap {
@@ -82,6 +88,8 @@ func DefaultTreemap() Treemap {
 		LabelDummy:           "...",
 
 		WinExeFiles: "bat, com, exe, dll, scr, msi",
+		SettingsDialogW: 1080,
+		SettingsDialogH: 760,
 	}
 }
 

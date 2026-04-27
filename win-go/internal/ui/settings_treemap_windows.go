@@ -136,7 +136,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	decl := Dialog{
 		AssignTo:  &dlg,
 		Name:      "TreemapSettingsDialog",
-		Persistent: true,
+		Persistent: false,
 		Title:     "Settings",
 		FixedSize: false,
 		MinSize:   Size{},
@@ -191,10 +191,18 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	// Ensure first open is reasonable; subsequent opens come from persistent state.
-	if state, _ := dlg.ReadState(); strings.TrimSpace(state) == "" {
-		dlg.SetSizePixels(walk.Size{Width: 1080, Height: 760})
+	// Bounds are persisted in config file (not walk built-in persistent state).
+	initial := walk.Rectangle{
+		X:      current.SettingsDialogX,
+		Y:      current.SettingsDialogY,
+		Width:  current.SettingsDialogW,
+		Height: current.SettingsDialogH,
 	}
+	if initial.Width <= 0 || initial.Height <= 0 {
+		initial.Width = 1080
+		initial.Height = 760
+	}
+	dlg.SetBoundsPixels(clampDialogBounds(initial))
 	// Clear outer min/max so shrink limit comes only from layout (see walk FormBase WM_GETMINMAXINFO).
 	if err := dlg.SetMinMaxSize(walk.Size{}, walk.Size{}); err != nil {
 		log.Printf("WARN: settings dialog SetMinMaxSize: %v", err)
@@ -313,6 +321,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		})
 	}
 	dlg.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
+		saveSettingsDialogBoundsToConfig(dlg.BoundsPixels())
 		if reason == walk.CloseReasonUnknown && host != nil {
 			host.cancelActive()
 		}
@@ -597,5 +606,32 @@ func parseHexColor(s string) (color.RGBA, error) {
 
 func formatRGBHex(c color.RGBA) string {
 	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+}
+
+func clampDialogBounds(r walk.Rectangle) walk.Rectangle {
+	if r.Width < 900 {
+		r.Width = 900
+	}
+	if r.Height < 620 {
+		r.Height = 620
+	}
+	return r
+}
+
+func saveSettingsDialogBoundsToConfig(bounds walk.Rectangle) {
+	path, err := config.ConfigPath()
+	if err != nil {
+		return
+	}
+	cfg, err := config.LoadTreemapFromPath(path)
+	if err != nil {
+		cfg = config.DefaultTreemap()
+	}
+	b := clampDialogBounds(bounds)
+	cfg.SettingsDialogX = b.X
+	cfg.SettingsDialogY = b.Y
+	cfg.SettingsDialogW = b.Width
+	cfg.SettingsDialogH = b.Height
+	_ = config.SaveTreemap(path, cfg)
 }
 
