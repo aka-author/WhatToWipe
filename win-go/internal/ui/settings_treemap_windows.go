@@ -225,8 +225,10 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 		}
 		tl := win.POINT{X: rc.Left, Y: rc.Top}
 		br := win.POINT{X: rc.Right, Y: rc.Bottom}
-		win.MapWindowPoints(tv.Handle(), dlg.Handle(), &tl, 1)
-		win.MapWindowPoints(tv.Handle(), dlg.Handle(), &br, 1)
+		win.ClientToScreen(tv.Handle(), &tl)
+		win.ClientToScreen(tv.Handle(), &br)
+		win.ScreenToClient(dlg.Handle(), &tl)
+		win.ScreenToClient(dlg.Handle(), &br)
 		editingRow = row
 		editor.SetBoundsPixels(walk.Rectangle{
 			X:      int(tl.X) + 1,
