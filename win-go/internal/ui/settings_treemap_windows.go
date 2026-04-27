@@ -8,6 +8,8 @@ import (
 	"html"
 	"image/color"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -309,7 +311,12 @@ function doAction(kind){
 }
 </script>
 </body></html>`
-		_ = web.SetURL("data:text/html," + url.QueryEscape(htmlDoc))
+		tempPath := filepath.Join(os.TempDir(), "eraserewrite-settings-grid.html")
+		if err := os.WriteFile(tempPath, []byte(htmlDoc), 0644); err != nil {
+			walk.MsgBox(dlg, "Settings", "Cannot render settings grid: "+err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+			return
+		}
+		_ = web.SetURL((&url.URL{Scheme: "file", Path: filepath.ToSlash(tempPath)}).String())
 	}
 
 	var icon *walk.Icon
