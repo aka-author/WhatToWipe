@@ -134,16 +134,19 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	}
 
 	decl := Dialog{
-		AssignTo: &dlg,
-		Title:    "Settings",
-		MinSize:  Size{Width: 980, Height: 640},
-		Size:     Size{Width: 1080, Height: 760},
-		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
+		AssignTo:  &dlg,
+		Title:     "Settings",
+		FixedSize: false,
+		MinSize:   Size{Width: 980, Height: 640},
+		Size:      Size{Width: 1080, Height: 760},
+		Layout:    VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
 			Composite{
-				AssignTo:      &gridParent,
-				StretchFactor: 1,
-				Layout:        VBox{MarginsZero: true},
+				AssignTo:             &gridParent,
+				StretchFactor:        1,
+				AlwaysConsumeSpace:   true,
+				MinSize:              Size{Width: 600, Height: 400},
+				Layout:               VBox{MarginsZero: true},
 			},
 			Label{
 				AssignTo: &errLabel,
@@ -197,7 +200,16 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return
 	}
 	host.layout()
-	gridParent.SizeChanged().Attach(func() { host.layout() })
+	gridParent.SizeChanged().Attach(func() {
+		if host != nil {
+			host.layout()
+		}
+	})
+	dlg.SizeChanged().Attach(func() {
+		if host != nil {
+			host.layout()
+		}
+	})
 
 	applyFlow := func(closeOnSuccess bool) bool {
 		if host != nil && !host.commitActive() {
