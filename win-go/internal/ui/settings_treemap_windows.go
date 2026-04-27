@@ -135,6 +135,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 
 	decl := Dialog{
 		AssignTo:  &dlg,
+		Name:      "TreemapSettingsDialog",
+		Persistent: true,
 		Title:     "Settings",
 		FixedSize: false,
 		MinSize:   Size{},
@@ -188,6 +190,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		log.Printf("ERROR: settings dialog create failed: %v", err)
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
+	}
+	// Ensure first open is reasonable; later opens use persisted bounds.
+	if state, _ := dlg.ReadState(); strings.TrimSpace(state) == "" {
+		dlg.SetSizePixels(walk.Size{Width: 1080, Height: 760})
 	}
 	// Clear outer min/max so shrink limit comes only from layout (see walk FormBase WM_GETMINMAXINFO).
 	if err := dlg.SetMinMaxSize(walk.Size{}, walk.Size{}); err != nil {
