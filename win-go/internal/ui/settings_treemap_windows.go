@@ -138,7 +138,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	decl := Dialog{
 		AssignTo:  &dlg,
 		Name:      "TreemapSettingsDialog",
-		Persistent: true,
+		Persistent: false,
 		Title:     "Settings",
 		FixedSize: false,
 		MinSize:   Size{},
@@ -193,13 +193,21 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	// Explicit dialog bounds persistence with fallback guarantees behavior even
-	// if walk-internal persistence is unavailable in this runtime.
-	if b, ok := loadSettingsDialogBounds(); ok {
-		dlg.SetBoundsPixels(clampSettingsDialogBounds(b))
-	} else {
+	// Explicit dialog bounds persistence with fallback guarantees behavior.
+	// Apply after first show-time sizing pass, so walk does not override it.
+	initialBounds, hasInitialBounds := loadSettingsDialogBounds()
+	applyInitialBounds := true
+	dlg.BoundsChanged().Attach(func() {
+		if !applyInitialBounds {
+			return
+		}
+		applyInitialBounds = false
+		if hasInitialBounds {
+			dlg.SetBoundsPixels(clampSettingsDialogBounds(initialBounds))
+			return
+		}
 		dlg.SetSizePixels(walk.Size{Width: 1080, Height: 760})
-	}
+	})
 	// Clear outer min/max so shrink limit comes only from layout (see walk FormBase WM_GETMINMAXINFO).
 	if err := dlg.SetMinMaxSize(walk.Size{}, walk.Size{}); err != nil {
 		log.Printf("WARN: settings dialog SetMinMaxSize: %v", err)
