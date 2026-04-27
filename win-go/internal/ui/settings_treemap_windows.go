@@ -192,11 +192,17 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return
 	}
 	// Bounds are persisted in config file (not walk built-in persistent state).
+	fileCfg := current
+	if p, err := config.ConfigPath(); err == nil {
+		if loaded, err := config.LoadTreemapFromPath(p); err == nil {
+			fileCfg = loaded
+		}
+	}
 	initial := walk.Rectangle{
-		X:      current.SettingsDialogX,
-		Y:      current.SettingsDialogY,
-		Width:  current.SettingsDialogW,
-		Height: current.SettingsDialogH,
+		X:      fileCfg.SettingsDialogX,
+		Y:      fileCfg.SettingsDialogY,
+		Width:  fileCfg.SettingsDialogW,
+		Height: fileCfg.SettingsDialogH,
 	}
 	if initial.Width <= 0 || initial.Height <= 0 {
 		initial.Width = 1080
