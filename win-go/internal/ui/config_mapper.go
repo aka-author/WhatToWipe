@@ -54,23 +54,23 @@ func treemapValueByKey(t *config.Treemap, key string) (string, error) {
 	case "treemap.clumpthreshold":
 		return strconv.FormatFloat(t.ClumpThreshold, 'f', -1, 64), nil
 	case "treemap.mintilewidth":
-		return strconv.Itoa(t.MinTileWidthPt), nil
+		return formatPointsValue(t.MinTileWidthPt), nil
 	case "treemap.mintileheight":
-		return strconv.Itoa(t.MinTileHeightPt), nil
+		return formatPointsValue(t.MinTileHeightPt), nil
 	case "treemap.tilepaddingleft":
-		return strconv.Itoa(t.TilePaddingLeftPt), nil
+		return formatPointsValue(t.TilePaddingLeftPt), nil
 	case "treemap.tilepaddingtop":
-		return strconv.Itoa(t.TilePaddingTopPt), nil
+		return formatPointsValue(t.TilePaddingTopPt), nil
 	case "treemap.tilepaddingright":
-		return strconv.Itoa(t.TilePaddingRightPt), nil
+		return formatPointsValue(t.TilePaddingRightPt), nil
 	case "treemap.tilepaddingbottom":
-		return strconv.Itoa(t.TilePaddingBottomPt), nil
+		return formatPointsValue(t.TilePaddingBottomPt), nil
 	case "treemap.tilefontname":
 		return strings.TrimSpace(t.TileFontName), nil
 	case "treemap.headingmaxfontsize":
-		return strconv.Itoa(t.HeadingMaxFontSizePt), nil
+		return formatPointsValue(t.HeadingMaxFontSizePt), nil
 	case "treemap.headingminfontsize":
-		return strconv.Itoa(t.HeadingMinFontSizePt), nil
+		return formatPointsValue(t.HeadingMinFontSizePt), nil
 	case "treemap.headinglineheight":
 		return strconv.FormatFloat(t.HeadingLineHeight, 'f', -1, 64), nil
 	case "treemap.detailsfontsizeratio":
@@ -134,9 +134,9 @@ func treemapSetValueByKey(t *config.Treemap, key, s string) error {
 		}
 		t.ClumpThreshold = v
 	case "treemap.mintilewidth", "treemap.mintileheight", "treemap.headingmaxfontsize", "treemap.headingminfontsize":
-		v, err := strconv.Atoi(s)
+		v, err := parsePointsInputToPt(s, false)
 		if err != nil || v < 1 {
-			return fmt.Errorf("must be an integer >= 1")
+			return fmt.Errorf("must be a size like 20pt or 4mm, >= 1pt")
 		}
 		switch strings.ToLower(key) {
 		case "treemap.mintilewidth":
@@ -149,9 +149,9 @@ func treemapSetValueByKey(t *config.Treemap, key, s string) error {
 			t.HeadingMinFontSizePt = v
 		}
 	case "treemap.tilepaddingleft", "treemap.tilepaddingtop", "treemap.tilepaddingright", "treemap.tilepaddingbottom":
-		v, err := strconv.Atoi(s)
+		v, err := parsePointsInputToPt(s, true)
 		if err != nil || v < 0 {
-			return fmt.Errorf("must be an integer >= 0")
+			return fmt.Errorf("must be a size like 20pt or 4mm, >= 0pt")
 		}
 		switch strings.ToLower(key) {
 		case "treemap.tilepaddingleft":

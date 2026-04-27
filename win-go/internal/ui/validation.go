@@ -32,6 +32,18 @@ func validateField(state *RowState) error {
 		if val == "" {
 			return fmt.Errorf("%s must not be empty; enter a numeric value", state.Schema.Label)
 		}
+		if isPointUnitKey(state.Schema.Key) {
+			allowZero := state.Schema.Min <= 0
+			pt, err := parsePointsInputToPt(val, allowZero)
+			if err != nil {
+				return fmt.Errorf("%s must be a size like 20pt or 4mm", state.Schema.Label)
+			}
+			f := float64(pt)
+			if f < state.Schema.Min || f > state.Schema.Max {
+				return fmt.Errorf("%s must be between %gpt and %gpt", state.Schema.Label, state.Schema.Min, state.Schema.Max)
+			}
+			return nil
+		}
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return fmt.Errorf("%s must be a number", state.Schema.Label)

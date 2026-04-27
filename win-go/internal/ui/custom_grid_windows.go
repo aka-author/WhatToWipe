@@ -29,6 +29,7 @@ type customWin32GridHost struct {
 	activeRow   int
 	activeEdit  win.HWND
 	editOldProc uintptr
+	activeKind  EditorKind
 }
 
 var (
@@ -95,8 +96,8 @@ func (h *customWin32GridHost) insertColumns() {
 		}
 		win.SendMessage(h.hwnd, win.LVM_INSERTCOLUMN, uintptr(idx), uintptr(unsafe.Pointer(&col)))
 	}
-	insertCol(0, "Parameter", 380)
-	insertCol(1, "Value", 620)
+	insertCol(0, "Parameter", 260)
+	insertCol(1, "Value", 220)
 }
 
 func (h *customWin32GridHost) populateRows() {
@@ -122,6 +123,14 @@ func (h *customWin32GridHost) layout() {
 	}
 	rc := h.parent.ClientBoundsPixels()
 	win.SetWindowPos(h.hwnd, 0, 0, 0, int32(rc.Width), int32(rc.Height), win.SWP_NOZORDER)
+	if rc.Width > 0 {
+		left := int32(320)
+		if rc.Width < 640 {
+			left = int32(rc.Width / 2)
+		}
+		win.SendMessage(h.hwnd, win.LVM_SETCOLUMNWIDTH, 0, uintptr(left))
+		win.SendMessage(h.hwnd, win.LVM_SETCOLUMNWIDTH, 1, uintptr(maxInt32(120, int32(rc.Width)-left-8)))
+	}
 	h.repositionEditor()
 }
 
@@ -162,6 +171,21 @@ func (h *customWin32GridHost) activateEditor(row int) {
 	if !ok {
 		return
 	}
+	schema := h.states[row].Schema
+	if schema != nil {
+		switch schema.Kind {
+		case KindColor:
+			h.pickColor(row)
+			return
+		case KindDropdown:
+			h.openDropdownEditor(row, rect)
+			return
+		}
+	}
+	h.openTextEditor(row, rect)
+}
+
+func (h *customWin32GridHost) openTextEditor(row int, rect win.RECT) {
 	txt := h.states[row].PendingValue
 	hEdit := win.CreateWindowEx(
 		win.WS_EX_CLIENTEDGE,
@@ -179,10 +203,74 @@ func (h *customWin32GridHost) activateEditor(row int) {
 	}
 	h.activeRow = row
 	h.activeEdit = hEdit
+	h.activeKind = KindText
 	editHostsByHWND.Store(uintptr(hEdit), h)
 	h.editOldProc = win.SetWindowLongPtr(hEdit, win.GWLP_WNDPROC, syscallEditWndProc)
 	win.SetFocus(hEdit)
 	win.SendMessage(hEdit, win.EM_SETSEL, 0, ^uintptr(0))
+}
+
+func (h *customWin32GridHost) openDropdownEditor(row int, rect win.RECT) {
+	schema := h.states[row].Schema
+	if schema == nil {
+		return
+	}
+	hCombo := win.CreateWindowEx(
+		0,
+		utf16Ptr("COMBOBOX"),
+		nil,
+		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.CBS_DROPDOWNLIST|win.WS_VSCROLL,
+		rect.Left, rect.Top, rect.Right-rect.Left, maxInt32(220, (rect.Bottom-rect.Top)*8),
+		h.hwnd,
+		0,
+		win.GetModuleHandle(nil),
+		nil,
+	)
+	if hCombo == 0 {
+		return
+	}
+	for _, opt := range schema.Options {
+		win.SendMessage(hCombo, win.CB_ADDSTRING, 0, uintptr(unsafe.Pointer(utf16Ptr(opt))))
+	}
+	cur := strings.TrimSpace(h.states[row].PendingValue)
+	idx := int32(-1)
+	for i, opt := range schema.Options {
+		if strings.EqualFold(strings.TrimSpace(opt), cur) {
+			idx = int32(i)
+			break
+		}
+	}
+	if idx >= 0 {
+		win.SendMessage(hCombo, win.CB_SETCURSEL, uintptr(idx), 0)
+	}
+	h.activeRow = row
+	h.activeEdit = hCombo
+	h.activeKind = KindDropdown
+	editHostsByHWND.Store(uintptr(hCombo), h)
+	h.editOldProc = win.SetWindowLongPtr(hCombo, win.GWLP_WNDPROC, syscallEditWndProc)
+	win.SetFocus(hCombo)
+}
+
+func (h *customWin32GridHost) pickColor(row int) {
+	if row < 0 || row >= len(h.states) {
+		return
+	}
+	current := h.states[row].PendingValue
+	next := showColorDialog(h.hwnd, current)
+	if next == "" {
+		return
+	}
+	st := &h.states[row]
+	old := st.LastGood
+	st.PendingValue = next
+	if err := validateField(st); err != nil {
+		st.PendingValue = old
+		h.showError(err.Error())
+		return
+	}
+	st.LastGood = next
+	_ = h.setSubitemText(row, 1, next)
+	h.clearError()
 }
 
 func (h *customWin32GridHost) valueCellRect(row int) (win.RECT, bool) {
@@ -205,7 +293,11 @@ func (h *customWin32GridHost) repositionEditor() {
 		h.cancelActive()
 		return
 	}
-	win.SetWindowPos(h.activeEdit, 0, rc.Left, rc.Top, rc.Right-rc.Left, rc.Bottom-rc.Top, win.SWP_NOZORDER|win.SWP_NOACTIVATE)
+	hh := rc.Bottom - rc.Top
+	if h.activeKind == KindDropdown {
+		hh = maxInt32(220, hh*8)
+	}
+	win.SetWindowPos(h.activeEdit, 0, rc.Left, rc.Top, rc.Right-rc.Left, hh, win.SWP_NOZORDER|win.SWP_NOACTIVATE)
 }
 
 func (h *customWin32GridHost) editorText() string {
@@ -213,6 +305,13 @@ func (h *customWin32GridHost) editorText() string {
 		return ""
 	}
 	buf := make([]uint16, 2048)
+	if h.activeKind == KindDropdown {
+		idx := int32(win.SendMessage(h.activeEdit, win.CB_GETCURSEL, 0, 0))
+		if idx >= 0 {
+			win.SendMessage(h.activeEdit, win.CB_GETLBTEXT, uintptr(idx), uintptr(unsafe.Pointer(&buf[0])))
+			return strings.TrimSpace(syscall.UTF16ToString(buf))
+		}
+	}
 	n := getWindowText(h.activeEdit, &buf[0], int32(len(buf)))
 	if n <= 0 {
 		return ""
@@ -262,6 +361,7 @@ func (h *customWin32GridHost) closeActiveEditor() {
 	h.activeEdit = 0
 	h.activeRow = -1
 	h.editOldProc = 0
+	h.activeKind = KindText
 	win.SetFocus(h.hwnd)
 }
 
@@ -305,6 +405,30 @@ func (h *customWin32GridHost) handleListViewMessage(msg uint32, wParam, lParam u
 					return 0
 				}
 			}
+		case win.VK_UP:
+			if h.activeEdit == 0 {
+				row := h.currentRow()
+				if row > 0 {
+					h.setCurrentRow(row - 1)
+				}
+				return 0
+			}
+		case win.VK_DOWN:
+			if h.activeEdit == 0 {
+				row := h.currentRow()
+				if row >= 0 && row < len(h.states)-1 {
+					h.setCurrentRow(row + 1)
+				}
+				return 0
+			}
+		}
+	case win.WM_COMMAND:
+		if h.activeKind == KindDropdown && h.activeEdit != 0 && win.HWND(lParam) == h.activeEdit {
+			code := uint16((wParam >> 16) & 0xFFFF)
+			if code == win.CBN_SELCHANGE {
+				_ = h.commitActive()
+				return 0
+			}
 		}
 	case win.WM_VSCROLL, win.WM_HSCROLL, win.WM_SIZE:
 		res := win.CallWindowProc(h.oldWndProc, h.hwnd, msg, wParam, lParam)
@@ -319,18 +443,30 @@ func (h *customWin32GridHost) handleEditMessage(msg uint32, wParam, lParam uintp
 	case win.WM_KEYDOWN:
 		switch uint32(wParam) {
 		case win.VK_RETURN:
+			_ = h.commitActive()
+			return 0
+		case win.VK_ESCAPE:
+			h.cancelActive()
+			return 0
+		case win.VK_UP:
 			curr := h.activeRow
 			if h.commitActive() {
-				// Move down on Enter commit.
+				next := curr - 1
+				if next >= 0 {
+					h.setCurrentRow(next)
+					h.activateEditor(next)
+				}
+			}
+			return 0
+		case win.VK_DOWN:
+			curr := h.activeRow
+			if h.commitActive() {
 				next := curr + 1
 				if next < len(h.states) {
 					h.setCurrentRow(next)
 					h.activateEditor(next)
 				}
 			}
-			return 0
-		case win.VK_ESCAPE:
-			h.cancelActive()
 			return 0
 		}
 	case win.WM_KILLFOCUS:
@@ -378,5 +514,12 @@ func getWindowText(hwnd win.HWND, buf *uint16, max int32) int32 {
 
 func setWindowText(hwnd win.HWND, text *uint16) {
 	procSetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(text)))
+}
+
+func maxInt32(a, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
