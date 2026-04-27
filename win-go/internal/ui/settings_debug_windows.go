@@ -61,8 +61,13 @@ func showSchemaTestDialog(owner walk.Form) {
 		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
 			ScrollView{
+				StretchFactor:    1,
+				AlwaysConsumeSpace: true,
+				VerticalFixed:    false,
+				Layout:           VBox{MarginsZero: true},
 				Children: []Widget{
 					Composite{
+						MinSize:  Size{Width: 560, Height: 900},
 						Layout:   Grid{Columns: 2, Spacing: 8},
 						Children: rows,
 					},
