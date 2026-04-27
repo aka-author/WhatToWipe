@@ -583,6 +583,7 @@ func (a *app) launchExternalSettingsGrid() bool {
 		filepath.Join(mainDir, "EraseAndRewriteSettingsGrid.exe"),
 		filepath.Join(mainDir, "..", "EraseAndRewriteSettingsGrid.exe"),
 		filepath.Join(mainDir, "..", "..", "tools", "EraseAndRewriteSettingsGrid.exe"),
+		filepath.Join(mainDir, "..", "..", "..", "tools", "EraseAndRewriteSettingsGrid.exe"),
 	}
 	for _, p := range candidates {
 		if st, statErr := os.Stat(p); statErr != nil || st.IsDir() {
