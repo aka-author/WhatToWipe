@@ -28,8 +28,10 @@ type customWin32GridHost struct {
 	clearError  func()
 	activeRow   int
 	activeEdit  win.HWND
+	activeBtn   win.HWND
 	editOldProc uintptr
 	activeKind  EditorKind
+	baseFont    win.HFONT
 }
 
 var (
@@ -78,6 +80,7 @@ func (h *customWin32GridHost) createListView() error {
 		return fmt.Errorf("CreateWindowEx(SysListView32) failed")
 	}
 	h.hwnd = hwnd
+	h.baseFont = win.HFONT(win.SendMessage(h.hwnd, win.WM_GETFONT, 0, 0))
 	h.insertColumns()
 	h.populateRows()
 	gridHostsByHWND.Store(uintptr(h.hwnd), h)
@@ -97,7 +100,7 @@ func (h *customWin32GridHost) insertColumns() {
 		win.SendMessage(h.hwnd, win.LVM_INSERTCOLUMN, uintptr(idx), uintptr(unsafe.Pointer(&col)))
 	}
 	insertCol(0, "Parameter", 260)
-	insertCol(1, "Value", 220)
+	insertCol(1, "Value", 190)
 }
 
 func (h *customWin32GridHost) populateRows() {
@@ -124,12 +127,16 @@ func (h *customWin32GridHost) layout() {
 	rc := h.parent.ClientBoundsPixels()
 	win.SetWindowPos(h.hwnd, 0, 0, 0, int32(rc.Width), int32(rc.Height), win.SWP_NOZORDER)
 	if rc.Width > 0 {
-		left := int32(320)
-		if rc.Width < 640 {
-			left = int32(rc.Width / 2)
+		right := int32(190)
+		if rc.Width < 560 {
+			right = 160
+		}
+		left := int32(rc.Width) - right - 8
+		if left < 180 {
+			left = 180
 		}
 		win.SendMessage(h.hwnd, win.LVM_SETCOLUMNWIDTH, 0, uintptr(left))
-		win.SendMessage(h.hwnd, win.LVM_SETCOLUMNWIDTH, 1, uintptr(maxInt32(120, int32(rc.Width)-left-8)))
+		win.SendMessage(h.hwnd, win.LVM_SETCOLUMNWIDTH, 1, uintptr(right))
 	}
 	h.repositionEditor()
 }
@@ -175,7 +182,7 @@ func (h *customWin32GridHost) activateEditor(row int) {
 	if schema != nil {
 		switch schema.Kind {
 		case KindColor:
-			h.pickColor(row)
+			h.openColorEditor(row, rect)
 			return
 		case KindDropdown:
 			h.openDropdownEditor(row, rect)
@@ -204,6 +211,7 @@ func (h *customWin32GridHost) openTextEditor(row int, rect win.RECT) {
 	h.activeRow = row
 	h.activeEdit = hEdit
 	h.activeKind = KindText
+	win.SendMessage(hEdit, win.WM_SETFONT, uintptr(h.baseFont), 1)
 	editHostsByHWND.Store(uintptr(hEdit), h)
 	h.editOldProc = win.SetWindowLongPtr(hEdit, win.GWLP_WNDPROC, syscallEditWndProc)
 	win.SetFocus(hEdit)
@@ -219,7 +227,7 @@ func (h *customWin32GridHost) openDropdownEditor(row int, rect win.RECT) {
 		0,
 		utf16Ptr("COMBOBOX"),
 		nil,
-		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.CBS_DROPDOWNLIST|win.WS_VSCROLL,
+		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.CBS_DROPDOWN|win.WS_VSCROLL,
 		rect.Left, rect.Top, rect.Right-rect.Left, maxInt32(220, (rect.Bottom-rect.Top)*8),
 		h.hwnd,
 		0,
@@ -242,35 +250,79 @@ func (h *customWin32GridHost) openDropdownEditor(row int, rect win.RECT) {
 	}
 	if idx >= 0 {
 		win.SendMessage(hCombo, win.CB_SETCURSEL, uintptr(idx), 0)
+	} else {
+		setWindowText(hCombo, utf16Ptr(cur))
 	}
 	h.activeRow = row
 	h.activeEdit = hCombo
 	h.activeKind = KindDropdown
+	win.SendMessage(hCombo, win.WM_SETFONT, uintptr(h.baseFont), 1)
 	editHostsByHWND.Store(uintptr(hCombo), h)
 	h.editOldProc = win.SetWindowLongPtr(hCombo, win.GWLP_WNDPROC, syscallEditWndProc)
 	win.SetFocus(hCombo)
 }
 
-func (h *customWin32GridHost) pickColor(row int) {
+func (h *customWin32GridHost) openColorEditor(row int, rect win.RECT) {
+	btnW := int32(28)
+	ew := rect.Right - rect.Left - btnW - 2
+	if ew < 70 {
+		ew = 70
+	}
+	txt := h.states[row].PendingValue
+	hEdit := win.CreateWindowEx(
+		win.WS_EX_CLIENTEDGE,
+		utf16Ptr("EDIT"),
+		utf16Ptr(txt),
+		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.ES_AUTOHSCROLL,
+		rect.Left, rect.Top, ew, rect.Bottom-rect.Top,
+		h.hwnd,
+		0,
+		win.GetModuleHandle(nil),
+		nil,
+	)
+	if hEdit == 0 {
+		return
+	}
+	hBtn := win.CreateWindowEx(
+		0,
+		utf16Ptr("BUTTON"),
+		utf16Ptr("..."),
+		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP,
+		rect.Left+ew+2, rect.Top, btnW, rect.Bottom-rect.Top,
+		h.hwnd,
+		0,
+		win.GetModuleHandle(nil),
+		nil,
+	)
+	if hBtn == 0 {
+		win.DestroyWindow(hEdit)
+		return
+	}
+	h.activeRow = row
+	h.activeEdit = hEdit
+	h.activeBtn = hBtn
+	h.activeKind = KindColor
+	win.SendMessage(hEdit, win.WM_SETFONT, uintptr(h.baseFont), 1)
+	win.SendMessage(hBtn, win.WM_SETFONT, uintptr(h.baseFont), 1)
+	editHostsByHWND.Store(uintptr(hEdit), h)
+	h.editOldProc = win.SetWindowLongPtr(hEdit, win.GWLP_WNDPROC, syscallEditWndProc)
+	win.SetFocus(hEdit)
+	win.SendMessage(hEdit, win.EM_SETSEL, 0, ^uintptr(0))
+}
+
+func (h *customWin32GridHost) pickColorIntoActiveEdit() {
+	row := h.activeRow
 	if row < 0 || row >= len(h.states) {
 		return
 	}
-	current := h.states[row].PendingValue
+	current := h.editorText()
 	next := showColorDialog(h.hwnd, current)
 	if next == "" {
 		return
 	}
-	st := &h.states[row]
-	old := st.LastGood
-	st.PendingValue = next
-	if err := validateField(st); err != nil {
-		st.PendingValue = old
-		h.showError(err.Error())
-		return
-	}
-	st.LastGood = next
-	_ = h.setSubitemText(row, 1, next)
-	h.clearError()
+	setWindowText(h.activeEdit, utf16Ptr(next))
+	win.SetFocus(h.activeEdit)
+}
 }
 
 func (h *customWin32GridHost) valueCellRect(row int) (win.RECT, bool) {
@@ -298,6 +350,15 @@ func (h *customWin32GridHost) repositionEditor() {
 		hh = maxInt32(220, hh*8)
 	}
 	win.SetWindowPos(h.activeEdit, 0, rc.Left, rc.Top, rc.Right-rc.Left, hh, win.SWP_NOZORDER|win.SWP_NOACTIVATE)
+	if h.activeKind == KindColor && h.activeBtn != 0 {
+		btnW := int32(28)
+		ew := rc.Right - rc.Left - btnW - 2
+		if ew < 70 {
+			ew = 70
+		}
+		win.SetWindowPos(h.activeEdit, 0, rc.Left, rc.Top, ew, rc.Bottom-rc.Top, win.SWP_NOZORDER|win.SWP_NOACTIVATE)
+		win.SetWindowPos(h.activeBtn, 0, rc.Left+ew+2, rc.Top, btnW, rc.Bottom-rc.Top, win.SWP_NOZORDER|win.SWP_NOACTIVATE)
+	}
 }
 
 func (h *customWin32GridHost) editorText() string {
@@ -358,7 +419,11 @@ func (h *customWin32GridHost) closeActiveEditor() {
 		editHostsByHWND.Delete(uintptr(h.activeEdit))
 		win.DestroyWindow(h.activeEdit)
 	}
+	if h.activeBtn != 0 {
+		win.DestroyWindow(h.activeBtn)
+	}
 	h.activeEdit = 0
+	h.activeBtn = 0
 	h.activeRow = -1
 	h.editOldProc = 0
 	h.activeKind = KindText
@@ -427,6 +492,14 @@ func (h *customWin32GridHost) handleListViewMessage(msg uint32, wParam, lParam u
 			code := uint16((wParam >> 16) & 0xFFFF)
 			if code == win.CBN_SELCHANGE {
 				_ = h.commitActive()
+				return 0
+			}
+		}
+	case win.WM_COMMAND:
+		if h.activeKind == KindColor && h.activeBtn != 0 && win.HWND(lParam) == h.activeBtn {
+			code := uint16((wParam >> 16) & 0xFFFF)
+			if code == win.BN_CLICKED {
+				h.pickColorIntoActiveEdit()
 				return 0
 			}
 		}
