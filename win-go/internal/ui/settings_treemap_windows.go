@@ -3,8 +3,11 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
+	"html"
 	"image/color"
+	"net/url"
 	"strconv"
 	"strings"
 	"syscall"
@@ -218,17 +221,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	edited := current
 	def := config.DefaultTreemap()
 
-	installedFonts, err := installedFontFamilyNames()
-	if err != nil {
-		walk.MsgBox(owner, "Settings", "Cannot list installed fonts: "+err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
-	}
-	fontModel := mergeFontModel(installedFonts, current.TileFontName, def.TileFontName)
-
 	var dlg *walk.Dialog
-	var okBtn *walk.PushButton
-	var gridTV *walk.TableView
-	var editor *treemapInlineEditor
+	var web *walk.WebView
 
 	gridModel := &treemapGridModel{edited: &edited}
 	setFields := func(t config.Treemap) {
@@ -236,8 +230,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		gridModel.edited = &edited
 		gridModel.refreshAll()
 	}
-
-	saveAndApply := func() bool {
+	saveAndApply := func(closeOnSuccess bool) bool {
 		if err := validateTreemap(&edited); err != nil {
 			walk.MsgBox(dlg, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 			return false
@@ -254,7 +247,69 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if onApply != nil {
 			onApply(edited)
 		}
+		if closeOnSuccess {
+			dlg.Accept()
+		}
 		return true
+	}
+	reloadGrid := func() {
+		if web == nil {
+			return
+		}
+		labelsJSON, _ := json.Marshal(treemapGridRowLabels)
+		values := make([]string, len(treemapGridRowLabels))
+		for i := range treemapGridRowLabels {
+			values[i] = treemapValueColString(&edited, i)
+		}
+		valuesJSON, _ := json.Marshal(values)
+		htmlDoc := `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+body{font-family:Segoe UI,Tahoma,Arial,sans-serif;margin:10px}
+.toolbar{margin-bottom:8px}
+button{margin-right:6px;padding:4px 12px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #c8c8c8;padding:6px 8px}
+th{background:#f4f4f4;text-align:left}
+td.value{background:#fff}
+td.value[contenteditable="true"]:focus{outline:2px solid #4a90e2}
+</style>
+</head>
+<body>
+<div class="toolbar">
+<button onclick="doAction('apply')">Apply</button>
+<button onclick="doAction('ok')">OK</button>
+<button onclick="doAction('reset')">Reset</button>
+<button onclick="doAction('cancel')">Cancel</button>
+</div>
+<table id="grid"><thead><tr><th style="width:45%">Parameter</th><th style="width:55%">Value</th></tr></thead><tbody></tbody></table>
+<script>
+const labels=` + string(labelsJSON) + `;
+const values=` + string(valuesJSON) + `;
+const tbody=document.querySelector('#grid tbody');
+for(let i=0;i<labels.length;i++){
+  const tr=document.createElement('tr');
+  tr.dataset.row=i;
+  const c0=document.createElement('td'); c0.textContent=labels[i];
+  const c1=document.createElement('td'); c1.className='value'; c1.contentEditable='true'; c1.textContent=values[i] || '';
+  tr.appendChild(c0); tr.appendChild(c1); tbody.appendChild(tr);
+}
+function collectValues(){
+  return Array.from(document.querySelectorAll('#grid tbody tr td.value')).map(td => td.textContent.trim());
+}
+function doAction(kind){
+  if(kind==='cancel' || kind==='reset'){
+    location.href='app://' + kind;
+    return;
+  }
+  const payload=encodeURIComponent(JSON.stringify(collectValues()));
+  location.href='app://' + kind + '?data=' + payload;
+}
+</script>
+</body></html>`
+		_ = web.SetURL("data:text/html," + url.QueryEscape(htmlDoc))
 	}
 
 	var icon *walk.Icon
@@ -268,55 +323,58 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		Icon:          icon,
 		MinSize:       Size{Width: 720, Height: 560},
 		Size:          Size{Width: 820, Height: 640},
-		DefaultButton: &okBtn,
 		Layout:        VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
-			TableView{
-				AssignTo:                 &gridTV,
-				StretchFactor:            1,
-				AlternatingRowBG:         true,
-				LastColumnStretched:      false,
-				NotSortableByHeaderClick: true,
-				MinSize:                  Size{Height: 320},
-				Columns: []TableViewColumn{
-					{Title: "Parameter", Width: 260},
-					{Title: "Value", Width: 360},
-					{Title: "Swatch", Width: 64},
-					{Title: "Pick", Width: 56},
-				},
-				Model: gridModel,
-			},
-			Composite{
-				Layout: HBox{MarginsZero: true, Spacing: 8},
-				Children: []Widget{
-					PushButton{
-						Text: "Reset Treemap Defaults",
-						OnClicked: func() {
-							setFields(def)
-						},
-					},
-					HSpacer{},
-					PushButton{
-						Text: "Cancel",
-						OnClicked: func() {
-							dlg.Cancel()
-						},
-					},
-					PushButton{
-						Text:     "Apply",
-						OnClicked: func() {
-							_ = saveAndApply()
-						},
-					},
-					PushButton{
-						AssignTo: &okBtn,
-						Text:     "OK",
-						OnClicked: func() {
-							if saveAndApply() {
-								dlg.Accept()
+			WebView{
+				AssignTo:      &web,
+				StretchFactor: 1,
+				OnNavigating: func(e *walk.WebViewNavigatingEventData) {
+					u := e.Url()
+					if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(u)), "app://") {
+						return
+					}
+					e.SetCanceled(true)
+					pu, err := url.Parse(u)
+					if err != nil {
+						return
+					}
+					action := strings.ToLower(strings.TrimSpace(pu.Host))
+					switch action {
+					case "cancel":
+						dlg.Cancel()
+					case "reset":
+						setFields(def)
+						reloadGrid()
+					case "apply", "ok":
+						raw := pu.Query().Get("data")
+						decoded, err := url.QueryUnescape(raw)
+						if err != nil {
+							walk.MsgBox(dlg, "Settings", "Invalid editor payload.", walk.MsgBoxOK|walk.MsgBoxIconError)
+							return
+						}
+						var vals []string
+						if err := json.Unmarshal([]byte(decoded), &vals); err != nil {
+							walk.MsgBox(dlg, "Settings", "Cannot parse edited values.", walk.MsgBoxOK|walk.MsgBoxIconError)
+							return
+						}
+						if len(vals) != len(treemapGridRowLabels) {
+							walk.MsgBox(dlg, "Settings", "Edited row count mismatch.", walk.MsgBoxOK|walk.MsgBoxIconError)
+							return
+						}
+						next := edited
+						for i := range vals {
+							if err := treemapSetValueColFromString(&next, i, vals[i]); err != nil {
+								msg := "Invalid value for " + html.EscapeString(treemapGridRowLabels[i]) + ": " + err.Error()
+								walk.MsgBox(dlg, "Settings", msg, walk.MsgBoxOK|walk.MsgBoxIconError)
+								return
 							}
-						},
-					},
+						}
+						edited = next
+						gridModel.edited = &edited
+						if saveAndApply(action == "ok") && action != "ok" {
+							reloadGrid()
+						}
+					}
 				},
 			},
 		},
@@ -326,117 +384,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	line, err := walk.NewLineEdit(dlg)
-	if err != nil {
-		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
-	}
-	fontCombo, err := walk.NewDropDownBox(dlg)
-	if err != nil {
-		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
-	}
-	line.SetVisible(false)
-	fontCombo.SetVisible(false)
-	editor = &treemapInlineEditor{
-		dlg:       dlg,
-		tv:        gridTV,
-		gridModel: gridModel,
-		edited:    &edited,
-		fontModel: fontModel,
-		line:      line,
-		fontCombo: fontCombo,
-		row:       -1,
-	}
-	line.EditingFinished().Attach(func() {
-		if editor != nil && editor.editing && !editor.fontEdit {
-			editor.endEdit(true)
-		}
-	})
-	fontCombo.EditingFinished().Attach(func() {
-		if editor != nil && editor.editing && editor.fontEdit {
-			editor.endEdit(true)
-		}
-	})
-	line.KeyDown().Attach(func(key walk.Key) {
-		if editor == nil || !editor.editing || editor.fontEdit {
-			return
-		}
-		if key == walk.KeyEscape {
-			editor.endEdit(false)
-			_ = gridTV.SetFocus()
-		}
-		if key == walk.KeyReturn {
-			editor.endEdit(true)
-			_ = gridTV.SetFocus()
-		}
-	})
-	fontCombo.KeyDown().Attach(func(key walk.Key) {
-		if editor == nil || !editor.editing || !editor.fontEdit {
-			return
-		}
-		if key == walk.KeyEscape {
-			editor.endEdit(false)
-			_ = gridTV.SetFocus()
-		}
-		if key == walk.KeyReturn {
-			editor.endEdit(true)
-			_ = gridTV.SetFocus()
-		}
-	})
-	gridTV.KeyDown().Attach(func(key walk.Key) {
-		if editor == nil || editor.editing {
-			return
-		}
-		if key == walk.KeyF2 || key == walk.KeyReturn {
-			row := gridTV.CurrentIndex()
-			if row >= 0 {
-				editor.beginEdit(row, row == 8)
-			}
-		}
-	})
-	gridTV.MouseDown().Attach(func(_, _ int, button walk.MouseButton) {
-		if button != walk.LeftButton {
-			return
-		}
-		if editor == nil || !editor.ensureListView() {
-			return
-		}
-		row, col, ok := treemapHitTestCellOnListView(editor.lv)
-		if !ok {
-			return
-		}
-		_ = gridTV.SetCurrentIndex(row)
-		colorBlock := row >= treemapGridColorRow0 && row < treemapGridColorRow0+treemapGridColorRowCount
-		if colorBlock && (col == 2 || col == 3) {
-			chosen := showColorDialog(dlg.Handle(), colorHexAtRow(&edited, row))
-			if chosen != "" {
-				if c, err := parseHexColor(chosen); err == nil {
-					setTreemapColorByRow(&edited, row, c)
-					gridModel.refreshAll()
-				}
-			}
-			return
-		}
-		if col == 1 {
-			editor.beginEdit(row, row == 8)
-		}
-	})
-	gridTV.ItemActivated().Attach(func() {
-		row := gridTV.CurrentIndex()
-		if row >= 0 {
-			editor.beginEdit(row, row == 8)
-		}
-	})
-	dlg.SizeChanged().Attach(func() {
-		if editor != nil && editor.editing {
-			editor.endEdit(true)
-		}
-	})
-	if gridTV != nil {
-		gridTV.SetGridlines(true)
-	}
 	setFields(current)
+	reloadGrid()
 	_ = dlg.Run()
 }
 
