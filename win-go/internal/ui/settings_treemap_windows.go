@@ -223,12 +223,16 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 		if editor == nil {
 			return
 		}
+		tl := win.POINT{X: rc.Left, Y: rc.Top}
+		br := win.POINT{X: rc.Right, Y: rc.Bottom}
+		win.MapWindowPoints(tv.Handle(), dlg.Handle(), &tl, 1)
+		win.MapWindowPoints(tv.Handle(), dlg.Handle(), &br, 1)
 		editingRow = row
 		editor.SetBoundsPixels(walk.Rectangle{
-			X:      int(rc.Left) + 1,
-			Y:      int(rc.Top) + 1,
-			Width:  int(rc.Right-rc.Left) - 2,
-			Height: int(rc.Bottom-rc.Top) - 2,
+			X:      int(tl.X) + 1,
+			Y:      int(tl.Y) + 1,
+			Width:  int(br.X-tl.X) - 2,
+			Height: int(br.Y-tl.Y) - 2,
 		})
 		_ = editor.SetText(s.states[row].PendingValue)
 		editor.SetVisible(true)
@@ -258,8 +262,15 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 	})
 
 	tv.CurrentIndexChanged().Attach(func() {
-		if editingRow >= 0 && tv.CurrentIndex() != editingRow {
-			_ = commitEdit()
+		next := tv.CurrentIndex()
+		if editingRow >= 0 && next != editingRow {
+			if !commitEdit() {
+				tv.SetCurrentIndex(editingRow)
+				return
+			}
+		}
+		if next >= 0 {
+			beginEdit(next)
 		}
 	})
 
