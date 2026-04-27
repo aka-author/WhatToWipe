@@ -1,3 +1,226 @@
+# True Grid Code Bundle (Current)
+
+## Explicit Request For Help (Priority)
+
+We need a concrete fix for this blocker, not general advice.
+
+Please provide:
+
+1. A precise root-cause diagnosis for why value cells are still not editable in this `walk.TableView` setup.
+2. A step-by-step implementation plan that is guaranteed to produce real in-cell editing on Windows.
+3. Exact code-level guidance for the event flow and Win32 messages/hooks we must use.
+4. Clear fallback path if `walk.TableView` subitem editing is fundamentally unreliable in this runtime.
+5. Acceptance criteria we can test immediately to confirm the bug is solved.
+
+Constraints:
+
+- Single executable only.
+- Native Windows UI only (no webview, no separate frontend process).
+- Real grid behavior: user edits values directly in cells.
+- No detached/bottom editor pattern.
+
+This bundle captures the current implementation state for the Windows settings "true grid" and the unresolved bug.
+
+## Issue Summary
+
+- **Target behavior:** Value cells in the settings grid must be directly editable in-place.
+- **Current behavior:** `TableView` renders rows and values, but value editing does not activate reliably on user interaction.
+- **Impact:** The UI looks like a real grid, but user cannot effectively edit values.
+
+## Reproduction
+
+1. Build and run Windows app.
+2. Open `Tools -> Settings`.
+3. Click a row and click inside `Value` column.
+4. Try typing.
+5. Observe: values remain not editable on target machine/runtime.
+
+## Expected vs Actual
+
+- **Expected:** Clicking a value cell opens an in-cell editor immediately; typing updates value.
+- **Actual:** Grid selection changes, but editing does not become usable.
+
+## Help Request
+
+Please help identify why in-cell editing is not activating in this `walk.TableView` integration.
+
+Specific questions:
+
+1. Is `LVM_GETSUBITEMRECT` + overlay `LineEdit` the wrong approach with this `walk` version?
+2. Should editing be hosted on the underlying native list-view parent window instead of dialog?
+3. Is there a required event/hook pattern (WndProc subclass, custom editor host) for reliable subitem editing?
+4. Should we abandon overlay editor and implement native label edit + column swap for "Value" instead?
+5. Are there known `walk`/Win32 constraints that prevent stable per-subitem editing in `TableView`?
+
+## Current Related Sources
+
+- `win-go/internal/ui/settings_treemap_windows.go`
+- `win-go/internal/ui/run_windows.go`
+- `win-go/internal/ui/config_mapper.go`
+- `win-go/internal/ui/validation.go`
+- `win-go/internal/ui/row_schema.go`
+- `win-go/internal/ui/settings_state.go`
+- `win-go/internal/config/file.go`
+- `win-go/internal/config/treemap.go`
+
+## Key Code: Settings Table Grid
+
+```go
+// win-go/internal/ui/settings_treemap_windows.go (excerpt)
+type treemapTrueGridModel struct {
+	walk.TableModelBase
+	states []RowState
+}
+
+func (m *treemapTrueGridModel) Value(row, col int) interface{} {
+	if row < 0 || row >= len(m.states) {
+		return ""
+	}
+	switch col {
+	case 0:
+		if m.states[row].Schema == nil {
+			return ""
+		}
+		return m.states[row].Schema.Label
+	case 1:
+		return m.states[row].PendingValue
+	default:
+		return ""
+	}
+}
+
+func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
+	var dlg *walk.Dialog
+	var tv *walk.TableView
+	// ... snip ...
+	decl := Dialog{
+		AssignTo: &dlg,
+		Title:    "Settings",
+		Children: []Widget{
+			TableView{
+				AssignTo:        &tv,
+				StretchFactor:   1,
+				ColumnsOrderable: false,
+				Columns: []TableViewColumn{
+					{Title: "Parameter", Width: 360},
+					{Title: "Value", Width: 620},
+				},
+			},
+			// ... buttons ...
+		},
+	}
+	// ... snip ...
+}
+```
+
+```go
+// win-go/internal/ui/settings_treemap_windows.go (editor trigger excerpt)
+tv.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+	if button != walk.LeftButton {
+		return
+	}
+	info := win.LVHITTESTINFO{Pt: win.POINT{X: int32(x), Y: int32(y)}}
+	row := int(win.SendMessage(tv.Handle(), win.LVM_SUBITEMHITTEST, 0, uintptr(unsafe.Pointer(&info))))
+	if row < 0 || row >= len(s.states) {
+		return
+	}
+	if info.IItem != int32(row) || info.ISubItem != 1 {
+		return
+	}
+	tv.SetCurrentIndex(row)
+	beginEdit(row)
+})
+```
+
+```go
+// win-go/internal/ui/settings_treemap_windows.go (editor placement excerpt)
+beginEdit := func(row int) {
+	var rc win.RECT
+	rc.Top = 1
+	rc.Left = win.LVIR_BOUNDS
+	if win.SendMessage(tv.Handle(), win.LVM_GETSUBITEMRECT, uintptr(row), uintptr(unsafe.Pointer(&rc))) == 0 {
+		return
+	}
+	tl := win.POINT{X: rc.Left, Y: rc.Top}
+	br := win.POINT{X: rc.Right, Y: rc.Bottom}
+	win.ClientToScreen(tv.Handle(), &tl)
+	win.ClientToScreen(tv.Handle(), &br)
+	win.ScreenToClient(dlg.Handle(), &tl)
+	win.ScreenToClient(dlg.Handle(), &br)
+	editor.SetBoundsPixels(walk.Rectangle{
+		X: int(tl.X) + 1, Y: int(tl.Y) + 1,
+		Width: int(br.X-tl.X) - 2, Height: int(br.Y-tl.Y) - 2,
+	})
+	_ = editor.SetText(s.states[row].PendingValue)
+	editor.SetVisible(true)
+	_ = editor.SetFocus()
+}
+```
+
+## Key Code: Settings Entry Point
+
+```go
+// win-go/internal/ui/run_windows.go (excerpt)
+func (a *app) onSettings() {
+	showTreemapSettingsDialog(a.mw, a.treemapCfg, func(next config.Treemap) {
+		a.treemapCfg = next
+		a.chartDirty = true
+		a.invalidateLabelCache()
+		if a.chart != nil {
+			a.chart.Invalidate()
+		}
+	})
+}
+```
+
+## Key Code: Mapping + Validation
+
+```go
+// win-go/internal/ui/config_mapper.go (excerpt)
+func treemapToStates(cfg config.Treemap, schemas []RowSchema) []RowState {
+	if cfg.MaxTiles == 0 {
+		cfg = config.DefaultTreemap()
+	}
+	out := make([]RowState, 0, len(schemas))
+	for i := range schemas {
+		v, err := treemapValueByKey(&cfg, schemas[i].Key)
+		if err != nil {
+			v = ""
+		}
+		out = append(out, RowState{
+			Schema: &schemas[i], PendingValue: v, LastGood: v,
+		})
+	}
+	return out
+}
+```
+
+```go
+// win-go/internal/ui/validation.go (excerpt)
+func validateField(state *RowState) error {
+	val := strings.TrimSpace(state.PendingValue)
+	switch state.Schema.Kind {
+	case KindNumeric:
+		if val == "" {
+			return fmt.Errorf("%s must not be empty; enter a numeric value", state.Schema.Label)
+		}
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return fmt.Errorf("%s must be a number", state.Schema.Label)
+		}
+		if f < state.Schema.Min || f > state.Schema.Max {
+			return fmt.Errorf("%s must be between %g and %g", state.Schema.Label, state.Schema.Min, state.Schema.Max)
+		}
+	}
+	return nil
+}
+```
+
+## Build Used for This State
+
+- EXE marker: `2026-04-27_06-21_004A.date`
+- Main artifact: `bin/win/current/EraseAndRewrite.exe`
+
 # True Grid Code Bundle
 
 This file contains the requested source bundle with filename headers and file contents.

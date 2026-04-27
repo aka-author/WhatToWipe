@@ -1,30 +1,30 @@
-# True Grid Implementation — Related Sources
+# True Grid Implementation — Related Sources (Current)
 
-This file lists all source files related to the current Windows true-grid/property-sheet implementation for treemap settings.
+This list reflects the **current** table-grid attempt and removed legacy mirror code.
 
 ## Primary UI Implementation
 
 - `win-go/internal/ui/settings_treemap_windows.go`
-- `win-go/internal/ui/settings_treemap_mirror_windows.go`
 - `win-go/internal/ui/run_windows.go`
 
-## Architecture Modules Added for This Implementation
+## Settings Data/Rules Modules
 
 - `win-go/internal/ui/row_schema.go`
 - `win-go/internal/ui/settings_state.go`
 - `win-go/internal/ui/config_mapper.go`
 - `win-go/internal/ui/validation.go`
 
-## Supporting UI/Platform Files Referenced
-
-- `win-go/internal/ui/fontlist_windows.go`
-
-## Config Contract and Persistence (must remain 1:1 compatible)
+## Config Contract and Persistence
 
 - `win-go/internal/config/treemap.go`
 - `win-go/internal/config/file.go`
 
-## Architecture and Requirements Docs Used
+## Notes
+
+- Removed from codebase: `win-go/internal/ui/settings_treemap_mirror_windows.go`
+- Active unresolved issue: table values still not editable on target runtime.
+
+## Architecture and Requirement Docs
 
 - `docs/specs/arch-for-true-grid-win-go.md`
 - `docs/guides/win/win-go-editable-property-grids.md`

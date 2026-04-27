@@ -114,21 +114,16 @@ func updateSwatch(swatch *walk.Composite, value string) {
 }
 
 func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
-	showTreemapSettingsTableDialog(owner, current, onApply)
-}
-
-func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
 	var dlg *walk.Dialog
-	var tv *walk.TableView
+	var sv *walk.ScrollView
+	var gridHost *walk.Composite
 	var errLabel *walk.Label
 	var applyBtn *walk.PushButton
 	var okBtn *walk.PushButton
 	var cancelBtn *walk.PushButton
 
 	s := newSettingsState(treemapToStates(current, treemapSchemas))
-	model := &treemapTrueGridModel{states: s.states}
-	var editor *walk.LineEdit
-	var editingRow = -1
+	bindings := make([]rowControlBinding, len(s.states))
 
 	showError := func(msg string) {
 		if errLabel != nil {
@@ -138,21 +133,29 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 	clearError := func() {
 		showError("")
 	}
+	onChanged := func() { clearError() }
+	rowWidgets := buildRowWidgets(s, bindings, showError, onChanged)
 
 	decl := Dialog{
 		AssignTo: &dlg,
 		Title:    "Settings",
-		MinSize:  Size{Width: 960, Height: 640},
-		Size:     Size{Width: 1040, Height: 740},
+		MinSize:  Size{Width: 860, Height: 620},
+		Size:     Size{Width: 960, Height: 720},
 		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
-			TableView{
-				AssignTo:      &tv,
+			ScrollView{
+				AssignTo:      &sv,
 				StretchFactor: 1,
-				ColumnsOrderable: false,
-				Columns: []TableViewColumn{
-					{Title: "Parameter", Width: 360},
-					{Title: "Value", Width: 620},
+				AlwaysConsumeSpace: true,
+				VerticalFixed: false,
+				Layout:        VBox{MarginsZero: true},
+				Children: []Widget{
+					Composite{
+						AssignTo: &gridHost,
+						Layout:   Grid{Columns: 2, Margins: Margins{0, 0, 0, 0}, Spacing: 8},
+						MinSize:  Size{Width: 0, Height: len(s.states) * 34},
+						Children: rowWidgets,
+					},
 				},
 			},
 			Label{
@@ -170,8 +173,8 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 							for i := range s.states {
 								s.states[i].PendingValue = next[i].PendingValue
 								s.states[i].LastGood = next[i].LastGood
+								bindings[i].setValue(next[i].PendingValue)
 							}
-							model.PublishRowsReset()
 							clearError()
 						},
 					},
@@ -189,134 +192,16 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 		return
 	}
 
-	if tv == nil {
-		walk.MsgBox(owner, "Settings", "Settings table did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
+	if gridHost == nil || sv == nil {
+		walk.MsgBox(owner, "Settings", "Settings grid did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	tv.SetModel(model)
-
-	ed, err := walk.NewLineEdit(dlg)
-	if err != nil {
-		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
-		return
+	for i := range bindings {
+		bindings[i].scrollParent = sv
+		bindings[i].setValue(s.states[i].LastGood)
 	}
-	editor = ed
-	editor.SetVisible(false)
-
-	hideEditor := func() {
-		if editor != nil {
-			editor.SetVisible(false)
-		}
-		editingRow = -1
-	}
-
-	beginEdit := func(row int) {
-		if row < 0 || row >= len(s.states) {
-			return
-		}
-		var rc win.RECT
-		rc.Top = 1
-		rc.Left = win.LVIR_BOUNDS
-		if win.SendMessage(tv.Handle(), win.LVM_GETSUBITEMRECT, uintptr(row), uintptr(unsafe.Pointer(&rc))) == 0 {
-			return
-		}
-		if editor == nil {
-			return
-		}
-		tl := win.POINT{X: rc.Left, Y: rc.Top}
-		br := win.POINT{X: rc.Right, Y: rc.Bottom}
-		win.ClientToScreen(tv.Handle(), &tl)
-		win.ClientToScreen(tv.Handle(), &br)
-		win.ScreenToClient(dlg.Handle(), &tl)
-		win.ScreenToClient(dlg.Handle(), &br)
-		editingRow = row
-		editor.SetBoundsPixels(walk.Rectangle{
-			X:      int(tl.X) + 1,
-			Y:      int(tl.Y) + 1,
-			Width:  int(br.X-tl.X) - 2,
-			Height: int(br.Y-tl.Y) - 2,
-		})
-		_ = editor.SetText(s.states[row].PendingValue)
-		editor.SetVisible(true)
-		_ = editor.SetFocus()
-	}
-
-	commitEdit := func() bool {
-		if editor == nil || editingRow < 0 || editingRow >= len(s.states) {
-			return true
-		}
-		val := strings.TrimSpace(editor.Text())
-		s.states[editingRow].PendingValue = val
-		if err := validateField(&s.states[editingRow]); err != nil {
-			showError(err.Error())
-			_ = editor.SetText(s.states[editingRow].LastGood)
-			return false
-		}
-		s.states[editingRow].LastGood = val
-		model.updateValue(editingRow, val)
-		clearError()
-		hideEditor()
-		return true
-	}
-
-	tv.ItemActivated().Attach(func() {
-		beginEdit(tv.CurrentIndex())
-	})
-
-	tv.CurrentIndexChanged().Attach(func() {
-		next := tv.CurrentIndex()
-		if editingRow >= 0 && next != editingRow {
-			if !commitEdit() {
-				tv.SetCurrentIndex(editingRow)
-				return
-			}
-		}
-		if next >= 0 {
-			beginEdit(next)
-		}
-	})
-	tv.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
-		if button != walk.LeftButton {
-			return
-		}
-		info := win.LVHITTESTINFO{
-			Pt: win.POINT{X: int32(x), Y: int32(y)},
-		}
-		row := int(win.SendMessage(tv.Handle(), win.LVM_SUBITEMHITTEST, 0, uintptr(unsafe.Pointer(&info))))
-		if row < 0 || row >= len(s.states) {
-			return
-		}
-		// Edit only the value column.
-		if info.IItem != int32(row) || info.ISubItem != 1 {
-			return
-		}
-		if editingRow >= 0 && editingRow != row {
-			if !commitEdit() {
-				tv.SetCurrentIndex(editingRow)
-				return
-			}
-		}
-		tv.SetCurrentIndex(row)
-		beginEdit(row)
-	})
-
-	editor.EditingFinished().Attach(func() {
-		_ = commitEdit()
-	})
-	editor.KeyDown().Attach(func(key walk.Key) {
-		switch key {
-		case walk.KeyReturn:
-			_ = commitEdit()
-		case walk.KeyEscape:
-			hideEditor()
-			clearError()
-		}
-	})
 
 	applyFlow := func(closeOnSuccess bool) bool {
-		if !commitEdit() {
-			return false
-		}
 		if s.saving {
 			return false
 		}
@@ -340,16 +225,14 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 		if errs := validateAll(s.states); len(errs) > 0 {
 			showError(errs[0].Message)
 			if idx := indexByKey(s.states, errs[0].Key); idx >= 0 {
-				tv.SetCurrentIndex(idx)
-				beginEdit(idx)
+				bindings[idx].focus()
 			}
 			return false
 		}
 		if errs := validateObject(s.states); len(errs) > 0 {
 			showError(errs[0].Message)
 			if idx := indexByKey(s.states, errs[0].Key); idx >= 0 {
-				tv.SetCurrentIndex(idx)
-				beginEdit(idx)
+				bindings[idx].focus()
 			}
 			return false
 		}
@@ -388,7 +271,6 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 	}
 	if cancelBtn != nil {
 		cancelBtn.Clicked().Attach(func() {
-			hideEditor()
 			if s.isDirty() {
 				if walk.MsgBox(dlg, "Settings", "You have unsaved changes. Discard them?", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
 					return
