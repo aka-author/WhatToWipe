@@ -152,6 +152,10 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		bindings[i] = buildEditorControl(gridHost, &s.states[i], s, showError, onChanged)
 		bindings[i].scrollParent = sv
 	}
+	// Force layout + repaint after dynamic row creation so controls are visible immediately.
+	gridHost.RequestLayout()
+	sv.Invalidate()
+	dlg.Invalidate()
 
 	applyFlow := func(closeOnSuccess bool) bool {
 		if s.saving {
