@@ -164,7 +164,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 							if host != nil {
 								host.states = s.states
 								host.destroy()
-								host, _ = newCustomWin32GridHost(gridParent, s.states, showError, clearError)
+								host, _ = newCustomWin32GridHost(gridParent, dlg.Handle(), s.states, showError, clearError)
 								if host != nil {
 									host.layout()
 								}
@@ -191,7 +191,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return
 	}
 	var err error
-	host, err = newCustomWin32GridHost(gridParent, s.states, showError, clearError)
+	host, err = newCustomWin32GridHost(gridParent, dlg.Handle(), s.states, showError, clearError)
 	if err != nil {
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
