@@ -275,6 +275,30 @@ func showTreemapSettingsTableDialog(owner walk.Form, current config.Treemap, onA
 			beginEdit(next)
 		}
 	})
+	tv.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+		if button != walk.LeftButton {
+			return
+		}
+		info := win.LVHITTESTINFO{
+			Pt: win.POINT{X: int32(x), Y: int32(y)},
+		}
+		row := int(win.SendMessage(tv.Handle(), win.LVM_SUBITEMHITTEST, 0, uintptr(unsafe.Pointer(&info))))
+		if row < 0 || row >= len(s.states) {
+			return
+		}
+		// Edit only the value column.
+		if info.IItem != int32(row) || info.ISubItem != 1 {
+			return
+		}
+		if editingRow >= 0 && editingRow != row {
+			if !commitEdit() {
+				tv.SetCurrentIndex(editingRow)
+				return
+			}
+		}
+		tv.SetCurrentIndex(row)
+		beginEdit(row)
+	})
 
 	editor.EditingFinished().Attach(func() {
 		_ = commitEdit()
