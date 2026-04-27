@@ -37,7 +37,6 @@ type customWin32GridHost struct {
 	dialogHWND     win.HWND
 	hwnd           win.HWND
 	oldWndProc     uintptr
-	parentOldProc  uintptr
 	states         []RowState
 	showError      func(string)
 	clearError     func()
@@ -56,7 +55,6 @@ type customWin32GridHost struct {
 var (
 	gridHostsByHWND   sync.Map // key: uintptr(hwnd), value: *customWin32GridHost
 	editHostsByHWND  sync.Map // key: uintptr(hwnd), value: *customWin32GridHost
-	parentHostsByHWND sync.Map // key: uintptr(hwnd), value: *customWin32GridHost
 	buttonHostsByHWND sync.Map // key: uintptr(hwnd), value: *customWin32GridHost
 )
 
@@ -81,7 +79,6 @@ func newCustomWin32GridHost(parent *walk.Composite, dialogHWND win.HWND, states 
 	if err := host.createListView(); err != nil {
 		return nil, err
 	}
-	host.hookParentCommands()
 	return host, nil
 }
 
@@ -182,33 +179,8 @@ func (h *customWin32GridHost) applyColumnWidths() {
 	win.SendMessage(h.hwnd, win.LVM_SETCOLUMNWIDTH, 1, uintptr(valueW))
 }
 
-func (h *customWin32GridHost) hookParentCommands() {
-	if h.parent == nil {
-		return
-	}
-	ph := h.parent.Handle()
-	if ph == 0 {
-		return
-	}
-	parentHostsByHWND.Store(uintptr(ph), h)
-	h.parentOldProc = win.SetWindowLongPtr(ph, win.GWLP_WNDPROC, syscallParentGridWndProc)
-}
-
-func (h *customWin32GridHost) unhookParentCommands() {
-	if h.parent == nil || h.parentOldProc == 0 {
-		return
-	}
-	ph := h.parent.Handle()
-	if ph != 0 {
-		win.SetWindowLongPtr(ph, win.GWLP_WNDPROC, h.parentOldProc)
-		parentHostsByHWND.Delete(uintptr(ph))
-	}
-	h.parentOldProc = 0
-}
-
 func (h *customWin32GridHost) destroy() {
 	h.cancelActive()
-	h.unhookParentCommands()
 	if h.hwnd != 0 {
 		win.SetWindowLongPtr(h.hwnd, win.GWLP_WNDPROC, h.oldWndProc)
 		gridHostsByHWND.Delete(uintptr(h.hwnd))
@@ -259,7 +231,6 @@ func (h *customWin32GridHost) activateEditor(row int) {
 }
 
 func (h *customWin32GridHost) openTextEditor(row int, rect win.RECT) {
-	rect = h.cellRectInParent(rect)
 	txt := h.states[row].PendingValue
 	hEdit := win.CreateWindowEx(
 		win.WS_EX_CLIENTEDGE,
@@ -267,7 +238,7 @@ func (h *customWin32GridHost) openTextEditor(row int, rect win.RECT) {
 		utf16Ptr(txt),
 		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.ES_AUTOHSCROLL,
 		rect.Left, rect.Top, rect.Right-rect.Left, rect.Bottom-rect.Top,
-		h.parent.Handle(),
+		h.hwnd,
 		0,
 		win.GetModuleHandle(nil),
 		nil,
@@ -286,7 +257,6 @@ func (h *customWin32GridHost) openTextEditor(row int, rect win.RECT) {
 }
 
 func (h *customWin32GridHost) openDropdownEditor(row int, rect win.RECT) {
-	rect = h.cellRectInParent(rect)
 	schema := h.states[row].Schema
 	if schema == nil {
 		return
@@ -297,7 +267,7 @@ func (h *customWin32GridHost) openDropdownEditor(row int, rect win.RECT) {
 		nil,
 		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.CBS_DROPDOWN|win.WS_VSCROLL,
 		rect.Left, rect.Top, rect.Right-rect.Left, maxInt32(220, (rect.Bottom-rect.Top)*8),
-		h.parent.Handle(),
+		h.hwnd,
 		0,
 		win.GetModuleHandle(nil),
 		nil,
@@ -350,7 +320,6 @@ func (h *customWin32GridHost) refreshComboChildren(combo win.HWND) {
 }
 
 func (h *customWin32GridHost) openColorEditor(row int, rect win.RECT) {
-	rect = h.cellRectInParent(rect)
 	btnW := int32(28)
 	ew := rect.Right - rect.Left - btnW - 2
 	if ew < 70 {
@@ -363,7 +332,7 @@ func (h *customWin32GridHost) openColorEditor(row int, rect win.RECT) {
 		utf16Ptr(txt),
 		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP|win.ES_AUTOHSCROLL,
 		rect.Left, rect.Top, ew, rect.Bottom-rect.Top,
-		h.parent.Handle(),
+		h.hwnd,
 		0,
 		win.GetModuleHandle(nil),
 		nil,
@@ -377,7 +346,7 @@ func (h *customWin32GridHost) openColorEditor(row int, rect win.RECT) {
 		utf16Ptr("..."),
 		win.WS_CHILD|win.WS_VISIBLE|win.WS_TABSTOP,
 		rect.Left+ew+2, rect.Top, btnW, rect.Bottom-rect.Top,
-		h.parent.Handle(),
+		h.hwnd,
 		0,
 		win.GetModuleHandle(nil),
 		nil,
@@ -438,7 +407,6 @@ func (h *customWin32GridHost) repositionEditor() {
 		h.cancelActive()
 		return
 	}
-	rc = h.cellRectInParent(rc)
 	hh := rc.Bottom - rc.Top
 	if h.activeKind == KindDropdown {
 		hh = maxInt32(220, hh*8)
@@ -693,44 +661,13 @@ func (h *customWin32GridHost) handleButtonMessage(hwnd win.HWND, msg uint32, wPa
 	return win.CallWindowProc(h.btnOldProc, hwnd, msg, wParam, lParam)
 }
 
-func (h *customWin32GridHost) handleParentMessage(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
-	if msg == win.WM_COMMAND {
-		code := uint32(wParam) >> 16 & 0xFFFF
-		ctrl := win.HWND(lParam)
-		if h.activeKind == KindColor && ctrl == h.activeBtn && code == win.BN_CLICKED {
-			h.pickColorIntoActiveEdit()
-			return 0
-		}
-		if h.activeKind == KindDropdown && ctrl == h.activeEdit && code == win.CBN_DROPDOWN {
-			h.refreshComboChildren(h.activeEdit)
-			if h.comboEdit != 0 && h.comboOldProc == 0 {
-				editHostsByHWND.Store(uintptr(h.comboEdit), h)
-				h.comboOldProc = win.SetWindowLongPtr(h.comboEdit, win.GWLP_WNDPROC, syscallEditWndProc)
-			}
-		}
-	}
-	return win.CallWindowProc(h.parentOldProc, hwnd, msg, wParam, lParam)
-}
-
-func (h *customWin32GridHost) cellRectInParent(rc win.RECT) win.RECT {
-	tl := win.POINT{X: rc.Left, Y: rc.Top}
-	br := win.POINT{X: rc.Right, Y: rc.Bottom}
-	win.ClientToScreen(h.hwnd, &tl)
-	win.ClientToScreen(h.hwnd, &br)
-	win.ScreenToClient(h.parent.Handle(), &tl)
-	win.ScreenToClient(h.parent.Handle(), &br)
-	return win.RECT{Left: tl.X, Top: tl.Y, Right: br.X, Bottom: br.Y}
-}
-
 var syscallListViewWndProc uintptr
 var syscallEditWndProc uintptr
-var syscallParentGridWndProc uintptr
 var syscallButtonWndProc uintptr
 
 func init() {
 	syscallListViewWndProc = syscall.NewCallback(listViewWndProc)
 	syscallEditWndProc = syscall.NewCallback(editWndProc)
-	syscallParentGridWndProc = syscall.NewCallback(parentGridWndProc)
 	syscallButtonWndProc = syscall.NewCallback(buttonWndProc)
 }
 
@@ -747,15 +684,6 @@ func editWndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 	if v, ok := editHostsByHWND.Load(uintptr(hwnd)); ok {
 		if h, ok := v.(*customWin32GridHost); ok {
 			return h.handleEditMessage(hwnd, msg, wParam, lParam)
-		}
-	}
-	return win.DefWindowProc(hwnd, msg, wParam, lParam)
-}
-
-func parentGridWndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
-	if v, ok := parentHostsByHWND.Load(uintptr(hwnd)); ok {
-		if h, ok := v.(*customWin32GridHost); ok {
-			return h.handleParentMessage(hwnd, msg, wParam, lParam)
 		}
 	}
 	return win.DefWindowProc(hwnd, msg, wParam, lParam)
