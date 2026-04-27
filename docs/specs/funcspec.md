@@ -1348,6 +1348,33 @@ If at least one entered value is invalid, the form must not apply changes and mu
 
 The settings form must not apply partial updates: either all edited values are valid and applied, or none are applied.
 
+Implementation gate before coding:
+
+- The implementer must declare the exact control strategy before implementation.
+- The declaration must explicitly state why the chosen approach is a *real grid* and not *grid-like*.
+- If this declaration is missing, implementation is non-compliant.
+
+Definition of done (strict acceptance checklist):
+
+- The settings form uses one real grid layout for all rows and columns.
+- Column boundaries are shared and consistent for all rows.
+- Value editors are direct in-cell editors.
+- No detached editor area exists (bottom, side, floating, or external).
+- No editor overlay is created/moved on cell click.
+- Color rows keep value editor, swatch, and picker in the same row.
+- `treemap.tileFontName` is editable and supports both list selection and manual input.
+- Validation blocks apply/ok when invalid and shows a clear error.
+- Full settings save is atomic (all valid or none applied).
+
+Automatic rejection criteria:
+
+- Any implementation described as "grid-like".
+- Any implementation that uses independent per-row layouts as a substitute for one shared grid.
+- Any implementation that requires clicking a display cell to spawn/move an editor.
+- Any implementation with a detached editor panel.
+
+If any rejection criterion is present, the implementation must be rejected and treated as non-compliant.
+
 
 ## Program Setup Configuration
 

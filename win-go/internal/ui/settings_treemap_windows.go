@@ -5,9 +5,9 @@ package ui
 import (
 	"fmt"
 	"image/color"
-	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"unsafe"
 
 	"github.com/lxn/walk"
@@ -17,7 +17,159 @@ import (
 	"eraserewrite/win-go/internal/config"
 )
 
-var hexColorRE = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+func primarySysListView(tv *walk.TableView) win.HWND {
+	if tv == nil {
+		return 0
+	}
+	parent := tv.Handle()
+	var best win.HWND
+	var bestW int32
+	for h := win.GetWindow(parent, win.GW_CHILD); h != 0; h = win.GetWindow(h, win.GW_HWNDNEXT) {
+		var buf [80]uint16
+		n, _ := win.GetClassName(h, &buf[0], 80)
+		if n <= 0 {
+			continue
+		}
+		if syscall.UTF16ToString(buf[:n]) != "SysListView32" {
+			continue
+		}
+		var rc win.RECT
+		win.GetClientRect(h, &rc)
+		w := rc.Right - rc.Left
+		if w > bestW {
+			bestW = w
+			best = h
+		}
+	}
+	return best
+}
+
+func treemapHitTestCell(tv *walk.TableView) (lv win.HWND, row, col int, ok bool) {
+	if tv == nil {
+		return 0, 0, 0, false
+	}
+	var pt win.POINT
+	win.GetCursorPos(&pt)
+	lv = primarySysListView(tv)
+	if lv == 0 {
+		return 0, 0, 0, false
+	}
+	ptc := pt
+	if !win.ScreenToClient(lv, &ptc) {
+		return 0, 0, 0, false
+	}
+	var cr win.RECT
+	win.GetClientRect(lv, &cr)
+	if ptc.X < cr.Left || ptc.X >= cr.Right || ptc.Y < cr.Top || ptc.Y >= cr.Bottom {
+		return 0, 0, 0, false
+	}
+	var hti win.LVHITTESTINFO
+	hti.Pt = ptc
+	ret := int32(win.SendMessage(lv, win.LVM_SUBITEMHITTEST, 0, uintptr(unsafe.Pointer(&hti))))
+	if ret == -1 || hti.IItem < 0 || hti.ISubItem < 0 {
+		return 0, 0, 0, false
+	}
+	return lv, int(hti.IItem), int(hti.ISubItem), true
+}
+
+func subitemBoundsDlg96(dlg *walk.Dialog, lv win.HWND, row, col int) walk.Rectangle {
+	if dlg == nil || lv == 0 {
+		return walk.Rectangle{}
+	}
+	var r win.RECT
+	r.Top = int32(col)
+	r.Left = win.LVIR_LABEL
+	if win.FALSE == win.SendMessage(lv, win.LVM_GETSUBITEMRECT, uintptr(row), uintptr(unsafe.Pointer(&r))) {
+		return walk.Rectangle{}
+	}
+	tl := win.POINT{X: r.Left, Y: r.Top}
+	br := win.POINT{X: r.Right, Y: r.Bottom}
+	win.ClientToScreen(lv, &tl)
+	win.ClientToScreen(lv, &br)
+	hDlg := dlg.AsFormBase().Handle()
+	win.ScreenToClient(hDlg, &tl)
+	win.ScreenToClient(hDlg, &br)
+	rp := walk.Rectangle{X: int(tl.X), Y: int(tl.Y), Width: int(br.X - tl.X), Height: int(br.Y - tl.Y)}
+	return dlg.AsFormBase().RectangleTo96DPI(rp)
+}
+
+type treemapInlineEditor struct {
+	dlg       *walk.Dialog
+	tv        *walk.TableView
+	gridModel *treemapGridModel
+	edited    *config.Treemap
+	fontModel []string
+	line      *walk.LineEdit
+	fontCombo *walk.ComboBox
+	row       int
+	editing   bool
+	fontEdit  bool
+}
+
+func (ie *treemapInlineEditor) endEdit(commit bool) {
+	if ie == nil || !ie.editing {
+		return
+	}
+	if commit {
+		var err error
+		if ie.fontEdit {
+			err = treemapSetValueColFromString(ie.edited, ie.row, ie.fontCombo.Text())
+		} else {
+			err = treemapSetValueColFromString(ie.edited, ie.row, ie.line.Text())
+		}
+		if err != nil {
+			walk.MsgBox(ie.dlg, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+			return
+		}
+	}
+	ie.line.SetVisible(false)
+	ie.fontCombo.SetVisible(false)
+	ie.editing = false
+	ie.fontEdit = false
+	ie.row = -1
+	ie.gridModel.refreshAll()
+}
+
+func (ie *treemapInlineEditor) beginEdit(row int, font bool) {
+	if ie == nil || row < 0 || row >= len(treemapGridRowLabels) {
+		return
+	}
+	ie.endEdit(true)
+	lv := primarySysListView(ie.tv)
+	if lv == 0 {
+		return
+	}
+	b := subitemBoundsDlg96(ie.dlg, lv, row, 1)
+	if b.Width < 10 || b.Height < 10 {
+		return
+	}
+	ie.row = row
+	ie.editing = true
+	ie.fontEdit = font
+	if font {
+		_ = ie.fontCombo.SetModel(ie.fontModel)
+		cur := strings.TrimSpace(ie.edited.TileFontName)
+		_ = ie.fontCombo.SetCurrentIndex(-1)
+		for i, name := range ie.fontModel {
+			if strings.EqualFold(name, cur) {
+				_ = ie.fontCombo.SetCurrentIndex(i)
+				break
+			}
+		}
+		_ = ie.fontCombo.SetText(cur)
+		ie.fontCombo.SetBounds(b)
+		ie.fontCombo.SetVisible(true)
+		ie.fontCombo.BringToTop()
+		_ = ie.fontCombo.SetFocus()
+		return
+	}
+	_ = ie.line.SetText(treemapValueColString(ie.edited, row))
+	ie.line.SetBounds(b)
+	ie.line.SetVisible(true)
+	ie.line.BringToTop()
+	_ = ie.line.SetFocus()
+	ie.line.SetTextSelection(0, -1)
+}
 
 func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
 	edited := current
@@ -32,24 +184,14 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 
 	var dlg *walk.Dialog
 	var okBtn *walk.PushButton
-	var rows []Widget
-	var refreshUI []func()
-	var cleanup []func()
+	var gridTV *walk.TableView
+	var editor *treemapInlineEditor
 
-	addRow := func(label string, editor Widget) {
-		rows = append(rows, LineEdit{
-			Text:     label,
-			ReadOnly: true,
-			MinSize:  Size{Width: 260},
-		})
-		rows = append(rows, editor)
-	}
-
+	gridModel := &treemapGridModel{edited: &edited}
 	setFields := func(t config.Treemap) {
 		edited = t
-		for _, fn := range refreshUI {
-			fn()
-		}
+		gridModel.edited = &edited
+		gridModel.refreshAll()
 	}
 
 	saveAndApply := func() bool {
@@ -72,221 +214,6 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return true
 	}
 
-	addIntRow := func(label string, min float64, max float64, get func() int, set func(int)) {
-		var ne *walk.NumberEdit
-		addRow(label, NumberEdit{
-			AssignTo: &ne,
-			MinValue: min,
-			MaxValue: max,
-			Decimals: 0,
-			Value:    float64(get()),
-			OnValueChanged: func() {
-				set(int(ne.Value()))
-			},
-		})
-		refreshUI = append(refreshUI, func() { _ = ne.SetValue(float64(get())) })
-	}
-
-	addFloatRow := func(label string, min float64, max float64, decimals int, get func() float64, set func(float64)) {
-		var ne *walk.NumberEdit
-		addRow(label, NumberEdit{
-			AssignTo: &ne,
-			MinValue: min,
-			MaxValue: max,
-			Decimals: decimals,
-			Value:    get(),
-			OnValueChanged: func() {
-				set(ne.Value())
-			},
-		})
-		refreshUI = append(refreshUI, func() { _ = ne.SetValue(get()) })
-	}
-
-	addTextRow := func(label string, allowEmpty bool, get func() string, set func(string)) {
-		var le *walk.LineEdit
-		addRow(label, LineEdit{
-			AssignTo: &le,
-			Text:     get(),
-			OnEditingFinished: func() {
-				v := strings.TrimSpace(le.Text())
-				if !allowEmpty && v == "" {
-					walk.MsgBox(dlg, "Settings", "Value must not be empty", walk.MsgBoxOK|walk.MsgBoxIconWarning)
-					_ = le.SetText(get())
-					return
-				}
-				set(v)
-			},
-		})
-		refreshUI = append(refreshUI, func() { _ = le.SetText(get()) })
-	}
-
-	addPercentRow := func(label string, get func() float64, set func(float64)) {
-		var le *walk.LineEdit
-		addRow(label, LineEdit{
-			AssignTo: &le,
-			Text:     strconv.FormatFloat(get()*100.0, 'f', -1, 64) + "%",
-			OnEditingFinished: func() {
-				cl, err := parsePercentOrRatio(le.Text())
-				if err != nil || cl <= 0 {
-					walk.MsgBox(dlg, "Settings", "Must be positive (for example 1% or 0.01)", walk.MsgBoxOK|walk.MsgBoxIconWarning)
-					_ = le.SetText(strconv.FormatFloat(get()*100.0, 'f', -1, 64) + "%")
-					return
-				}
-				set(cl)
-				_ = le.SetText(strconv.FormatFloat(cl*100.0, 'f', -1, 64) + "%")
-			},
-		})
-		refreshUI = append(refreshUI, func() { _ = le.SetText(strconv.FormatFloat(get()*100.0, 'f', -1, 64) + "%") })
-	}
-
-	addFontRow := func(label string, get func() string, set func(string)) {
-		var cb *walk.ComboBox
-		curIdx := 0
-		for i, name := range fontModel {
-			if strings.EqualFold(name, get()) {
-				curIdx = i
-				break
-			}
-		}
-		addRow(label, ComboBox{
-			AssignTo:     &cb,
-			Model:        fontModel,
-			CurrentIndex: curIdx,
-			Editable:     true,
-			OnCurrentIndexChanged: func() {
-				v := strings.TrimSpace(cb.Text())
-				if v != "" {
-					set(v)
-				}
-			},
-			OnEditingFinished: func() {
-				v := strings.TrimSpace(cb.Text())
-				if v == "" {
-					walk.MsgBox(dlg, "Settings", "Font name must not be empty", walk.MsgBoxOK|walk.MsgBoxIconWarning)
-					_ = cb.SetText(get())
-					return
-				}
-				set(v)
-			},
-		})
-		refreshUI = append(refreshUI, func() { _ = cb.SetText(get()) })
-	}
-
-	addColorRow := func(label string, getHex func() string, set func(color.RGBA)) {
-		var le *walk.LineEdit
-		var btn *walk.PushButton
-		var swatch *walk.Composite
-		var swatchBrush *walk.SolidColorBrush
-
-		updateSwatch := func(hex string) {
-			c, err := parseHexColor(hex)
-			if err != nil {
-				c = color.RGBA{A: 255}
-			}
-			if swatchBrush != nil {
-				swatchBrush.Dispose()
-				swatchBrush = nil
-			}
-			br, err := walk.NewSolidColorBrush(walk.RGB(c.R, c.G, c.B))
-			if err != nil {
-				return
-			}
-			swatchBrush = br
-			swatch.SetBackground(br)
-			swatch.Invalidate()
-		}
-
-		addRow(label, Composite{
-			Layout: HBox{MarginsZero: true, Spacing: 6},
-			Children: []Widget{
-				LineEdit{
-					AssignTo: &le,
-					Text:     getHex(),
-					OnEditingFinished: func() {
-						v := strings.TrimSpace(le.Text())
-						if !hexColorRE.MatchString(v) {
-							walk.MsgBox(dlg, "Settings", "Use format #RRGGBB", walk.MsgBoxOK|walk.MsgBoxIconWarning)
-							_ = le.SetText(getHex())
-							updateSwatch(getHex())
-							return
-						}
-						c, _ := parseHexColor(v)
-						set(c)
-						_ = le.SetText(strings.ToUpper(v))
-						updateSwatch(v)
-					},
-				},
-				PushButton{
-					AssignTo: &btn,
-					Text:     "...",
-					MaxSize:  Size{Width: 30},
-					OnClicked: func() {
-						chosen := showColorDialog(btn.Handle(), le.Text())
-						if chosen == "" {
-							return
-						}
-						c, _ := parseHexColor(chosen)
-						set(c)
-						_ = le.SetText(chosen)
-						updateSwatch(chosen)
-					},
-				},
-				Composite{
-					AssignTo: &swatch,
-					MinSize:  Size{Width: 20, Height: 20},
-					MaxSize:  Size{Width: 20, Height: 20},
-				},
-			},
-		})
-		refreshUI = append(refreshUI, func() {
-			_ = le.SetText(getHex())
-			updateSwatch(getHex())
-		})
-		cleanup = append(cleanup, func() {
-			if swatchBrush != nil {
-				swatchBrush.Dispose()
-			}
-		})
-	}
-
-	addIntRow("treemap.maxTiles", 1, 1000000, func() int { return edited.MaxTiles }, func(v int) { edited.MaxTiles = v })
-	addPercentRow("treemap.clumpThreshold", func() float64 { return edited.ClumpThreshold }, func(v float64) { edited.ClumpThreshold = v })
-	addIntRow("treemap.minTileWidth (pt)", 1, 10000, func() int { return edited.MinTileWidthPt }, func(v int) { edited.MinTileWidthPt = v })
-	addIntRow("treemap.minTileHeight (pt)", 1, 10000, func() int { return edited.MinTileHeightPt }, func(v int) { edited.MinTileHeightPt = v })
-	addIntRow("treemap.tilePaddingLeft (pt)", 0, 10000, func() int { return edited.TilePaddingLeftPt }, func(v int) { edited.TilePaddingLeftPt = v })
-	addIntRow("treemap.tilePaddingTop (pt)", 0, 10000, func() int { return edited.TilePaddingTopPt }, func(v int) { edited.TilePaddingTopPt = v })
-	addIntRow("treemap.tilePaddingRight (pt)", 0, 10000, func() int { return edited.TilePaddingRightPt }, func(v int) { edited.TilePaddingRightPt = v })
-	addIntRow("treemap.tilePaddingBottom (pt)", 0, 10000, func() int { return edited.TilePaddingBottomPt }, func(v int) { edited.TilePaddingBottomPt = v })
-	addFontRow("treemap.tileFontName", func() string { return edited.TileFontName }, func(v string) { edited.TileFontName = v })
-	addIntRow("treemap.headingMaxFontSize (pt)", 1, 1000, func() int { return edited.HeadingMaxFontSizePt }, func(v int) { edited.HeadingMaxFontSizePt = v })
-	addIntRow("treemap.headingMinFontSize (pt)", 1, 1000, func() int { return edited.HeadingMinFontSizePt }, func(v int) { edited.HeadingMinFontSizePt = v })
-	addFloatRow("treemap.headingLineHeight", 0.01, 100.0, 3, func() float64 { return edited.HeadingLineHeight }, func(v float64) { edited.HeadingLineHeight = v })
-	addFloatRow("treemap.detailsFontSizeRatio", 0.01, 100.0, 3, func() float64 { return edited.DetailsFontSizeRatio }, func(v float64) { edited.DetailsFontSizeRatio = v })
-	addFloatRow("treemap.detailsLineHeight", 0.01, 100.0, 3, func() float64 { return edited.DetailsLineHeight }, func(v float64) { edited.DetailsLineHeight = v })
-	addFloatRow("treemap.aboveDetailsHeightRatio", 0.01, 100.0, 3, func() float64 { return edited.AboveDetailsRatio }, func(v float64) { edited.AboveDetailsRatio = v })
-	addTextRow("treemap.labelPlaceholder", false, func() string { return edited.LabelPlaceholder }, func(v string) { edited.LabelPlaceholder = v })
-	addTextRow("treemap.labelDummy", false, func() string { return edited.LabelDummy }, func(v string) { edited.LabelDummy = v })
-	addColorRow("treemap.nativeFolderBgColor", func() string { return formatRGBHex(edited.NativeFolderBg) }, func(c color.RGBA) { edited.NativeFolderBg = c })
-	addColorRow("treemap.nativeFolderTextColor", func() string { return formatRGBHex(edited.NativeFolderText) }, func(c color.RGBA) { edited.NativeFolderText = c })
-	addColorRow("treemap.packedFolderBgColor", func() string { return formatRGBHex(edited.PackedFolderBg) }, func(c color.RGBA) { edited.PackedFolderBg = c })
-	addColorRow("treemap.packedFolderTextColor", func() string { return formatRGBHex(edited.PackedFolderText) }, func(c color.RGBA) { edited.PackedFolderText = c })
-	addColorRow("treemap.nativeFileBgColor", func() string { return formatRGBHex(edited.NativeFileBg) }, func(c color.RGBA) { edited.NativeFileBg = c })
-	addColorRow("treemap.nativeFileTextColor", func() string { return formatRGBHex(edited.NativeFileText) }, func(c color.RGBA) { edited.NativeFileText = c })
-	addColorRow("treemap.packedFileBgColor", func() string { return formatRGBHex(edited.PackedFileBg) }, func(c color.RGBA) { edited.PackedFileBg = c })
-	addColorRow("treemap.packedFileTextColor", func() string { return formatRGBHex(edited.PackedFileText) }, func(c color.RGBA) { edited.PackedFileText = c })
-	addColorRow("treemap.nativeClumpBgColor", func() string { return formatRGBHex(edited.NativeClumpBg) }, func(c color.RGBA) { edited.NativeClumpBg = c })
-	addColorRow("treemap.nativeClumpTextColor", func() string { return formatRGBHex(edited.NativeClumpText) }, func(c color.RGBA) { edited.NativeClumpText = c })
-	addColorRow("treemap.packedClumpBgColor", func() string { return formatRGBHex(edited.PackedClumpBg) }, func(c color.RGBA) { edited.PackedClumpBg = c })
-	addColorRow("treemap.packedClumpTextColor", func() string { return formatRGBHex(edited.PackedClumpText) }, func(c color.RGBA) { edited.PackedClumpText = c })
-	addTextRow("treemap.win.exeFiles", true, func() string { return edited.WinExeFiles }, func(v string) { edited.WinExeFiles = v })
-	addTextRow("treemap.linux.exeFiles", true, func() string { return edited.LinuxExeFiles }, func(v string) { edited.LinuxExeFiles = v })
-	addTextRow("treemap.macos.exeFiles", true, func() string { return edited.MacOSExeFiles }, func(v string) { edited.MacOSExeFiles = v })
-
-	rows = append([]Widget{
-		LineEdit{Text: "Parameter", ReadOnly: true, MinSize: Size{Width: 260}},
-		LineEdit{Text: "Value", ReadOnly: true},
-	}, rows...)
-
 	var icon *walk.Icon
 	if ic, err := loadEmbeddedAppIcon(); err == nil {
 		icon = ic
@@ -301,19 +228,20 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		DefaultButton: &okBtn,
 		Layout:        VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
-			ScrollView{
-				VerticalFixed: false,
-				Layout:        VBox{MarginsZero: true},
-				Children: []Widget{
-					Composite{
-						Layout: Grid{
-							Columns: 2,
-							Spacing: 8,
-							Margins: Margins{Left: 0, Top: 0, Right: 0, Bottom: 0},
-						},
-						Children: rows,
-					},
+			TableView{
+				AssignTo:                 &gridTV,
+				StretchFactor:            1,
+				AlternatingRowBG:         true,
+				LastColumnStretched:      false,
+				NotSortableByHeaderClick: true,
+				MinSize:                  Size{Height: 320},
+				Columns: []TableViewColumn{
+					{Title: "Parameter", Width: 260},
+					{Title: "Value", Width: 360},
+					{Title: "Swatch", Width: 64},
+					{Title: "Pick", Width: 56},
 				},
+				Model: gridModel,
 			},
 			Composite{
 				Layout: HBox{MarginsZero: true, Spacing: 8},
@@ -355,11 +283,114 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	dlg.Disposing().Attach(func() {
-		for _, fn := range cleanup {
-			fn()
+
+	line, err := walk.NewLineEdit(dlg)
+	if err != nil {
+		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
+	}
+	fontCombo, err := walk.NewDropDownBox(dlg)
+	if err != nil {
+		walk.MsgBox(owner, "Settings", err.Error(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		return
+	}
+	line.SetVisible(false)
+	fontCombo.SetVisible(false)
+	editor = &treemapInlineEditor{
+		dlg:       dlg,
+		tv:        gridTV,
+		gridModel: gridModel,
+		edited:    &edited,
+		fontModel: fontModel,
+		line:      line,
+		fontCombo: fontCombo,
+		row:       -1,
+	}
+	line.EditingFinished().Attach(func() {
+		if editor != nil && editor.editing && !editor.fontEdit {
+			editor.endEdit(true)
 		}
 	})
+	fontCombo.EditingFinished().Attach(func() {
+		if editor != nil && editor.editing && editor.fontEdit {
+			editor.endEdit(true)
+		}
+	})
+	line.KeyDown().Attach(func(key walk.Key) {
+		if editor == nil || !editor.editing || editor.fontEdit {
+			return
+		}
+		if key == walk.KeyEscape {
+			editor.endEdit(false)
+			_ = gridTV.SetFocus()
+		}
+		if key == walk.KeyReturn {
+			editor.endEdit(true)
+			_ = gridTV.SetFocus()
+		}
+	})
+	fontCombo.KeyDown().Attach(func(key walk.Key) {
+		if editor == nil || !editor.editing || !editor.fontEdit {
+			return
+		}
+		if key == walk.KeyEscape {
+			editor.endEdit(false)
+			_ = gridTV.SetFocus()
+		}
+		if key == walk.KeyReturn {
+			editor.endEdit(true)
+			_ = gridTV.SetFocus()
+		}
+	})
+	gridTV.KeyDown().Attach(func(key walk.Key) {
+		if editor == nil || editor.editing {
+			return
+		}
+		if key == walk.KeyF2 || key == walk.KeyReturn {
+			row := gridTV.CurrentIndex()
+			if row >= 0 {
+				editor.beginEdit(row, row == 8)
+			}
+		}
+	})
+	gridTV.MouseDown().Attach(func(_, _ int, button walk.MouseButton) {
+		if button != walk.LeftButton {
+			return
+		}
+		_, row, col, ok := treemapHitTestCell(gridTV)
+		if !ok {
+			return
+		}
+		_ = gridTV.SetCurrentIndex(row)
+		colorBlock := row >= treemapGridColorRow0 && row < treemapGridColorRow0+treemapGridColorRowCount
+		if colorBlock && (col == 2 || col == 3) {
+			chosen := showColorDialog(dlg.Handle(), colorHexAtRow(&edited, row))
+			if chosen != "" {
+				if c, err := parseHexColor(chosen); err == nil {
+					setTreemapColorByRow(&edited, row, c)
+					gridModel.refreshAll()
+				}
+			}
+			return
+		}
+		if col == 1 {
+			editor.beginEdit(row, row == 8)
+		}
+	})
+	gridTV.ItemActivated().Attach(func() {
+		row := gridTV.CurrentIndex()
+		if row >= 0 {
+			editor.beginEdit(row, row == 8)
+		}
+	})
+	dlg.SizeChanged().Attach(func() {
+		if editor != nil && editor.editing {
+			editor.endEdit(true)
+		}
+	})
+	if gridTV != nil {
+		gridTV.SetGridlines(true)
+	}
 	setFields(current)
 	_ = dlg.Run()
 }
@@ -380,26 +411,6 @@ func showColorDialog(hwnd win.HWND, current string) string {
 		return ""
 	}
 	return fmt.Sprintf("#%02X%02X%02X", byte(cc.RgbResult&0xFF), byte((cc.RgbResult>>8)&0xFF), byte((cc.RgbResult>>16)&0xFF))
-}
-
-func pickColor(owner walk.Form, start color.RGBA) (color.RGBA, bool) {
-	var custom [16]win.COLORREF
-	cc := win.CHOOSECOLOR{
-		LStructSize:  uint32(unsafe.Sizeof(win.CHOOSECOLOR{})),
-		HwndOwner:    owner.AsFormBase().Handle(),
-		RgbResult:    win.RGB(start.R, start.G, start.B),
-		LpCustColors: &custom,
-		Flags:        win.CC_FULLOPEN | win.CC_RGBINIT,
-	}
-	if !win.ChooseColor(&cc) {
-		return color.RGBA{}, false
-	}
-	return color.RGBA{
-		R: byte(cc.RgbResult & 0xFF),
-		G: byte((cc.RgbResult >> 8) & 0xFF),
-		B: byte((cc.RgbResult >> 16) & 0xFF),
-		A: 255,
-	}, true
 }
 
 func parsePercentOrRatio(s string) (float64, error) {
