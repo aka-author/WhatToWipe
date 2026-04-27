@@ -288,25 +288,31 @@ td.value[contenteditable="true"]:focus{outline:2px solid #4a90e2}
 </div>
 <table id="grid"><thead><tr><th style="width:45%">Parameter</th><th style="width:55%">Value</th></tr></thead><tbody></tbody></table>
 <script>
-const labels=` + string(labelsJSON) + `;
-const values=` + string(valuesJSON) + `;
-const tbody=document.querySelector('#grid tbody');
-for(let i=0;i<labels.length;i++){
-  const tr=document.createElement('tr');
-  tr.dataset.row=i;
-  const c0=document.createElement('td'); c0.textContent=labels[i];
-  const c1=document.createElement('td'); c1.className='value'; c1.contentEditable='true'; c1.textContent=values[i] || '';
+var labels=` + string(labelsJSON) + `;
+var values=` + string(valuesJSON) + `;
+var tbody=document.getElementById('grid').getElementsByTagName('tbody')[0];
+for(var i=0;i<labels.length;i++){
+  var tr=document.createElement('tr');
+  tr.setAttribute('data-row', String(i));
+  var c0=document.createElement('td'); c0.innerText=labels[i];
+  var c1=document.createElement('td'); c1.className='value'; c1.contentEditable='true'; c1.innerText=values[i] || '';
   tr.appendChild(c0); tr.appendChild(c1); tbody.appendChild(tr);
 }
 function collectValues(){
-  return Array.from(document.querySelectorAll('#grid tbody tr td.value')).map(td => td.textContent.trim());
+  var nodes = document.querySelectorAll('#grid tbody tr td.value');
+  var out = [];
+  for (var j = 0; j < nodes.length; j++) {
+    var txt = nodes[j].innerText || "";
+    out.push(txt.replace(/^\s+|\s+$/g, ''));
+  }
+  return out;
 }
 function doAction(kind){
   if(kind==='cancel' || kind==='reset'){
     location.href='app://' + kind;
     return;
   }
-  const payload=encodeURIComponent(JSON.stringify(collectValues()));
+  var payload=encodeURIComponent(JSON.stringify(collectValues()));
   location.href='app://' + kind + '?data=' + payload;
 }
 </script>
