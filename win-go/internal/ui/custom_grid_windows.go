@@ -323,7 +323,6 @@ func (h *customWin32GridHost) pickColorIntoActiveEdit() {
 	setWindowText(h.activeEdit, utf16Ptr(next))
 	win.SetFocus(h.activeEdit)
 }
-}
 
 func (h *customWin32GridHost) valueCellRect(row int) (win.RECT, bool) {
 	var rc win.RECT
