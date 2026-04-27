@@ -41,12 +41,12 @@ func (m *treemapTrueGridModel) Value(row, col int) interface{} {
 	}
 	switch col {
 	case 0:
+		return m.states[row].PendingValue
+	case 1:
 		if m.states[row].Schema == nil {
 			return ""
 		}
 		return m.states[row].Schema.Label
-	case 1:
-		return m.states[row].PendingValue
 	default:
 		return ""
 	}
@@ -115,15 +115,14 @@ func updateSwatch(swatch *walk.Composite, value string) {
 
 func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply func(config.Treemap)) {
 	var dlg *walk.Dialog
-	var sv *walk.ScrollView
-	var gridHost *walk.Composite
+	var tv *walk.TableView
 	var errLabel *walk.Label
 	var applyBtn *walk.PushButton
 	var okBtn *walk.PushButton
 	var cancelBtn *walk.PushButton
 
 	s := newSettingsState(treemapToStates(current, treemapSchemas))
-	bindings := make([]rowControlBinding, len(s.states))
+	model := &treemapTrueGridModel{states: s.states}
 
 	showError := func(msg string) {
 		if errLabel != nil {
@@ -133,29 +132,21 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	clearError := func() {
 		showError("")
 	}
-	onChanged := func() { clearError() }
-	rowWidgets := buildRowWidgets(s, bindings, showError, onChanged)
 
 	decl := Dialog{
 		AssignTo: &dlg,
 		Title:    "Settings",
-		MinSize:  Size{Width: 860, Height: 620},
-		Size:     Size{Width: 960, Height: 720},
+		MinSize:  Size{Width: 980, Height: 640},
+		Size:     Size{Width: 1080, Height: 760},
 		Layout:   VBox{Margins: Margins{12, 12, 12, 12}, Spacing: 8},
 		Children: []Widget{
-			ScrollView{
-				AssignTo:      &sv,
+			TableView{
+				AssignTo:      &tv,
 				StretchFactor: 1,
-				AlwaysConsumeSpace: true,
-				VerticalFixed: false,
-				Layout:        VBox{MarginsZero: true},
-				Children: []Widget{
-					Composite{
-						AssignTo: &gridHost,
-						Layout:   Grid{Columns: 2, Margins: Margins{0, 0, 0, 0}, Spacing: 8},
-						MinSize:  Size{Width: 0, Height: len(s.states) * 34},
-						Children: rowWidgets,
-					},
+				ColumnsOrderable: false,
+				Columns: []TableViewColumn{
+					{Title: "Value", Width: 640},
+					{Title: "Parameter", Width: 380},
 				},
 			},
 			Label{
@@ -173,8 +164,8 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 							for i := range s.states {
 								s.states[i].PendingValue = next[i].PendingValue
 								s.states[i].LastGood = next[i].LastGood
-								bindings[i].setValue(next[i].PendingValue)
 							}
+							model.PublishRowsReset()
 							clearError()
 						},
 					},
@@ -192,16 +183,53 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		return
 	}
 
-	if gridHost == nil || sv == nil {
-		walk.MsgBox(owner, "Settings", "Settings grid did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
+	if tv == nil {
+		walk.MsgBox(owner, "Settings", "Settings table did not initialize.", walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
-	for i := range bindings {
-		bindings[i].scrollParent = sv
-		bindings[i].setValue(s.states[i].LastGood)
+	tv.SetModel(model)
+
+	enableNativeLabelEdit := func() {
+		style := uint32(win.GetWindowLong(tv.Handle(), win.GWL_STYLE))
+		style |= win.LVS_EDITLABELS
+		win.SetWindowLong(tv.Handle(), win.GWL_STYLE, int32(style))
+		win.SetWindowPos(tv.Handle(), 0, 0, 0, 0, 0, win.SWP_NOMOVE|win.SWP_NOSIZE|win.SWP_NOZORDER|win.SWP_FRAMECHANGED)
+	}
+	enableNativeLabelEdit()
+
+	startEditCurrent := func() {
+		row := tv.CurrentIndex()
+		if row < 0 || row >= len(s.states) {
+			return
+		}
+		win.SendMessage(tv.Handle(), win.LVM_EDITLABELW, uintptr(row), 0)
+	}
+
+	tv.ItemActivated().Attach(func() {
+		startEditCurrent()
+	})
+	tv.KeyDown().Attach(func(key walk.Key) {
+		if key == walk.KeyF2 || key == walk.KeyReturn {
+			startEditCurrent()
+		}
+	})
+
+	syncStatesFromListView := func() {
+		// Read live text from column 0 (Value).
+		buf := make([]uint16, 2048)
+		for i := range s.states {
+			item := win.LVITEM{
+				ISubItem:   0,
+				CchTextMax: int32(len(buf)),
+				PszText:    &buf[0],
+			}
+			win.SendMessage(tv.Handle(), win.LVM_GETITEMTEXTW, uintptr(i), uintptr(unsafe.Pointer(&item)))
+			s.states[i].PendingValue = strings.TrimSpace(win.UTF16PtrToString(&buf[0]))
+		}
 	}
 
 	applyFlow := func(closeOnSuccess bool) bool {
+		syncStatesFromListView()
 		if s.saving {
 			return false
 		}
@@ -225,14 +253,16 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if errs := validateAll(s.states); len(errs) > 0 {
 			showError(errs[0].Message)
 			if idx := indexByKey(s.states, errs[0].Key); idx >= 0 {
-				bindings[idx].focus()
+				tv.SetCurrentIndex(idx)
+				startEditCurrent()
 			}
 			return false
 		}
 		if errs := validateObject(s.states); len(errs) > 0 {
 			showError(errs[0].Message)
 			if idx := indexByKey(s.states, errs[0].Key); idx >= 0 {
-				bindings[idx].focus()
+				tv.SetCurrentIndex(idx)
+				startEditCurrent()
 			}
 			return false
 		}
