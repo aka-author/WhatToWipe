@@ -17,6 +17,7 @@ var (
 	user32DLL          = syscall.NewLazyDLL("user32.dll")
 	procGetWindowTextW = user32DLL.NewProc("GetWindowTextW")
 	procSetWindowTextW = user32DLL.NewProc("SetWindowTextW")
+	procFindWindowExW  = user32DLL.NewProc("FindWindowExW")
 )
 
 type customWin32GridHost struct {
@@ -268,7 +269,7 @@ func (h *customWin32GridHost) openDropdownEditor(row int, rect win.RECT) {
 	win.SendMessage(hCombo, win.WM_SETFONT, uintptr(h.baseFont), 1)
 	editHostsByHWND.Store(uintptr(hCombo), h)
 	h.editOldProc = win.SetWindowLongPtr(hCombo, win.GWLP_WNDPROC, syscallEditWndProc)
-	h.comboEdit = win.FindWindowEx(hCombo, 0, utf16Ptr("Edit"), nil)
+	h.comboEdit = findWindowEx(hCombo, 0, utf16Ptr("Edit"), nil)
 	if h.comboEdit != 0 {
 		editHostsByHWND.Store(uintptr(h.comboEdit), h)
 		h.comboOldProc = win.SetWindowLongPtr(h.comboEdit, win.GWLP_WNDPROC, syscallEditWndProc)
@@ -635,6 +636,16 @@ func getWindowText(hwnd win.HWND, buf *uint16, max int32) int32 {
 
 func setWindowText(hwnd win.HWND, text *uint16) {
 	procSetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(text)))
+}
+
+func findWindowEx(parent, childAfter win.HWND, className, windowName *uint16) win.HWND {
+	r, _, _ := procFindWindowExW.Call(
+		uintptr(parent),
+		uintptr(childAfter),
+		uintptr(unsafe.Pointer(className)),
+		uintptr(unsafe.Pointer(windowName)),
+	)
+	return win.HWND(r)
 }
 
 func maxInt32(a, b int32) int32 {
