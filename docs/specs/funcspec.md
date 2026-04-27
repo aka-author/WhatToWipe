@@ -1296,7 +1296,22 @@ The program must provide a settings form.
 
 The settings form must open when the user clicks Tools → Settings… in the menu.
 
-The settings form must be implemented as a single grid (one table-like layout), not as tabs and not as a vertical stack of separate row panels where each row has its own independent layout. All rows must belong to one layout so that the parameter-name column and the value column (and, for color rows, the swatch and picker columns) share the same widths across the whole form, like a spreadsheet.
+The settings form must be implemented as one real grid. This is a strict requirement.
+
+For this requirement:
+
+- *Real grid* means one shared row/column layout for the entire form, with explicit cells, consistent column alignment across all rows, and direct in-cell editing.
+- *Grid-like* means any imitation (for example: independent row panels, per-row ad-hoc layouts, fake table visuals, detached editors, editor overlays created on click, or any other non-grid substitute).
+
+Only *real grid* implementations are allowed.
+
+All *grid-like* implementations are strictly prohibited and non-compliant.
+
+The settings form must not be implemented as tabs.
+
+The settings form must not be implemented as a vertical stack of separate row panels where each row has its own independent layout.
+
+All rows must belong to one shared grid layout so that the parameter-name column and the value column (and, for color rows, the swatch and picker columns) have identical column boundaries and widths across the whole form.
 
 The grid must contain one row per configurable treemap parameter from Treemap Configuration Parameters.
 
@@ -1305,10 +1320,18 @@ Each row must include:
 - Parameter name
 - Value editor
 
+The value editor must be permanently present in the corresponding value cell.
+
+The program must not create, move, or show editors only after a click on a display cell.
+
+The program must not use any detached editor area (including any bottom editor panel, side editor panel, floating editor, or out-of-cell editor host).
+
 Rows for color parameters must also include:
 
 - A live color preview (swatch)
 - A color picker action
+
+For color rows, the text value editor, swatch, and picker action must all be in the same grid row and must remain visible as cell content.
 
 The row for `treemap.tileFontName` must include a drop-down list of fonts installed on the host system. The user must be able to select the tile font from that list.
 

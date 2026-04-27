@@ -37,7 +37,11 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	var cleanup []func()
 
 	addRow := func(label string, editor Widget) {
-		rows = append(rows, Label{Text: label, MinSize: Size{Width: 260}})
+		rows = append(rows, LineEdit{
+			Text:     label,
+			ReadOnly: true,
+			MinSize:  Size{Width: 260},
+		})
 		rows = append(rows, editor)
 	}
 
@@ -277,6 +281,11 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 	addTextRow("treemap.win.exeFiles", true, func() string { return edited.WinExeFiles }, func(v string) { edited.WinExeFiles = v })
 	addTextRow("treemap.linux.exeFiles", true, func() string { return edited.LinuxExeFiles }, func(v string) { edited.LinuxExeFiles = v })
 	addTextRow("treemap.macos.exeFiles", true, func() string { return edited.MacOSExeFiles }, func(v string) { edited.MacOSExeFiles = v })
+
+	rows = append([]Widget{
+		LineEdit{Text: "Parameter", ReadOnly: true, MinSize: Size{Width: 260}},
+		LineEdit{Text: "Value", ReadOnly: true},
+	}, rows...)
 
 	var icon *walk.Icon
 	if ic, err := loadEmbeddedAppIcon(); err == nil {
