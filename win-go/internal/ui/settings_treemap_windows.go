@@ -202,7 +202,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 		if row < 0 || row >= len(s.states) {
 			return
 		}
-		win.SendMessage(tv.Handle(), win.LVM_EDITLABELW, uintptr(row), 0)
+		win.SendMessage(tv.Handle(), win.LVM_EDITLABEL, uintptr(row), 0)
 	}
 
 	tv.ItemActivated().Attach(func() {
@@ -223,7 +223,7 @@ func showTreemapSettingsDialog(owner walk.Form, current config.Treemap, onApply 
 				CchTextMax: int32(len(buf)),
 				PszText:    &buf[0],
 			}
-			win.SendMessage(tv.Handle(), win.LVM_GETITEMTEXTW, uintptr(i), uintptr(unsafe.Pointer(&item)))
+			win.SendMessage(tv.Handle(), win.LVM_GETITEMTEXT, uintptr(i), uintptr(unsafe.Pointer(&item)))
 			s.states[i].PendingValue = strings.TrimSpace(win.UTF16PtrToString(&buf[0]))
 		}
 	}
