@@ -47,10 +47,10 @@ if (-not $objdump) {
     }
 }
 if ($objdump) {
-    $imports = & $objdump.Source -p $exe | Select-String "^\s+DLL Name:"
+    $importLines = & $objdump.Source -p $exe | Select-String "^\s+DLL Name:"
     $bad = @("libstdc++-6.dll", "libgcc_s_seh-1.dll")
     foreach ($b in $bad) {
-        if ($imports -match $b) {
+        if ($importLines | Where-Object { $_.Line -like "*$b*" }) {
             throw "Executable still imports $b; static runtime link failed."
         }
     }
