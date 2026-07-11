@@ -234,7 +234,7 @@ When enumeration fails, the node keeps `traversalState = Unreadable`, `treeRole 
 | `TechnicalFailure` | error 002; restore or unset per scan kind |
 | `RootUnavailable` | error 001 |
 | Open success | replace `publishedTree`, set context to scan root, rebuild treemap |
-| Update success | `UpdatePublish::prepareUpdatePublication` merges against the pending snapshot, resolves the live `contextPath`, publishes atomically via `publishPreparedUpdate`, then rebuilds treemap |
+| Update success | `prepareUpdatePublication` + `publishPreparedUpdate`; live `contextPath` preserved on restore after cancel/failure when still valid in snapshot tree |
 
 
 ### 6.7 Open compliance gap (IO-02)

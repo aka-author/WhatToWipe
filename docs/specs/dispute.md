@@ -1433,4 +1433,4 @@ Do not declare `win-cpp-qt/` the active Windows delivery line until a fresh FS-t
 
 **Code:** `UpdateChromePolicy`, `UpdatePublish`, `ScanDelivery` update publish path, `MainWindow` navigation gates.
 
-**Tests:** `win-cpp-qt/tests/test_phase2.cpp` (`phase2_tests` via `ctest`).
+**Review round 4 fixes:** preserve live navigation on update cancel/failure restore; stronger Up navigation test; publication exception boundary.

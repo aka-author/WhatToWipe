@@ -10,15 +10,6 @@ namespace wtw::app {
 
 namespace {
 
-void restorePendingUpdateSession(Session& session) {
-    if (!session.pendingUpdateSnapshot) {
-        return;
-    }
-    session.publishedTree = cloneFolder(session.pendingUpdateSnapshot->tree);
-    session.contextPath = session.pendingUpdateSnapshot->contextPath;
-    session.treemapComplete = true;
-}
-
 void unsetTreemapSession(Session& session) { session.resetToInitial(); }
 
 void appendUnsetTreemap(Session& session, ScanFinishApply& out) {
@@ -158,10 +149,29 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
     }
 
     const QString liveContext = session.contextPath.isEmpty() ? session.targetPath : session.contextPath;
-    PreparedUpdatePublication prepared = prepareUpdatePublication(
-        *session.pendingUpdateSnapshot, scanRoot, tree, liveContext, session.targetPath,
-        session.descriptorVersion, session.driveTotal);
-    if (prepared.status == UpdatePublicationStatus::MergeFailed) {
+    try {
+        PreparedUpdatePublication prepared = prepareUpdatePublication(
+            *session.pendingUpdateSnapshot, scanRoot, tree, liveContext, session.targetPath,
+            session.descriptorVersion, session.driveTotal);
+        if (prepared.status == UpdatePublicationStatus::MergeFailed) {
+            restorePendingUpdateSession(session);
+            session.pendingUpdateSnapshot.reset();
+            out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
+            out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
+            out.uiActions.push_back(ScanFinishUiAction::Error002);
+            return out;
+        }
+        if (prepared.status == UpdatePublicationStatus::ContextMissing) {
+            restorePendingUpdateSession(session);
+            session.pendingUpdateSnapshot.reset();
+            out.error004Target = prepared.error004Target;
+            out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
+            out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
+            out.uiActions.push_back(ScanFinishUiAction::Error004);
+            return out;
+        }
+        publishPreparedUpdate(session, std::move(prepared));
+    } catch (const std::exception&) {
         restorePendingUpdateSession(session);
         session.pendingUpdateSnapshot.reset();
         out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
@@ -169,16 +179,6 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
         out.uiActions.push_back(ScanFinishUiAction::Error002);
         return out;
     }
-    if (prepared.status == UpdatePublicationStatus::ContextMissing) {
-        restorePendingUpdateSession(session);
-        session.pendingUpdateSnapshot.reset();
-        out.error004Target = prepared.error004Target;
-        out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
-        out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
-        out.uiActions.push_back(ScanFinishUiAction::Error004);
-        return out;
-    }
-    publishPreparedUpdate(session, std::move(prepared));
     out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
     out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
     return out;

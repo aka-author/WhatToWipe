@@ -25,4 +25,9 @@ PreparedUpdatePublication prepareUpdatePublication(const UpdateSnapshot& snapsho
 
 void publishPreparedUpdate(Session& session, PreparedUpdatePublication prepared);
 
+QString resolveRestoredUpdateContext(const model::FolderDescriptor& restoredTree, const QString& targetPath,
+                                     const QString& liveContextPath, const QString& snapshotContextPath);
+
+void restorePendingUpdateSession(Session& session);
+
 }  // namespace wtw::app

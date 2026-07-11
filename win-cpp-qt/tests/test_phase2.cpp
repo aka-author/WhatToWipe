@@ -66,10 +66,13 @@ class Phase2Tests : public QObject {
 private slots:
     void update_allows_up_during_scan() {
         app::Session session = updateScanSession();
-        QVERIFY(session.canGoUp());
-        const app::ChromeAvailability chrome = app::computeChromeAvailability(session);
-        QVERIFY(chrome.up);
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target/sub"));
         QVERIFY(app::canNavigateUp(session));
+        QVERIFY(app::computeChromeAvailability(session).up);
+        session.goUp();
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target"));
+        QVERIFY(session.resolveContextFolder() != nullptr);
+        QVERIFY(!session.canGoUp());
     }
 
     void update_blocks_open() {
@@ -175,7 +178,45 @@ private slots:
         QCOMPARE(session.descriptorVersion, before + 1);
     }
 
-    void update_no_split_observer_state() {
+    void update_cancel_after_navigate_up_preserves_context() {
+        app::Session session = updateScanSession();
+        session.goUp();
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target"));
+
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::cancelled({3, 2, 4}));
+        QVERIFY(apply.accepted);
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target"));
+        QVERIFY(session.resolveContextFolder() != nullptr);
+        QVERIFY(!session.pendingUpdateSnapshot.has_value());
+    }
+
+    void update_technical_failure_after_navigate_sibling_preserves_context() {
+        app::Session session = updateScanSession();
+        session.publishedTree =
+            makeFolder(QStringLiteral("C:/target"),
+                       {makeFolder(QStringLiteral("C:/target/sub")), makeFolder(QStringLiteral("C:/target/other"))});
+        session.pendingUpdateSnapshot->tree = session.publishedTree;
+        session.pushContext(QStringLiteral("C:/target/other"));
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target/other"));
+
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::technicalFailure({3, 2, 4}));
+        QVERIFY(apply.accepted);
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target/other"));
+        QVERIFY(session.resolveContextFolder() != nullptr);
+    }
+
+    void update_restore_falls_back_when_live_context_missing() {
+        app::Session session = updateScanSession();
+        session.contextPath = QStringLiteral("C:/target/missing");
+
+        restorePendingUpdateSession(session);
+        QCOMPARE(session.contextPath, QStringLiteral("C:/target/sub"));
+        QVERIFY(session.resolveContextFolder() != nullptr);
+    }
+
+    void update_publish_sets_consistent_final_state() {
         app::Session session = updateScanSession();
         const QString expectedContext = session.contextPath;
         model::FolderDescriptor refreshed = makeFolder(QStringLiteral("C:/target/sub"));

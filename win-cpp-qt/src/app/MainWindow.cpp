@@ -3,6 +3,7 @@
 #include "app/Product.h"
 #include "app/ScanDelivery.h"
 #include "app/UpdateChromePolicy.h"
+#include "app/UpdatePublish.h"
 
 #include "config/ConfigStore.h"
 #include "model/FolderDescriptor.h"
@@ -294,10 +295,8 @@ void MainWindow::restorePendingUpdate() {
     if (!m_session.pendingUpdateSnapshot) {
         return;
     }
-    m_session.publishedTree = cloneFolder(m_session.pendingUpdateSnapshot->tree);
-    m_session.contextPath = m_session.pendingUpdateSnapshot->contextPath;
+    restorePendingUpdateSession(m_session);
     m_session.pendingUpdateSnapshot.reset();
-    m_session.treemapComplete = true;
     rebuildTreemap();
     setStatusText(statusForContext());
 }

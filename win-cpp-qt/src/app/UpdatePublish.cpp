@@ -8,7 +8,7 @@
 namespace wtw::app {
 
 const model::FolderDescriptor* findFolderByContextPath(const model::FolderDescriptor& publishedTree,
-                                                     const QString& targetPath, const QString& contextPath) {
+                                                       const QString& targetPath, const QString& contextPath) {
     if (contextPath.isEmpty() ||
         QDir::cleanPath(contextPath).compare(QDir::cleanPath(targetPath), Qt::CaseInsensitive) == 0) {
         return &publishedTree;
@@ -30,6 +30,36 @@ const model::FolderDescriptor* findFolderByContextPath(const model::FolderDescri
         return nullptr;
     };
     return find(publishedTree);
+}
+
+QString resolveRestoredUpdateContext(const model::FolderDescriptor& restoredTree, const QString& targetPath,
+                                     const QString& liveContextPath, const QString& snapshotContextPath) {
+    const QString target = QDir::cleanPath(targetPath);
+    const QString live = liveContextPath.isEmpty() ? target : QDir::cleanPath(liveContextPath);
+    const QString snapshot = snapshotContextPath.isEmpty() ? target : QDir::cleanPath(snapshotContextPath);
+
+    if (findFolderByContextPath(restoredTree, target, live)) {
+        return live;
+    }
+    if (findFolderByContextPath(restoredTree, target, snapshot)) {
+        return snapshot;
+    }
+    if (findFolderByContextPath(restoredTree, target, target)) {
+        return target;
+    }
+    return snapshot;
+}
+
+void restorePendingUpdateSession(Session& session) {
+    if (!session.pendingUpdateSnapshot) {
+        return;
+    }
+    const UpdateSnapshot snapshot = *session.pendingUpdateSnapshot;
+    const QString liveContext = session.contextPath;
+    session.publishedTree = cloneFolder(snapshot.tree);
+    session.treemapComplete = true;
+    session.contextPath =
+        resolveRestoredUpdateContext(session.publishedTree, session.targetPath, liveContext, snapshot.contextPath);
 }
 
 PreparedUpdatePublication prepareUpdatePublication(const UpdateSnapshot& snapshot, const QString& scanRoot,
