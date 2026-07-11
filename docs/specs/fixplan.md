@@ -27,6 +27,7 @@ The following dispute sections are authoritative for scope:
 - Reviewer reply to developer implementation response (2026-07-11).
 - Second reviewer review of updated fix plan (2026-07-11).
 - Final reviewer issue — unreadable-folder size semantics (2026-07-11).
+- Fifth reviewer review — parent aggregation and treemap visibility (2026-07-11).
 
 Cross-reference: [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §15 lists current compliance gaps.
 
@@ -51,6 +52,10 @@ This document follows [XMSTP](https://github.com/aka-author/xmstp).
 *Finding:* a numbered defect in dispute.md §22–46.
 
 *Traversal state:* scanner knowledge about whether a folder was read completely, could not be read, or is an untraversed reparse entry. Traversal state is orthogonal to FS tree role.
+
+*Measured size:* the sum of byte counts that enumeration actually established for a node and its included descendants. A measured size is not necessarily a complete total.
+
+*Size completeness:* whether a node's measured size is a complete total (`Complete`) or only a measured subtotal because at least one included descendant has unknown or incomplete content (`Partial`).
 
 *Scan result:* typed worker output including identity fields, outcome enum, diagnostics, and optional descriptor payload.
 
@@ -115,6 +120,11 @@ enum class TraversalState {
     ReparseTargetNotTraversed,
 };
 
+enum class SizeCompleteness {
+    Complete,   // measured size is the node's total size
+    Partial,    // measured size is a subtotal only; true total is unknown or larger
+};
+
 struct DirEntry {
     QString name;
     QString fullPath;
@@ -130,13 +140,16 @@ struct DirEntry {
 class DirectoryReadResult {
 public:
     static DirectoryReadResult ok(QVector<DirEntry> entries);
-    static DirectoryReadResult failure(DirectoryReadStatus status, DWORD nativeError);
-    // failure() must reject DirectoryReadStatus::Ok and DirectoryReadStatus::Invalid
+    static DirectoryReadResult accessDenied(DWORD nativeError);
+    static DirectoryReadResult sharingViolation(DWORD nativeError);
+    static DirectoryReadResult notFound(DWORD nativeError);
+    static DirectoryReadResult otherError(DWORD nativeError);
     DirectoryReadStatus status() const;
     const QVector<DirEntry>& entries() const;
     DWORD nativeError() const;
 private:
-    DirectoryReadResult() = default;
+    explicit DirectoryReadResult(DirectoryReadStatus status, DWORD nativeError = 0);
+    DirectoryReadResult() = delete;
     DirectoryReadStatus status_ = DirectoryReadStatus::Invalid;
     QVector<DirEntry> entries_;
     DWORD nativeError_ = 0;
@@ -164,18 +177,22 @@ private:
 
 `ScanResult::success` must require a moved-in descriptor; `cancelled`, `rootUnavailable`, and `technicalFailure` must reject a descriptor at compile time or runtime. No public default construction.
 
-`DirectoryReadResult::failure()` must reject `DirectoryReadStatus::Ok` and `DirectoryReadStatus::Invalid` at runtime (assert in debug, return `Invalid` result in release).
+`DirectoryReadResult` uses a private constructor and named factories only. There is no generic `failure(status)` entry point; invalid status combinations are impossible at the call site.
 
-Folder and file byte counts use `quint64` where known. Represented aggregate size for folder nodes uses `std::optional<quint64> aggregateSize`:
+Folder and file byte counts use `quint64`. File nodes store a single `quint64 size` from `DirEntry`; file sizes are always complete.
 
-- engaged value: measured or recomputed known size;
-- absent value: size unknown (unreadable enumeration).
+Folder nodes store:
 
-Files always set a known `quint64 size` from `DirEntry`. Aggregate sums use checked unsigned addition over engaged values only (`util/CheckedMath.h`). Convert to normalized `double` layout weights only in `TreemapLayout`.
+- `quint64 measuredSize` — checked sum of measurable byte counts from included direct children;
+- `SizeCompleteness sizeCompleteness` — `Complete` only when this node's own enumeration completed and every included direct child is complete; otherwise `Partial`.
+
+A parent with a readable 10 MB file and an unreadable subfolder must be `measuredSize = 10 MB`, `sizeCompleteness = Partial`. The true parent total is unknown and at least 10 MB. Never display or sort such a parent as if 10 MB were its exact total.
+
+All aggregate sums use checked unsigned addition (`util/CheckedMath.h`). Convert to normalized `double` layout weights only in `TreemapLayout`.
 
 Extend `model/FolderDescriptor.h`:
 
-- add `std::optional<quint64> aggregateSize` on folder nodes;
+- add `quint64 measuredSize` and `SizeCompleteness sizeCompleteness` on folder nodes;
 - add `TraversalState traversalState` on folder nodes;
 - keep `TreeRole` for FS display semantics only;
 - add `std::optional<QDateTime>` for oldest/newest file fields (phase 5 wires birth time from `DirEntry`);
@@ -208,23 +225,49 @@ Cancellation boundary (document in [../verification/io-01-scan-boundary.md](../v
 
 In `scan/ScanWorker.cpp`:
 
-| Situation | `traversalState` | `treeRole` | `aggregateSize` |
-|-----------|------------------|------------|-----------------|
-| Enumeration succeeded, no children | `Complete` | `EmptyFolder` | `0` |
-| Enumeration failed | `Unreadable` | `NodeFolder` | `std::nullopt` |
-| Directory reparse point | `ReparseTargetNotTraversed` | `NodeFolder` | `0` (linked target excluded) |
+| Situation | `traversalState` | `treeRole` | `measuredSize` | `sizeCompleteness` |
+|-----------|------------------|------------|----------------|--------------------|
+| Enumeration succeeded, no children | `Complete` | `EmptyFolder` | `0` | `Complete` |
+| Enumeration failed | `Unreadable` | `NodeFolder` | `0` | `Partial` |
+| Directory reparse point | `ReparseTargetNotTraversed` | `NodeFolder` | `0` | `Complete` |
 
 `TreeRole` follows FS display rules. `TraversalState` records scanner knowledge.
 
-**Unreadable size semantics (normative):**
+**Measured subtotal plus completeness (normative):**
 
-- an unreadable folder does not contribute a numeric size to parent aggregates; `recomputeAggregates()` sums only children with engaged sizes;
-- treemap projection excludes nodes without engaged `aggregateSize` from area/share calculation (step 2 of §4.2);
-- an unreadable folder may still appear as a zero-area or annotation-only tile if FS visibility requires it, but it must not receive positive area from an invented size;
-- status/details text may report “size unknown” via `TraversalState`, not via `0` bytes;
-- `SubtreeMerge` and Update publish preserve `TraversalState` and absent `aggregateSize` across merge.
+`recomputeAggregates()` rules:
 
-**Reparse size:** represented `0` is a deliberate policy value, not unknown; `TraversalState::ReparseTargetNotTraversed` distinguishes it from measured empty folders.
+1. file leaf: `size` from `DirEntry`; files are always complete totals;
+2. folder leaf after successful enumeration: start `measuredSize = 0`, `sizeCompleteness = Complete`;
+3. for each direct child, add the child's measurable bytes to the parent `measuredSize` using checked addition:
+   - file child: add `size`;
+   - folder child: add `measuredSize`;
+4. parent `sizeCompleteness = Partial` when any of the following holds:
+   - this node's own `traversalState` is `Unreadable`;
+   - any direct child folder has `sizeCompleteness == Partial`;
+   - any direct child folder has `traversalState == Unreadable`;
+5. otherwise parent `sizeCompleteness = Complete`;
+6. never downgrade `Unreadable` or `ReparseTargetNotTraversed` to `EmptyFolder`;
+7. never treat a `Partial` parent `measuredSize` as an exact total in UI, sorting labels, or percentage captions.
+
+**Propagation through the rest of the pipeline:**
+
+| Stage | Rule |
+|-------|------|
+| `recomputeAggregates()` | apply the rules above bottom-up after scan and after merge |
+| `SubtreeMerge` | preserve each node's `traversalState`, `measuredSize`, and `sizeCompleteness`; rerun `recomputeAggregates()` on the merged subtree |
+| Update publication | publish the merged snapshot atomically; completeness fields are part of the published descriptor |
+| Details and status text | `Complete`: exact formatted size; `Partial` folder: `≥ {measuredSize}` or equivalent FS wording; `Unreadable` node: "Size unknown" from `TraversalState`, never `0 bytes` |
+| Sorting | treemap candidate sort uses `measuredSize` only; `Partial` folder tiles that remain visible must not be captioned as exact totals |
+| Percentage calculations | percentages use the sum of `measuredSize` over treemap candidates only; when the context folder is `Partial`, the status area must indicate that shares are of measured content only |
+
+**Treemap visibility for unreadable nodes (normative):**
+
+Nodes with `TraversalState::Unreadable` are absent from the treemap. They do not receive tiles, zero-area placeholders, or in-treemap annotations. They appear only in the details pane, diagnostics, and scan summary (`unreadableDirectoryCount`).
+
+Readable `Partial` folders and files with `measuredSize > 0` remain in the treemap and receive proportional area from `measuredSize`. A visible `Partial` folder tile must be labeled as a lower bound, not an exact total.
+
+**Reparse size:** represented `measuredSize = 0` with `sizeCompleteness = Complete` is a deliberate policy value; `TraversalState::ReparseTargetNotTraversed` distinguishes it from measured empty folders.
 
 Increment `diagnostics.unreadableDirectoryCount` only for failed enumeration. Increment `diagnostics.reparseNotTraversedCount` only for intentional reparse skips. Do not conflate the two.
 
@@ -239,9 +282,11 @@ Remove outcome heuristics:
 
 In `model/FolderDescriptor.cpp` and `scan/SubtreeMerge.cpp`:
 
-- `recomputeAggregates()` must not downgrade `Unreadable` or `ReparseTargetNotTraversed` to `EmptyFolder`;
+- implement `recomputeAggregates()` per §1.4 measured-subtotal rules;
+- must not downgrade `Unreadable` or `ReparseTargetNotTraversed` to `EmptyFolder`;
 - empty child lists after a failed read must not imply `EmptyFolder`;
-- never assign `aggregateSize = 0` to an `Unreadable` node; keep `aggregateSize` absent.
+- unreadable node: `measuredSize = 0`, `sizeCompleteness = Partial`;
+- parent with any unreadable or otherwise partial included child: keep the summed `measuredSize`, set `sizeCompleteness = Partial`.
 
 
 ### 1.6 Result delivery and stale-result guard
@@ -277,7 +322,10 @@ Add `win-cpp-qt/tests/` using Qt Test with fixtures:
 | `cancel_between_entries` | cancel flag stops further enumeration |
 | `native_handle_closed_on_cancel` | RAII closes search handle on cancel |
 | `native_handle_closed_on_failure` | RAII closes search handle on enumeration failure |
-| `unreadable_folder_no_aggregate_size` | unreadable node has `aggregateSize` absent, not zero |
+| `unreadable_folder_partial_not_in_treemap` | unreadable node is `Partial`, `measuredSize = 0`, excluded from projection |
+| `parent_partial_when_child_unreadable` | readable 10 MB file + unreadable child → parent `measuredSize = 10 MB`, `Partial` |
+| `parent_complete_when_all_children_complete` | no partial descendants → parent `Complete` |
+| `partial_folder_tile_lower_bound_label` | visible partial folder tile is not captioned as an exact total |
 
 Supplement with manual denied-ACL fixture on a local volume.
 
@@ -296,7 +344,7 @@ After code lands:
 - findings 23, 24, 25, 39, 40 marked closed in impl §15;
 - all phase 1 tests pass via `ctest`;
 - impl §6 and verification notes updated;
-- code inspection confirms removal of `std::async` read path, string-heuristic outcomes, `EmptyFolder` misuse, and zero assigned to unreadable folders;
+- code inspection confirms removal of `std::async` read path, string-heuristic outcomes, `EmptyFolder` misuse, partial totals shown as exact totals, and unreadable nodes represented in the treemap;
 - evidence links recorded in dispute.md.
 
 
@@ -478,17 +526,19 @@ Exclude invalid sizes before layout, implement minimum-dimension clumping with t
 
 ### 4.2 Projection (`treemap/TreemapProjection.cpp`)
 
-Implement nine-step deterministic algorithm from dispute §5:
+Implement the deterministic algorithm from dispute §5, with unreadable exclusion added at step 2:
 
 1. direct children of context folder;
-2. drop entries without engaged `aggregateSize`, and drop zero, negative, and non-finite values;
+2. exclude `TraversalState::Unreadable` nodes entirely; drop zero `measuredSize` entries and non-finite values;
 3. threshold clump candidates;
-4. sort by descending size, tie-break normalized full path;
+4. sort by descending `measuredSize`, tie-break normalized full path;
 5. decide if clump tile required;
 6. retain at most `maxTiles - 1` regular entries when clump required;
 7. else retain at most `maxTiles`;
-8. compute clump aggregate size and share;
+8. compute clump measured subtotal and share from the candidate set;
 9. pass flat vector to layout.
+
+Percentage shares and clump aggregates are computed only over included candidates. They describe measured content, not guaranteed complete totals. When the context folder is `Partial`, the treemap/status chrome must say so.
 
 Define clump interaction: no Dive, Explore, or Open as a single filesystem object; cursor `default` or `not-allowed`; empty or absent context menu unless FS clarifies.
 
@@ -529,6 +579,8 @@ Use `double` weights normalized to sum 1.0 for layout ratios, or `uint64_t` with
 | Test | Proves |
 |------|--------|
 | `zero_size_excluded` | zero-byte file absent from tiles |
+| `unreadable_excluded_from_projection` | unreadable child absent from treemap candidates |
+| `partial_context_status_indicator` | partial context folder shows measured-only share wording |
 | `min_tile_clump_merge` | undersized tiles merge into clump |
 | `max_tiles_one` | single tile path terminates |
 | `area_sum_conserved` | tile areas sum to viewport within tolerance |
@@ -1046,7 +1098,7 @@ Phase 1 scaffolding may proceed. Phase 3 archive coding must wait until §3.4 ca
 
 ## Fourth plan revision — developer incorporation (2026-07-11)
 
-This section records how the body of this document was updated after **Final reviewer issue — unreadable-folder size semantics (2026-07-11)** above. Prior reviewer appendices are left unchanged.
+This section records how the body of this document was updated after **Final reviewer issue — unreadable-folder size semantics (2026-07-11)** above. Prior reviewer appendices are left unchanged. Parent-aggregation and treemap-visibility rules from the fifth revision supersede the `std::optional<quint64> aggregateSize` parts of this section.
 
 ### Disposition
 
@@ -1056,16 +1108,71 @@ The final review is accepted. Finding 24 cannot close until unreadable-folder si
 
 | Reviewer item | Incorporated change |
 |---------------|---------------------|
-| Unreadable size representation | `std::optional<quint64> aggregateSize` on folders; absent when `Unreadable` |
-| Unreadable consequences | §1.4 normative rules for aggregation, projection, UI text, merge |
-| Reparse vs unreadable | reparse uses represented `0`; unreadable uses absent optional |
-| Factory invariants | `failure()` rejects `Ok`/`Invalid`; `outcome()` rejects `Readable` |
+| Unreadable size representation | superseded by `measuredSize` + `SizeCompleteness` in fifth revision |
+| Unreadable consequences | superseded by §1.4 propagation table and treemap exclusion rule |
+| Reparse vs unreadable | reparse uses represented `0` with `Complete`; unreadable uses `Partial` |
+| Factory invariants | `CatalogReadResult::outcome()` rejects `Readable`; `DirectoryReadResult` uses explicit factories |
 | Handle closure on failure | `native_handle_closed_on_failure` test in §1.7 |
-| Projection | §4.2 step 2 excludes nodes without engaged `aggregateSize` |
+| Projection | §4.2 excludes `Unreadable` nodes; weights use `measuredSize` |
 
 ### Next step
 
-Implement Phase 1 descriptor model with optional `aggregateSize` before closing finding 24.
+Implement Phase 1 descriptor model with `measuredSize` and `SizeCompleteness` before closing finding 24.
+
+---
+
+## Fifth reviewer review — parent aggregation and treemap visibility (2026-07-11)
+
+### Verdict
+
+**Not fully complete yet.**
+
+The direct unreadable-folder representation is fixed, and the factory/test corrections were incorporated. But the parent aggregation rule converted an incomplete scan back into an apparently exact numeric total. That must be corrected before implementing aggregate recomputation and before finding 24 can close.
+
+### Parent aggregate size is still wrong
+
+The plan used `std::optional<quint64> aggregateSize`, which correctly represents an unreadable folder as unknown, but `recomputeAggregates()` summing only children with engaged sizes made a parent appear to have a known complete size when a child was unreadable.
+
+Example: readable file 10 MB + unreadable subfolder → parent `10 MB` under the old rule. Misleading. True parent size is unknown and at least 10 MB.
+
+Required model: **measured subtotal plus completeness** — `quint64 measuredSize` and `SizeCompleteness` (`Complete` vs `Partial`). The plan must define propagation through `recomputeAggregates()`, subtree merge, Update publication, details/status text, sorting, percentage calculations, and treemap projection.
+
+### Zero-area unreadable tiles are underspecified
+
+A zero-area tile cannot be visibly or reliably interactively represented in an ordinary treemap. Required concrete rule: unreadable nodes are absent from the treemap but listed in diagnostics/details.
+
+### Minor issue
+
+`DirectoryReadResult::failure()` returning `Invalid` in release mode is weaker than making invalid calls impossible. Use a private constructor with explicit factories such as `accessDenied()`, `sharingViolation()`, and `notFound()`. Not a blocker.
+
+### Disposition
+
+Accepted once the measured-subtotal model, propagation table, treemap exclusion rule, and explicit `DirectoryReadResult` factories are incorporated into the plan body.
+
+---
+
+## Fifth plan revision — developer incorporation (2026-07-11)
+
+This section records how the body of this document was updated after **Fifth reviewer review — parent aggregation and treemap visibility (2026-07-11)** above.
+
+### Disposition
+
+The fifth review is accepted. Finding 24 remains open until `measuredSize`, `SizeCompleteness`, propagation rules, treemap exclusion, and the new tests are implemented.
+
+### Incorporation map
+
+| Reviewer item | Incorporated change |
+|---------------|---------------------|
+| Parent aggregation defect | §1.2 `measuredSize` + `SizeCompleteness`; §1.4 `recomputeAggregates()` rules and propagation table |
+| Example 10 MB + unreadable child | parent `measuredSize = 10 MB`, `sizeCompleteness = Partial` |
+| Treemap unreadable visibility | §1.4 and §4.2: unreadable nodes absent from treemap; diagnostics/details only |
+| Partial folder tiles | proportional area from `measuredSize`; lower-bound labeling, not exact total |
+| `DirectoryReadResult` factories | private constructor; `accessDenied()`, `sharingViolation()`, `notFound()`, `otherError()` |
+| Tests | `parent_partial_when_child_unreadable`, `parent_complete_when_all_children_complete`, `unreadable_folder_partial_not_in_treemap`, `partial_folder_tile_lower_bound_label`, `unreadable_excluded_from_projection`, `partial_context_status_indicator` |
+
+### Next step
+
+Implement Phase 1 descriptor model and aggregation before closing finding 24.
 
 ---
 
