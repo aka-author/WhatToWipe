@@ -2,4 +2,5 @@
 /bin/
 /out/
 /win-cpp-qt/build/
+/win-cpp-qt/build-static/
 *.exe
