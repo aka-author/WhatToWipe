@@ -48,7 +48,7 @@ If one target needs several normative add-ons (rare), use an extra hyphenated su
 
 ### 2.3 Implementation folder at repo root
 
-The folder **`win-go/`** matches `techspec-win-go.md`. The planned Windows C++ Qt module is **`win-cpp-qt/`** (matches `techspec-win-cpp-qt.md`). When you add another supported target, add matching `techspec-*.md` / `arch-*.md` under `docs/specs/` and a same-named **`<slug>/`** folder here — do not keep empty "future" trees beforehand.
+The folder **`win-go/`** matches `techspec-win-go.md`. The Windows C++ Qt module is **`win-cpp-qt/`** (matches `techspec-win-cpp-qt.md`). When you add another supported target, add matching `techspec-*.md` / `arch-*.md` under `docs/specs/` and a same-named **`<slug>/`** folder here — do not keep empty "future" trees beforehand.
 
 ### 2.4 Verification and engineering notes
 
@@ -62,7 +62,7 @@ Use a name chosen by the team; the techspec may refer to it without mandating th
 
 The active **Windows Go module** is in-repo at **`win-go/`**.
 
-Inside this repo, first-party implementation roots are: **`win-go/`**, `cmd/`, `internal/`, `assets/`, `docs/verification/`, plus further `techspec-*.md` / `arch-*.md` in `docs/specs/` only when a new target is real. **Versioned icon sources** live under **`assets/icons/`**: see **`assets/icons/FS-TOOLBAR-MAP.txt`** (maps to FS toolbar + main-window icon). Default SVG set plus **`*-hc.svg`** high-contrast variants.
+Inside this repo, first-party implementation roots are: **`win-go/`**, **`win-cpp-qt/`**, `cmd/`, `internal/`, `assets/`, `docs/verification/`, plus further `techspec-*.md` / `arch-*.md` in `docs/specs/` only when a new target is real. **Versioned icon sources** live under **`assets/icons/`**: see **`assets/icons/FS-TOOLBAR-MAP.txt`** (maps to FS toolbar + main-window icon). Default SVG set plus **`*-hc.svg`** high-contrast variants.
 
 House rules for growth:
 
