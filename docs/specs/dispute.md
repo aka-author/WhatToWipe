@@ -538,3 +538,142 @@ Architecture mechanisms need not all become normative, but every normative platf
 ## Required next step
 
 Revise `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md` themselves. After those edits, perform a fresh consistency review against `funcspec.md`. Do not treat this exchange as a substitute for correcting the governing documents.
+
+---
+
+## Developer reply to reviewer (2026-07-11)
+
+This section responds to **Reviewer Reply to the Developer Response** above. Prior sections of this file are left unchanged. Acceptance here remains conditional on landing the promised text in `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md`.
+
+### General reply
+
+Agreed: `dispute.md` is not a specification. The governing documents must be revised; this thread records agreement only.
+
+On the six remaining points from the general response:
+
+1. **Local-volume validation** — Accept the reviewer's correction. Reject `DRIVE_REMOTE` only; do not use a fixed/removable allowlist unless an additive techspec row is added later.
+2. **Legacy import** — Accept the FS-first ten-step sequence (create defaults, then optional import merge).
+3. **Permission failures** — Withdraw the status-bar count proposal. IO-02 will not require any new user-visible warning after scan success.
+4. **Reparse points** — Accept that "skip all" is insufficient without descriptor semantics. Adopt design **A** for first release (see finding 8 below).
+5. **Product name** — Withdraw the deployment-branding distinction. WhatToWipe everywhere normative identity applies, including PE and installer, unless FS is amended.
+6. **Layout quality** — Accept: FS "should" on aspect ratio is not a hard `5:1` rejection gate in techspec.
+
+### Reply by finding
+
+#### 1. Network paths — **Accept reviewer's adjustment**
+
+`DRIVE_FIXED` + `DRIVE_REMOVABLE` only was too narrow. Revised rule: resolve volume root, reject `DRIVE_REMOTE` and mapped network drives, reject inaccessible roots via `#001`, permit other local volume types when readable and capacity data is obtainable. Any intentional exclusion of a local type gets an explicit techspec row.
+
+#### 2. Legacy configuration — **Accept FS-first sequence**
+
+Adopt the reviewer's steps 1–10 verbatim. Built-in defaults are written to the FS file before any legacy merge attempt. If import fails, a valid default FS file already exists. Automatic migration may still be omitted entirely if product owner prefers; that remains a valid compliant option.
+
+#### 3. Update subtree transaction — **Accept**
+
+Will specify in architecture: `scanId`, `scanKind` (`OpenTarget` | `UpdateContext`), `scanRootPath`, base descriptor version, published target descriptor, context path independent of scan root. `mergeSubtree(old, scanRoot, newSubtree) -> new | failure`. Discard scan results from a prior target session. No second Open/Update while scanning. Navigation reads old descriptor until atomic publish; no raw pointers into replaced trees.
+
+#### 4. Descriptor vs projection — **Accept**
+
+Clumps live in `TreemapProjection`, not the persistent folder hierarchy descriptor. Descriptor holds files and folders with all FS fields. Timestamps as `std::optional<QDateTime>`; empty folders have no oldest/newest. Nested file/folder counts are recursive descendant counts, stated explicitly in architecture.
+
+#### 5. Treemap projection — **Accept**
+
+Will adopt the reviewer's nine-step deterministic algorithm in architecture. One combined clump tile (threshold + overflow), not separate clumps. Will define clump interaction: no Dive/Explore/Open as a single file system object; cursor `default` or `not-allowed` per FS; context menu empty or absent for clump unless FS is clarified. `minTileWidth` / `minTileHeight` used as projection feasibility thresholds before layout, with deterministic merge into clump when a tile cannot be usable — not silent area distortion. Flag clump menu behaviour for FS clarification if still ambiguous after draft.
+
+#### 6. Archive classification — **Accept**
+
+libarchive remains a candidate, not a selection. Will run the reviewer's proof matrix (ZIP/RAR variants, encrypted, corrupt, multipart, traversal names, large catalog) before pinning in techspec. Classification contract: packed file / packed folder / packed clump / fallback packed clump per reviewer's rules. Scanner depends on `IArchiveCatalogReader`, not libarchive types directly. Version and licence recorded in CMake and licensing decision record.
+
+#### 7. Permission failures — **Accept reviewer rejection of my nuance**
+
+Withdraw status-bar warning or count as a techspec requirement. IO-02 will require: record unread entries internally; do not represent unread subtrees as empty; organic completion remains success; complete treemap published; no `#002`; no "incomplete" labelling. Diagnostics may exist for logs/tests/support only. Transient scan-path status during scan is already FS-permitted; final status shows context path only.
+
+#### 8. Reparse points — **Accept; adopt design A**
+
+Reject path-string cycle detection. First-release policy: **do not traverse directory reparse points**; represent the reparse entry in the descriptor; record that target was not traversed; define size and tree role under a documented Windows interpretation in techspec; linked target contents are not nested contents of the selected hierarchy. Verification case required. Design B deferred unless FS/product requires it later.
+
+#### 9. Qt 6 high DPI — **Accept**
+
+As stated. Verification includes live window move between monitors at different scale.
+
+#### 10. Toolchain — **Accept**
+
+No silent MSVC mandate. Decision record will compare MinGW-w64 GCC, clang-cl if considered, and MSVC only with stated justification. Default assumption: Qt 6 + MinGW-w64 if all dependencies (including archive library) share ABI. No mixed MSVC/MinGW linking.
+
+#### 11. Product name — **Accept reviewer rejection of my nuance**
+
+Withdraw "Erase & Rewrite" as deployment branding in normative target docs. WhatToWipe consistently for About, config, PE `ProductName`/`FileDescription`, installer display name, Start menu, uninstall entry, and default executable naming. Legacy name only in migration detection, historical notes, and legacy-artifact tests. If shipping brand must differ, that requires FS amendment — not architecture alone.
+
+#### 12. Go baseline — **Accept**
+
+Replace "behavioral parity" with "FS conformance, with regression comparison where useful." Porting table rows: reusable concept, FS sections, known Go deviations not to copy, Qt verification.
+
+#### 13. Error handling — **Accept**
+
+Domain result → FS classification → alert presenter. Scanner returns typed outcomes; GUI maps to FS branches. Custom FS-specified alert icons as application resources.
+
+#### 14. Cancel confirmation — **Accept**
+
+No dirty confirmation on Settings Cancel.
+
+#### 15. Settings grid — **Accept**
+
+Techspec stays at FS-compliance properties. `QGridLayout` in `QScrollArea` is the leading prototype candidate per reviewer (shared columns, permanent editors, color columns, no model-reset risk). `QTableView` remains fallback only if prototype fails. Pre-coding declaration names one chosen control after prototype pass.
+
+#### 16. Configuration transaction — **Accept**
+
+Seven-step boundary as reviewer states; `QSaveFile` as implementation candidate. Unknown keys: preserve when safe or ignore with documented policy. Duplicate known keys: reject. No live-config mutation before successful disk commit.
+
+#### 17. Qt licensing — **Accept**
+
+Decision record before build: commercial vs LGPL, dynamic vs static, modified Qt or not, modules shipped, notices/source-offer/relinking as applicable, installer placement, archive-library licence separate. Default open-source path: dynamic LGPL Qt unless record says otherwise.
+
+#### 18. Layout quality — **Accept qualification**
+
+Measurable quality tests (max/percentile aspect ratio, area proportion tolerance, determinism, no gaps/overlaps) — not a universal hard `5:1` rejection without additive techspec.
+
+#### 19. Settings row schema — **Accept**
+
+One typed schema traceable to FS; tests compare editable key set to FS table.
+
+#### 20. Shell API and errors — **Accept corrected mapping**
+
+`ShellExecuteExW` with typed outcomes. Folder Explore: existence check → `#004` if missing, `#003` if Explorer fails, busy pointer 2s on success. File Open: executability from `treemap.win.exeFiles` disables command; non-executable uses association; do not apply folder `#004`/`#003` to file open without FS basis; launch failure stays negative file-open result unless FS adds a code.
+
+### Reply to additional observations
+
+**A. Coding gate** — Agreed. Archive library, subtree merge, descriptor fields, projection order, and reparse semantics must be in techspec/arch before `win-cpp-qt/` starts.
+
+**B. Verification vs specification** — Agreed. Required runtime semantics live in techspec or architecture. `docs/verification/` holds evidence, decision records, and which permitted option was selected — not the sole home of implementable rules.
+
+**C. Requirement identifiers** — Agreed. Corrections will add or revise identifiable techspec rows for local-volume validation, reparse policy, archive technology, Qt 6 DPI, configuration transaction, and licensing/linking evidence.
+
+### Developer disposition after reviewer reply
+
+| # | Topic | Developer disposition |
+|---|-------|----------------------|
+| 1 | Network paths | Accept; reject `DRIVE_REMOTE` only |
+| 2 | Legacy config | Accept; defaults before import |
+| 3 | Update subtree | Accept |
+| 4 | Descriptor | Accept; clumps in projection |
+| 5 | Projection | Accept; nine-step order + clump interaction TBD/clarify |
+| 6 | Archives | Accept; proof matrix before pin |
+| 7 | IO-02 | Accept; no mandatory post-scan warning |
+| 8 | Reparse | Accept; design A for v1 |
+| 9 | DPI | Accept |
+| 10 | Toolchain | Accept; MinGW default absent MSVC need |
+| 11 | Name | Accept; WhatToWipe everywhere |
+| 12 | Go baseline | Accept |
+| 13 | Errors | Accept |
+| 14 | Cancel | Accept |
+| 15 | Settings grid | Accept; `QGridLayout` leading candidate |
+| 16 | Config txn | Accept |
+| 17 | Licensing | Accept |
+| 18 | Layout | Accept; no false hard 5:1 gate |
+| 19 | Schema | Accept |
+| 20 | Shell | Accept; corrected error map |
+
+### Next step (developer)
+
+Revise `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md` to reflect this thread. Then request a fresh FS consistency review. `win-cpp-qt/` implementation remains blocked until that revision lands.
+
