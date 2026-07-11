@@ -194,47 +194,52 @@ The status bar shows the context path while the treemap is complete, a throttled
 
 ## 6. Scanning
 
-`scan/ScanWorker` performs the directory walk off the GUI thread.
+`scan/ScanWorker` performs the directory walk on a dedicated `QThread` off the Qt GUI thread. Results are delivered as typed `scan::ScanResult` values with `scan::ScanIdentity` (`scanId`, `targetSessionId`, `baseDescriptorVersion`).
 
 
 ### 6.1 Algorithm
 
-`scanDir` walks recursively from the scan root. Children sort by descending size. `ArchiveClassifier` handles `.zip` and `.rar` when the catalog is readable. Each folder node stores size, oldest and newest file times, and recomputed aggregates.
+`scanDir()` walks recursively from the scan root using `platform::WinDirEnum` (`FindFirstFileExW` / `FindNextFileW`). Children sort by descending `measuredSize`. `ArchiveClassifier` handles `.zip` and `.rar` when the catalog is readable. Each folder node stores `measuredSize`, `sizeCompleteness`, `traversalState`, oldest and newest file times, and recomputed aggregates via `scan::recomputeAggregates()`.
 
 
 ### 6.2 Reparse points
 
-Directory junctions and symlinks are not traversed (techspec IO-03). The worker records a child with `reparseSkipped=true`, a `skipReason`, and directory-entry size only. This matches the documented Go skip strategy.
+Directory junctions and symlinks are not traversed (techspec IO-03). The worker records a child with `traversalState = ReparseTargetNotTraversed`, `measuredSize = 0`, and `sizeCompleteness = Complete`. Linked-target contents are not nested under the reparse entry. Policy: [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md).
 
 
-### 6.3 Bounded I/O
+### 6.3 Enumeration, cancellation, and I/O boundary
 
-`readDirBounded` runs each directory listing in `std::async` with a 30 s ceiling. A timeout increments `errorCount` and sets `skipReason`.
+`platform/WinDirEnum` returns typed `DirectoryReadResult` values (`Ok`, `AccessDenied`, `SharingViolation`, `NotFound`, `Cancelled`, and other errors). Cooperative cancel is checked between returned entries; individual Win32 syscalls may block until the OS returns. Native find handles close through RAII on success, failure, cancellation, and exceptions. There is **no** in-process 30 s per-directory wall-clock guarantee. Boundary notes: [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md).
 
-`VolumeInfo::validateLocalVolume` rejects network drives (`DRIVE_REMOTE`) at open (techspec IO-04).
-
-
-### 6.4 Progress
-
-`maybeEmitProgress` emits at most once per 500 ms, matching the FS default `scanning.updateInterval` and the Go implementation.
+`VolumeInfo::validateLocalVolume` rejects network drives (`DRIVE_REMOTE`) at open (techspec IO-04 partial: no bounded network wait yet).
 
 
-### 6.5 Scan completion
+### 6.4 Unreadable directories
 
-`MainWindow::onScanFinished` handles worker results as follows.
+When enumeration fails, the node keeps `traversalState = Unreadable`, `treeRole = NodeFolder`, `measuredSize = 0`, and `sizeCompleteness = Partial`. `TreeRole::EmptyFolder` is assigned only after successful enumeration establishes zero nested objects. Root enumeration failure maps to `ScanOutcome::RootUnavailable`.
+
+
+### 6.5 Progress
+
+`maybeEmitProgress` emits at most once per 500 ms with `(ScanIdentity, path)`, matching the FS default `scanning.updateInterval`. `MainWindow::onScanProgress` ignores deliveries whose identity does not match the live session.
+
+
+### 6.6 Scan completion
+
+`MainWindow::onScanFinished` validates `ScanResult::identity()` against the live session (`app::applyScanFinishedIfCurrent`) before mutating session state.
 
 | Outcome | Behavior |
 |---------|----------|
-| `cancelled` | Update restores `pendingUpdateSnapshot` and shows an interruption alert; Open unsets the treemap |
-| `technicalFailure` | error 002; restore or unset per scan kind |
-| `rootUnavailable` | error 001 |
+| `Cancelled` | Update restores `pendingUpdateSnapshot` and shows an interruption alert; Open unsets the treemap |
+| `TechnicalFailure` | error 002; restore or unset per scan kind |
+| `RootUnavailable` | error 001 |
 | Open success | replace `publishedTree`, set context to scan root, rebuild treemap |
 | Update success | `SubtreeMerge::mergeSubtree` into the pending snapshot, restore context |
 
 
-### 6.6 Open compliance gap (IO-02)
+### 6.7 Open compliance gap (IO-02)
 
-The worker computes `errorCount`, but `onScanFinished` does not surface it (`Q_UNUSED(errorCount)`). Partial read failures therefore do not yet trigger the techspec IO-02 incomplete-run summary.
+`ScanDiagnostics` records unreadable-directory and reparse-skip counts, but `onScanFinished` does not yet surface an incomplete-run summary to the user. Partial read failures therefore do not yet trigger the techspec IO-02 incomplete-run summary.
 
 
 ## 7. Treemap pipeline
@@ -431,12 +436,23 @@ The table below records techspec row status as of the current tree. Update it wh
 | DP-01–DP-02 | implemented | pt→px in layout/labels; relayout on resize |
 | IO-01 | open | no documented `longPathAware` manifest |
 | IO-02 | gap | `errorCount` not shown after scan |
-| IO-03 | implemented | reparse skip with reason |
-| IO-04 | partial | 30 s dir timeout; network rejected at open |
+| IO-03 | implemented | skip reparse; see [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md) |
+| IO-04 | partial | network rejected at open; no per-directory wall-clock bound — see [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md) |
 | RS-01–RS-03 | implemented | worker thread, cancel, throttled progress |
 | SG-01–SG-10 | implemented | strategy doc present; manual VM gate external |
 | CF-01–CF-04 | implemented | see §9 |
 | UX-01 | implemented | `pendingUpdateSnapshot` restore |
+
+
+### 15.1 Dispute findings closed in Phase 1
+
+| Finding | Status | Evidence |
+|---------|--------|----------|
+| 23 | closed | `WinDirEnum` replaces `readDirBounded`; [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md); `native_handle_closed_on_*` tests |
+| 24 | closed | typed `DirectoryReadResult`; `TraversalState::Unreadable`; `denied_inner_dir_not_empty_folder`, `root_access_denied` |
+| 25 | closed | `TraversalState::ReparseTargetNotTraversed`; [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md); reparse Phase 1 tests |
+| 39 | closed | `ScanResult` + `ScanIdentity`; `applyScanFinishedIfCurrent` / stale delivery tests |
+| 40 | closed | typed `ScanOutcome`; string-heuristic outcomes removed from scanner path |
 
 
 ## 16. Document maintenance

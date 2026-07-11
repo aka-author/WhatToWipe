@@ -1403,3 +1403,23 @@ The existing priority order remains valid:
 7. version, runtime, DPI, Settings, and complete verification evidence.
 
 Do not declare `win-cpp-qt/` the active Windows delivery line until a fresh FS-to-code review confirms the corrected implementation.
+
+---
+
+## Phase 1 closure evidence (scanner foundation)
+
+**Status:** Phase 1 exit criteria met per [fixplan.md](./fixplan.md) §1.9 (2026-07-11).
+
+**Implementation commits:** `f944915` (initial Phase 1 scanner foundation), `564cb89` (cancellation, stale guards, test gaps), plus Phase 1 completion commit on `dev`.
+
+**Verification artifacts:**
+
+- [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md) — cooperative cancel boundary; no 30 s per-directory claim
+- [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md) — untraversed reparse size rule
+- [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §6 (as-built scanner), §15.1 (findings 23, 24, 25, 39, 40 closed)
+
+**Automated tests:** `win-cpp-qt/tests/test_phase1.cpp`, target `phase1_tests` via `ctest` in `win-cpp-qt/build`.
+
+**Findings closed in Phase 1:** 23 (enumeration/cancel/RAII), 24 (unreadable ≠ empty), 25 (reparse semantics), 39 (scan identity validation), 40 (typed outcomes).
+
+**Still open from review 22–46:** remaining phases in fixplan (Update navigation, archives, layout, timestamps, config, runtime, IO-02 summary UI, IO-01 long paths, etc.).

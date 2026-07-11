@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 
 #include "app/Product.h"
+#include "app/ScanDelivery.h"
 #include "app/ScanSessionGate.h"
 
 #include "config/ConfigStore.h"
@@ -498,7 +499,7 @@ void MainWindow::onScanProgress(scan::ScanIdentity identity, const QString& path
 }
 
 void MainWindow::onScanFinished(scan::ScanResult result) {
-    if (!acceptsScanDelivery(result.identity(), m_session)) {
+    if (!applyScanFinishedIfCurrent(m_session, result)) {
         return;
     }
 
@@ -506,7 +507,6 @@ void MainWindow::onScanFinished(scan::ScanResult result) {
     const QString scanRoot = m_session.scanRootPath;
     const QString expectedTarget = m_session.targetPath;
 
-    m_session.scanning = false;
     updateChrome();
 
     switch (result.outcome()) {

@@ -1,3 +1,4 @@
+#include "app/ScanDelivery.h"
 #include "app/ScanSessionGate.h"
 #include "app/Session.h"
 #include "config/TreemapConfig.h"
@@ -21,11 +22,72 @@
 #include <QThread>
 #include <QTimer>
 #include <QtTest>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <stdexcept>
 
 using namespace wtw;
+
+namespace {
+
+bool resetDirectoryAcl(const QString& path);
+
+struct DenyReadAclGuard {
+    QString path;
+    bool active = false;
+
+    ~DenyReadAclGuard() {
+        if (active) {
+            resetDirectoryAcl(path);
+        }
+    }
+};
+
+bool resetDirectoryAcl(const QString& path) {
+    return QProcess::execute(QStringLiteral("icacls"),
+                             {QDir::toNativeSeparators(path), QStringLiteral("/reset")}) == 0;
+}
+
+bool denyDirectoryRead(const QString& path) {
+    const QString native = QDir::toNativeSeparators(path);
+    if (QProcess::execute(QStringLiteral("icacls"), {native, QStringLiteral("/inheritance:r")}) != 0) {
+        return false;
+    }
+    const QString user = qEnvironmentVariable("USERNAME");
+    if (user.isEmpty()) {
+        return false;
+    }
+    return QProcess::execute(QStringLiteral("icacls"),
+                             {native, QStringLiteral("/deny"), user + QStringLiteral(":(OI)(CI)R")}) == 0;
+}
+
+bool installDeniedReadFixture(const QString& path) {
+    if (!denyDirectoryRead(path)) {
+        return false;
+    }
+    const auto probe = platform::enumerateDirectory(path, []() { return false; });
+    if (probe.status() != scan::DirectoryReadStatus::AccessDenied) {
+        resetDirectoryAcl(path);
+        return false;
+    }
+    return true;
+}
+
+std::optional<scan::ScanResult> runWorkerSync(const QString& root, const scan::ScanIdentity& identity,
+                                              const std::function<void(scan::ScanWorker*)>& beforeRun = {}) {
+    scan::ScanWorker worker(root, identity);
+    std::optional<scan::ScanResult> captured;
+    QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
+                     [&](scan::ScanResult result) { captured = std::move(result); });
+    if (beforeRun) {
+        beforeRun(&worker);
+    }
+    worker.run();
+    return captured;
+}
+
+}  // namespace
 
 class Phase1Tests : public QObject {
     Q_OBJECT
@@ -34,23 +96,57 @@ private slots:
     void init() { platform::testResetFindHandleState(); }
 
     void denied_inner_dir_not_empty_folder() {
-        model::FolderDescriptor parent;
-        parent.name = QStringLiteral("parent");
-        parent.fullPath = QStringLiteral("C:/parent");
-        parent.traversalState = scan::TraversalState::Complete;
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QString parentPath = temp.path();
+        const QString deniedPath = temp.filePath(QStringLiteral("denied"));
+        QVERIFY(QDir().mkpath(deniedPath));
 
-        model::FolderDescriptor unreadable;
-        unreadable.name = QStringLiteral("secret");
-        unreadable.fullPath = QStringLiteral("C:/parent/secret");
-        unreadable.traversalState = scan::TraversalState::Unreadable;
-        unreadable.treeRole = model::TreeRole::NodeFolder;
-        unreadable.measuredSize = 0;
-        unreadable.sizeCompleteness = scan::SizeCompleteness::Partial;
-        parent.children.push_back(unreadable);
+        QFile visible(temp.filePath(QStringLiteral("visible.txt")));
+        QVERIFY(visible.open(QIODevice::WriteOnly));
+        visible.write("payload");
+        visible.close();
 
-        scan::recomputeAggregates(parent);
-        QCOMPARE(parent.children.front().treeRole, model::TreeRole::NodeFolder);
-        QCOMPARE(parent.children.front().traversalState, scan::TraversalState::Unreadable);
+        DenyReadAclGuard guard;
+        guard.path = deniedPath;
+        if (!installDeniedReadFixture(deniedPath)) {
+            QSKIP("Could not install a denied-read ACL fixture on this machine");
+        }
+        guard.active = true;
+
+        const auto captured = runWorkerSync(parentPath, {6, 1, 0});
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::Success);
+        QVERIFY(captured->tree().has_value());
+
+        const model::FolderDescriptor* deniedChild = nullptr;
+        for (const auto& child : captured->tree()->children) {
+            if (child.fullPath.compare(deniedPath, Qt::CaseInsensitive) == 0) {
+                deniedChild = &child;
+                break;
+            }
+        }
+        QVERIFY(deniedChild != nullptr);
+        QCOMPARE(deniedChild->traversalState, scan::TraversalState::Unreadable);
+        QCOMPARE(deniedChild->treeRole, model::TreeRole::NodeFolder);
+        QVERIFY(deniedChild->treeRole != model::TreeRole::EmptyFolder);
+    }
+
+    void root_access_denied() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+
+        DenyReadAclGuard guard;
+        guard.path = temp.path();
+        if (!installDeniedReadFixture(temp.path())) {
+            QSKIP("Could not install a denied-read ACL fixture on this machine");
+        }
+        guard.active = true;
+
+        const auto captured = runWorkerSync(temp.path(), {7, 1, 0});
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::RootUnavailable);
+        QVERIFY(!captured->tree().has_value());
     }
 
     void parent_partial_when_child_unreadable() {
@@ -93,12 +189,16 @@ private slots:
     }
 
     void empty_dir_is_empty_folder() {
-        model::FolderDescriptor folder;
-        folder.traversalState = scan::TraversalState::Complete;
-        scan::recomputeAggregates(folder);
-        QCOMPARE(folder.treeRole, model::TreeRole::EmptyFolder);
-        QCOMPARE(folder.measuredSize, static_cast<quint64>(0));
-        QCOMPARE(folder.sizeCompleteness, scan::SizeCompleteness::Complete);
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+
+        const auto captured = runWorkerSync(temp.path(), {4, 1, 0});
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::Success);
+        QVERIFY(captured->tree().has_value());
+        QCOMPARE(captured->tree()->treeRole, model::TreeRole::EmptyFolder);
+        QCOMPARE(captured->tree()->measuredSize, static_cast<quint64>(0));
+        QCOMPARE(captured->tree()->sizeCompleteness, scan::SizeCompleteness::Complete);
     }
 
     void reparse_entry_traversal_state() {
@@ -115,29 +215,35 @@ private slots:
 
     void scan_result_stale_scan_id() {
         app::Session session;
+        session.scanning = true;
         session.scanId = 5;
         session.sessionId = 10;
         session.descriptorVersion = 2;
-        const scan::ScanIdentity delivered{4, 10, 2};
-        QVERIFY(!app::acceptsScanDelivery(delivered, session));
+        const scan::ScanResult result = scan::ScanResult::cancelled({4, 10, 2});
+        QVERIFY(!app::applyScanFinishedIfCurrent(session, result));
+        QVERIFY(session.scanning);
     }
 
     void scan_result_stale_session_id() {
         app::Session session;
+        session.scanning = true;
         session.scanId = 1;
         session.sessionId = 10;
         session.descriptorVersion = 0;
-        const scan::ScanIdentity delivered{1, 11, 0};
-        QVERIFY(!app::acceptsScanDelivery(delivered, session));
+        const scan::ScanResult result = scan::ScanResult::cancelled({1, 11, 0});
+        QVERIFY(!app::applyScanFinishedIfCurrent(session, result));
+        QVERIFY(session.scanning);
     }
 
     void scan_result_stale_descriptor_version() {
         app::Session session;
+        session.scanning = true;
         session.scanId = 1;
         session.sessionId = 10;
         session.descriptorVersion = 5;
-        const scan::ScanIdentity delivered{1, 10, 4};
-        QVERIFY(!app::acceptsScanDelivery(delivered, session));
+        const scan::ScanResult result = scan::ScanResult::cancelled({1, 10, 4});
+        QVERIFY(!app::applyScanFinishedIfCurrent(session, result));
+        QVERIFY(session.scanning);
     }
 
     void stale_delivery_rejected_after_session_reset() {
@@ -215,6 +321,27 @@ private slots:
         QCOMPARE(platform::testOpenFindHandles(), 0);
     }
 
+    void native_handle_closed_on_cancel() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        QFile file(temp.filePath(QStringLiteral("one.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("a");
+        file.close();
+        QFile file2(temp.filePath(QStringLiteral("two.txt")));
+        QVERIFY(file2.open(QIODevice::WriteOnly));
+        file2.write("b");
+        file2.close();
+
+        int seen = 0;
+        const auto result = platform::enumerateDirectory(temp.path(), [&]() {
+            ++seen;
+            return seen > 1;
+        });
+        QCOMPARE(result.status(), scan::DirectoryReadStatus::Cancelled);
+        QCOMPARE(platform::testOpenFindHandles(), 0);
+    }
+
     void cancel_between_entries() {
         QTemporaryDir temp;
         QVERIFY(temp.isValid());
@@ -255,7 +382,7 @@ private slots:
         QCOMPARE(platform::testOpenFindHandles(), 0);
     }
 
-    void cancel_before_first_entry_through_worker() {
+    void cancel_before_first_entry() {
         QTemporaryDir temp;
         QVERIFY(temp.isValid());
         QFile file(temp.filePath(QStringLiteral("one.txt")));
@@ -263,19 +390,13 @@ private slots:
         file.write("a");
         file.close();
 
-        scan::ScanIdentity identity{1, 1, 0};
-        scan::ScanWorker worker(temp.path(), identity);
-        std::optional<scan::ScanResult> captured;
-        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
-                         [&](scan::ScanResult result) { captured = std::move(result); });
-        worker.requestCancel();
-        worker.run();
-
+        const auto captured = runWorkerSync(temp.path(), {1, 1, 0},
+                                            [](scan::ScanWorker* worker) { worker->requestCancel(); });
         QVERIFY(captured.has_value());
         QCOMPARE(captured->outcome(), scan::ScanOutcome::Cancelled);
     }
 
-    void cancel_after_several_entries_through_worker() {
+    void cancel_after_several_entries() {
         QTemporaryDir temp;
         QVERIFY(temp.isValid());
         for (int i = 0; i < 200; ++i) {
@@ -314,32 +435,9 @@ private slots:
     void root_deleted_before_enum() {
         const QString missing = QDir::tempPath() + QStringLiteral("/wtw_missing_root_") +
                                 QString::number(QDateTime::currentMSecsSinceEpoch());
-        scan::ScanIdentity identity{3, 1, 0};
-        scan::ScanWorker worker(missing, identity);
-        std::optional<scan::ScanResult> captured;
-        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
-                         [&](scan::ScanResult result) { captured = std::move(result); });
-        worker.run();
-
+        const auto captured = runWorkerSync(missing, {3, 1, 0});
         QVERIFY(captured.has_value());
         QCOMPARE(captured->outcome(), scan::ScanOutcome::RootUnavailable);
-    }
-
-    void empty_dir_scan_through_worker() {
-        QTemporaryDir temp;
-        QVERIFY(temp.isValid());
-
-        scan::ScanIdentity identity{4, 1, 0};
-        scan::ScanWorker worker(temp.path(), identity);
-        std::optional<scan::ScanResult> captured;
-        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
-                         [&](scan::ScanResult result) { captured = std::move(result); });
-        worker.run();
-
-        QVERIFY(captured.has_value());
-        QCOMPARE(captured->outcome(), scan::ScanOutcome::Success);
-        QVERIFY(captured->tree().has_value());
-        QCOMPARE(captured->tree()->treeRole, model::TreeRole::EmptyFolder);
     }
 
     void reparse_target_nonempty_excluded() {
