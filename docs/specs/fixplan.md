@@ -57,19 +57,21 @@ This document follows [XMSTP](https://github.com/aka-author/xmstp).
 
 ## Priority overview
 
-The table below lists execution phases in mandatory order. Later phases must not start until the prior phase acceptance tests pass.
+The table below lists execution phases in dependency order. Hard gates apply only where noted; preparation work may proceed in parallel.
 
-| Phase | Scope | Findings |
-|-------|-------|----------|
-| 1 | Scanner I/O, traversal state, typed scan results | 23, 24, 25, 39, 40 |
-| 2 | Update navigation and result publication | 22, 39 |
-| 3 | Archive catalog reader | 26, 27 |
-| 4 | Treemap projection and layout | 28, 29, 37, 38 |
-| 5 | Descriptor timestamps | 30 |
-| 6 | Configuration parsing and persistence | 31–36 |
-| 7 | Version, runtime, Settings evidence, full regression | 42–46, 43–45 |
+| Phase | Scope | Findings | Hard gate before implementation |
+|-------|-------|----------|--------------------------------|
+| 1 | Scanner I/O, traversal state, typed scan results | 23, 24, 25, 39, 40 | none (start here) |
+| 2 | Update navigation and result publication | 22, 39 | Phase 1 typed `ScanResult` and identity fields |
+| 3 | Archive catalog reader | 26, 27 | may run proof matrix in parallel with Phase 1 |
+| 4 | Treemap projection and layout | 28, 29, 37, 38 | stable projection contract from Phase 1 descriptor model |
+| 5 | Descriptor timestamps | 30 | Phase 1 `DirEntry` native timestamps |
+| 6 | Configuration parsing and persistence | 31–36 | may run parser unit tests in parallel with Phases 1–4 |
+| 7 | Version, runtime, Settings evidence, full regression | 42–46, 43–45 | may run version generator work in parallel; release sign-off requires all phases |
 
-UI polish (toolbar styling, About chrome, dialog size tweaks) is explicitly out of scope until phase 4 completes.
+Parallel work allowed without waiting for prior phase exit: archive-library proof, test-harness setup, `versioninfo.json` generator design, configuration parser unit tests.
+
+Release sign-off requires every phase exit criteria, including tests, doc updates, and code inspection.
 
 
 ---
@@ -83,10 +85,13 @@ Replace false timeout semantics, distinguish unreadable directories from empty o
 
 ### 1.2 New types
 
-Add `scan/ScanTypes.h` (or extend `ScanWorker.h`) with the following types.
+Test framework: **Qt Test** (`QTest`). Runner: `ctest` from the CMake build directory. Record command in `win-cpp-qt/CMakeLists.txt`.
+
+Add `scan/ScanTypes.h` with the following types.
 
 ```cpp
 enum class ScanOutcome {
+    Invalid,           // default; fail closed
     Success,
     Cancelled,
     RootUnavailable,
@@ -107,10 +112,27 @@ enum class TraversalState {
     ReparseTargetNotTraversed,
 };
 
+struct DirEntry {
+    QString name;
+    QString fullPath;
+    DWORD attributes = 0;
+    DWORD reparseTag = 0;
+    qint64 size = 0;
+    FILETIME creationTime{};
+    FILETIME lastWriteTime{};
+    bool isDirectory = false;
+    bool isReparsePoint = false;
+};
+
 struct DirectoryReadResult {
-    QVector<QFileInfo> entries;
+    QVector<DirEntry> entries;
     DirectoryReadStatus status = DirectoryReadStatus::Ok;
     DWORD nativeError = 0;
+};
+
+struct ScanDiagnostics {
+    int unreadableDirectoryCount = 0;
+    int reparseNotTraversedCount = 0;
 };
 
 struct ScanResult {
@@ -119,33 +141,36 @@ struct ScanResult {
     ScanKind scanKind = ScanKind::OpenTarget;
     QString scanRootPath;
     quint64 baseDescriptorVersion = 0;
-    ScanOutcome outcome = ScanOutcome::Success;
-    int unreadEntryCount = 0;
-    model::FolderDescriptor tree;
-    // structured diagnostics for logs/tests; not UI strings
+    ScanOutcome outcome = ScanOutcome::Invalid;
+    ScanDiagnostics diagnostics;
+    std::optional<model::FolderDescriptor> tree;  // only for Success
 };
 ```
+
+`ScanResult` must be constructed through named factories (`ScanResult::success(...)`, `ScanResult::cancelled(...)`, etc.). No default success. Cancelled and failed results must not carry a descriptor.
 
 Extend `model/FolderDescriptor.h`:
 
 - add `TraversalState traversalState` on folder nodes;
 - keep `TreeRole` for FS display semantics only;
-- add `std::optional<QDateTime>` for oldest/newest file fields (phase 5 wires birth time);
-- retain `reparseSkipped` only if needed for migration; prefer `traversalState == ReparseTargetNotTraversed`.
+- add `std::optional<QDateTime>` for oldest/newest file fields (phase 5 wires birth time from `DirEntry`);
+- drop `reparseSkipped` once `TraversalState` is wired.
 
 
 ### 1.3 Win32 directory enumeration
 
 Delete `ScanWorker::readDirBounded()` and its `std::async` usage.
 
-Add `platform/WinDirEnum.{h,cpp}`:
+Add `platform/WinDirEnum.{h,cpp}` and `platform/DirEntry.h`:
 
 - enumerate with `FindFirstFileExW` / `FindNextFileW`;
 - skip `.` and `..`;
-- map `WIN32_FIND_DATAW` to `QFileInfo` or a thin `DirEntry` struct;
+- populate immutable `DirEntry` from `WIN32_FIND_DATAW` (attributes, reparse tag, 64-bit size, creation and last-write times);
 - check `m_cancelled` between entries;
 - close handles through RAII on all paths;
 - return `DirectoryReadResult` with `DirectoryReadStatus` and `GetLastError()` on failure.
+
+Do not reconstruct `QFileInfo` per entry. Use `QFileInfo` only where a later operation genuinely requires it.
 
 Cancellation boundary (document in [../verification/io-01-scan-boundary.md](../verification/io-01-scan-boundary.md)):
 
@@ -164,7 +189,7 @@ In `scan/ScanWorker.cpp`:
 | Enumeration failed | `Unreadable` | not `EmptyFolder` | do not assert emptiness |
 | Directory reparse point | `ReparseTargetNotTraversed` | not `EmptyFolder` | 0 for v1 (linked target excluded) |
 
-Increment `unreadEntryCount` for unreadable directories and reparse skips as appropriate.
+Increment `diagnostics.unreadableDirectoryCount` only for failed enumeration. Increment `diagnostics.reparseNotTraversedCount` only for intentional reparse skips. Do not conflate the two.
 
 Remove outcome heuristics:
 
@@ -187,27 +212,34 @@ Change `ScanWorker::finished` signal to emit `ScanResult` (or equivalent struct)
 
 In `app/MainWindow.cpp` `onScanFinished`:
 
-1. compare `result.scanId` to the active scan id captured at start;
-2. compare `result.targetSessionId` and `result.baseDescriptorVersion` to session snapshot;
-3. if stale, discard entirely (no status text, chrome, or descriptor change);
-4. only then map `ScanOutcome` to FS alerts and publish trees.
+0. at the first line, validate `scanId`, `targetSessionId`, and `baseDescriptorVersion` against the snapshot captured at `startScan()`; if stale, return immediately with no session, status, chrome, progress, error, or descriptor change;
+1. only then clear worker state and map `ScanOutcome` to FS alerts;
+2. publish trees only when `outcome == Success` and `tree` is engaged.
 
-Capture identity in the `Qt::QueuedConnection` lambda at `startScan()` time so later session mutation cannot spoof validation.
+Worker/thread cleanup may proceed independently; stale completion must be observationally inert for the active session.
 
 
 ### 1.7 Phase 1 tests
 
-Add `win-cpp-qt/tests/` (GoogleTest or Qt Test) with fixtures:
+Add `win-cpp-qt/tests/` using Qt Test with fixtures:
 
 | Test | Proves |
 |------|--------|
 | `denied_inner_dir_not_empty_folder` | unreadable child is not `EmptyFolder` |
+| `root_access_denied` | root failure is `RootUnavailable`, not empty tree |
+| `root_deleted_before_enum` | typed root outcome |
 | `empty_dir_is_empty_folder` | successful enumeration with zero entries |
 | `reparse_entry_traversal_state` | reparse → `ReparseTargetNotTraversed`, size 0 |
-| `scan_result_stale_id_ignored` | stale `scanId` does not mutate session |
+| `reparse_target_nonempty_excluded` | linked target contents not nested in descriptor |
+| `scan_result_stale_scan_id` | stale `scanId` does not mutate session |
+| `scan_result_stale_session_id` | matching `scanId`, wrong `targetSessionId` ignored |
+| `scan_result_stale_descriptor_version` | wrong `baseDescriptorVersion` ignored |
+| `cancel_before_first_entry` | cooperative cancel |
+| `cancel_after_several_entries` | cancel mid-enumeration |
 | `cancel_between_entries` | cancel flag stops further enumeration |
+| `native_handle_closed_on_cancel` | RAII closes search handle |
 
-Manual fixture: directory with denied ACL child on a local volume.
+Supplement with manual denied-ACL fixture on a local volume.
 
 
 ### 1.8 Phase 1 doc updates
@@ -222,8 +254,10 @@ After code lands:
 ### 1.9 Phase 1 exit criteria
 
 - findings 23, 24, 25, 39, 40 marked closed in impl §15;
-- all phase 1 tests pass on CI or documented local runner;
-- reviewer dispute thread can be updated with evidence links.
+- all phase 1 tests pass via `ctest`;
+- impl §6 and verification notes updated;
+- code inspection confirms removal of `std::async` read path, string-heuristic outcomes, and `EmptyFolder` misuse;
+- evidence links recorded in dispute.md.
 
 
 ---
@@ -256,11 +290,13 @@ Treemap reads `m_session.publishedTree` during update scan, never the in-flight 
 
 On successful `UpdateContext` completion:
 
-1. validate `ScanResult` identity;
-2. call `mergeSubtree(publishedSnapshot, scanRoot, newSubtree)`;
-3. resolve `contextPath` against merged tree;
-4. atomically replace `publishedTree` and clear `pendingUpdateSnapshot`;
-5. rebuild treemap once.
+1. validate `ScanResult` identity at callback entry;
+2. call `mergeSubtree(publishedSnapshot, scanRoot, newSubtree)` off the hot path if needed, but prepare a complete new session snapshot first (merged tree, incremented descriptor version, resolved `contextPath`);
+3. if `contextPath` no longer exists in the merged tree, follow FS error path #004 for the missing context folder and restore or unset per scan kind — do not leave an unresolved path;
+4. publish the snapshot in one GUI-thread assignment (`publishedTree`, `contextPath`, `descriptorVersion`, `treemapComplete`, clear `pendingUpdateSnapshot`);
+5. rebuild treemap once from the published snapshot.
+
+No observer may see a new tree with an old descriptor version, stale context, or mismatched action state.
 
 
 ### 2.4 Phase 2 tests
@@ -293,17 +329,32 @@ Remove the handwritten ZIP central-directory parser. Classify ZIP and RAR archiv
 Add `scan/IArchiveCatalogReader.h`:
 
 ```cpp
+enum class CatalogReadOutcome {
+    Readable,
+    EncryptedOrUnavailable,
+    UnsupportedFormat,
+    Corrupt,
+    ResourceLimit,
+    Cancelled,
+    IoFailure,
+};
+
 struct ArchiveCatalogEntry {
     QString path;       // normalized relative path
     bool isDirectory;
 };
 
+struct CatalogReadResult {
+    CatalogReadOutcome outcome = CatalogReadOutcome::IoFailure;
+    QVector<ArchiveCatalogEntry> entries;
+    DWORD nativeError = 0;
+};
+
 class IArchiveCatalogReader {
 public:
     virtual ~IArchiveCatalogReader() = default;
-    virtual bool readCatalog(const QString& path,
-                             QVector<ArchiveCatalogEntry>* out,
-                             QString* error) = 0;
+    virtual CatalogReadResult readCatalog(const QString& path,
+                                          const std::atomic_bool& cancelToken) = 0;
 };
 ```
 
@@ -312,9 +363,10 @@ Limits enforced before trusting data:
 - max entry count (start with 100 000, tune from proof matrix);
 - max total name bytes;
 - max single path length;
-- reject `..`, absolute roots, drive prefixes, and equivalent traversal forms;
-- cancellation checks every N entries;
+- explicit `cancelToken` checked during traversal;
 - no extraction and no filesystem object creation.
+
+Unsafe path components (`..`, absolute roots, drive prefixes, equivalent traversal forms): **ignore the entry for top-level classification**; if no safe effective entries remain, outcome is `Corrupt` or `Readable` with empty safe set → `PackedClump` per contract. Document this rule in `archive-library-decision.md` and test mixed safe/unsafe catalogs.
 
 
 ### 3.3 Library selection
@@ -326,14 +378,14 @@ Delete `readZipCentralDirectory()` from `ArchiveClassifier.cpp`. Implement `Liba
 
 ### 3.4 Classification contract
 
-Port Go rules:
+FS conformance rules (Go code is a regression reference only, not the normative baseline):
 
-| Catalog shape | `PackingType` |
-|---------------|---------------|
-| one top-level file, no top-level folder | `PackedFile` |
-| one top-level folder containing all entries | `PackedFolder` |
-| otherwise readable | `PackedClump` |
-| unreadable / encrypted / corrupt / timeout | `PackedClump` fallback |
+| Catalog read outcome | `PackingType` |
+|----------------------|---------------|
+| `Readable`, one effective top-level file | `PackedFile` |
+| `Readable`, one effective top-level folder | `PackedFolder` |
+| `Readable`, otherwise | `PackedClump` |
+| `EncryptedOrUnavailable`, `UnsupportedFormat`, `Corrupt`, `ResourceLimit`, `Cancelled`, `IoFailure` | `PackedClump` fallback |
 
 `.rar` must attempt catalog read; `PackedClump` only on defined failure paths.
 
@@ -383,8 +435,9 @@ Define clump interaction: no Dive, Explore, or Open as a single filesystem objec
 After initial projection, before final layout:
 
 1. lay out preliminary proportional rectangles;
-2. detect tiles below `minTileWidth` / `minTileHeight` in device pixels;
-3. merge undersized represented values into the single clump;
+2. convert configured `minTileWidth` / `minTileHeight` `TSize` values to Qt **logical** pixels for the treemap viewport (same coordinate system as widget geometry; do not compare raw physical pixels or double-apply device pixel ratio);
+3. detect tiles below minima in that logical space;
+4. merge undersized represented values into the single clump;
 4. recompute areas;
 5. repeat until stable or no merge possible.
 
@@ -401,7 +454,7 @@ Implement in `TreemapProjection.cpp` (merge decisions) plus `TreemapLayout.cpp` 
 
 ### 4.4 Layout algorithm (`treemap/TreemapLayout.cpp`)
 
-Replace binary partition with Bruls–Huizing–van Wijk squarify, porting from `win-go/internal/layout/squarify.go` as the behavioral baseline.
+Replace binary partition with Bruls–Huizing–van Wijk squarify. Use `win-go/internal/layout/squarify.go` only as an implementation reference. Acceptance is against FS layout properties and tests, not rectangle-for-rectangle parity with Go.
 
 Remove `max64(it.size, 1)` weight invention.
 
@@ -438,12 +491,12 @@ Oldest file uses creation time; newest file uses last-write time; absent creatio
 
 ### 5.2 Implementation
 
-In `ScanWorker.cpp` file nodes:
+In `ScanWorker.cpp` file nodes, populate from `DirEntry` captured at enumeration:
 
-- `oldestFile`: `QFileInfo::birthTime()` when valid, else `std::nullopt`;
-- `newestFile`: `lastModified()` when valid.
+- `oldestFile`: creation time when valid, else `std::nullopt` (never substitute last-write for creation);
+- `newestFile`: last-write time when valid.
 
-Add `platform/FileTimes.{h,cpp}` if Qt birth time is unreliable on target volumes; fall back to `GetFileTime` via handle from enumeration.
+Add `platform/FileTimes.{h,cpp}` to convert `FILETIME` → `QDateTime` when Qt helpers are insufficient.
 
 Update `recomputeAggregates()` to min/max only present optionals.
 
@@ -480,26 +533,38 @@ struct TSize {
     TSizeUnit unit = TSizeUnit::Pt;
 };
 
-struct ParseStatus { bool ok; QString error; };
+struct ParseStatus { bool ok = false; QString error; };
 ```
+
+Validation rules:
+
+- reject NaN, infinity, and negative values where the field disallows them;
+- allow zero only where FS allows zero;
+- preserve original `magnitude` and `unit` in the document model for round-trip;
+- compare normalized values with documented tolerance only for semantic dirty-check, not binary `double` equality.
 
 Shared functions in `config/TSizeParse.cpp`:
 
 - parse from string with all five suffixes and decimals;
-- serialize preserving unit where possible;
-- convert to device-independent pixels at render boundary using screen DPI.
+- serialize preserving unit unless canonicalization is explicitly selected;
+- convert to Qt logical pixels at the render/layout boundary only, per unit:
+  - `px` → logical pixel per documented FS/Qt mapping;
+  - `pt`, `mm`, `cm`, `in` → physical conversion using the effective DPI of the surface that lays out or paints, without multiplying widget logical coordinates by device pixel ratio again.
+
+Add cross-monitor tests for configured `pt`, `mm`, and `px` values.
 
 Replace `ConfigStore::parsePt()` and duplicate parsing in `SettingsSchema.cpp`.
 
 
 ### 6.3 Document model
 
-Add `config/ConfigDocument.{h,cpp}`:
+Add `config/ConfigDocument.{h,cpp}` as an **ordered line model**:
 
-- `knownFields` map (typed);
-- `passthroughLines` vector preserving order, comments, unknown keys;
-- load: parse line by line; reject duplicate known keys;
-- save: rewrite known keys in place or append section; emit passthrough lines unchanged;
+- each line is a known key assignment, unknown passthrough, comment, or blank;
+- associations between comments and the following key are preserved;
+- load: reject duplicate known keys before any mutation;
+- save: rewrite only recognized keys in place; preserve original key spelling, attached comments, line endings, and final newline where possible;
+- unknown and malformed lines remain byte-for-byte unchanged unless a known key on the same line is rewritten;
 - validate-then-assign for colors (`QColor` only on success).
 
 Fix zero padding: `if (int n = parsePt(val); n)` → explicit parse status.
@@ -551,8 +616,8 @@ Run `objdump -p` on `EraseAndRewrite.exe` and each deployed Qt DLL. Store output
 
 Decision:
 
-- prefer one runtime model compatible with Qt DLLs;
-- if mixed static exe + dynamic Qt runtimes remain, document boundary rules (no cross-DLL `new`/`delete`, no exceptions across boundaries).
+- **prefer** one MinGW runtime linkage model compatible with the Qt distribution and every C++ dependency (including the archive library);
+- if mixed static exe + dynamic Qt runtimes remain after inspection, require a written ABI boundary inventory (Qt callbacks, STL objects, exceptions, allocators, locales, archive reader interfaces) in `docs/verification/mingw-runtime-deps.txt`. A two-line “no cross-DLL delete” rule alone is insufficient.
 
 
 ### 7.3 Settings grid evidence (finding 42)
@@ -593,9 +658,11 @@ Minimum automated coverage:
 
 ### 7.6 Phase 7 exit criteria
 
-- findings 42–46 closed or explicitly waived with techspec row;
-- impl §15 compliance table all green or waived;
-- fresh FS-to-code review requested in dispute.md.
+- findings 42–46 closed with evidence; **no techspec waiver** for scanner, archive, projection, transaction, or version-consistency defects;
+- finding 43 and optional quality risks may be owner-waived only when they do not contradict FS;
+- impl §15 compliance table all green;
+- fresh FS-to-code review requested in dispute.md;
+- each phase includes code inspection that obsolete paths (handwritten ZIP parser, string heuristics, fake timeout claims) are removed.
 
 
 ---
@@ -606,7 +673,7 @@ The table below lists primary files touched per phase.
 
 | Phase | Files |
 |-------|-------|
-| 1 | `scan/ScanWorker.*`, `scan/ScanTypes.h`, `platform/WinDirEnum.*`, `model/FolderDescriptor.*`, `app/MainWindow.*`, `scan/SubtreeMerge.cpp` |
+| 1 | `scan/ScanWorker.*`, `scan/ScanTypes.h`, `platform/WinDirEnum.*`, `platform/DirEntry.h`, `model/FolderDescriptor.*`, `app/MainWindow.*`, `scan/SubtreeMerge.cpp`, `win-cpp-qt/tests/` |
 | 2 | `app/MainWindow.*`, `app/Session.*` |
 | 3 | `scan/ArchiveClassifier.*`, `scan/IArchiveCatalogReader.h`, `scan/LibarchiveCatalogReader.*`, `CMakeLists.txt` |
 | 4 | `treemap/TreemapProjection.*`, `treemap/TreemapLayout.*`, `treemap/TreemapWidget.cpp` |
@@ -819,3 +886,53 @@ Each phase exit should include:
 The fix plan is accepted as the working roadmap after the corrections above are incorporated. Its overall priority order is correct. The main required changes are typed failure-safe APIs, clearer transaction publication, a native directory-entry model, correct Qt/TSize coordinate semantics, precise config passthrough rules, and non-waivable closure criteria for release blockers.
 
 Do not start bulk implementation from the current text without resolving items 2, 3, 8, 10, 11, 12, and 15. Those affect core data models and acceptance rules and would otherwise cause avoidable rework.
+
+---
+
+## Plan revision — developer incorporation (2026-07-11)
+
+This section records how the body of this document was updated after **Reviewer comments on fix plan (2026-07-11)** above. The reviewer section is left unchanged.
+
+### Disposition
+
+The reviewer comments are accepted. The corrections below are incorporated into the phase sections preceding the reviewer appendix. Bulk Phase 1 implementation may start once items 2, 3, 8, 10, 11, 12, and 15 from the reviewer list are reflected in code scaffolding — they are now reflected in this plan text.
+
+### Incorporation map
+
+The table below maps each reviewer comment to the plan section updated.
+
+| Reviewer item | Incorporated change |
+|---------------|---------------------|
+| 1. Phase ordering too absolute | Priority overview now lists hard gates vs parallel prep work |
+| 2. `ScanResult` must not default to success | `ScanOutcome::Invalid`, factory construction, `std::optional` tree |
+| 3. Separate unreadable vs reparse counters | `ScanDiagnostics` with two counters |
+| 4. Native `DirEntry`, not `QFileInfo` | `platform/DirEntry.h`, enumeration from `WIN32_FIND_DATAW` |
+| 5. Stale result before any mutation | §1.6 requires validation at first line of `onScanFinished` |
+| 6. Expanded Phase 1 tests | root denied, root deleted, stale session/version, handle closure, reparse target |
+| 7. Atomic publish | §2.3 single snapshot publish; FS #004 when context missing |
+| 8. Typed archive outcomes | `CatalogReadResult`, explicit `cancelToken` parameter |
+| 9. Unsafe archive path rule | ignore unsafe entries for classification; test mixed catalogs |
+| 10. Go not normative baseline | §3.4 and §4.4 reference Go for regression only |
+| 11. Min tile in logical coordinates | §4.3 compares in Qt logical space |
+| 12. `TSize` DPI policy per unit | §6.2 unit-specific conversion; cross-monitor tests |
+| 13. `double` validation rules | §6.2 finite/non-negative rules; no binary dirty equality |
+| 14. Precise passthrough rewrite | §6.3 ordered line model with byte-preservation rules |
+| 15. No blanket waiver | §7.6 release blockers non-waivable |
+| 16. Runtime ABI inventory | §7.2 prefers single runtime; inventory if mixed |
+| 17. Test framework | Qt Test + `ctest` recorded in §1.2 |
+| 18. Code inspection per phase | §1.9 and §7.6 require diff review and obsolete-path removal |
+
+### Pre-implementation checklist
+
+Before merging the first Phase 1 code PR:
+
+1. land `scan/ScanTypes.h` with `Invalid` outcome and optional tree;
+2. land `platform/DirEntry.h` stub used by `WinDirEnum`;
+3. land `IArchiveCatalogReader.h` with typed `CatalogReadResult` (may be unused until Phase 3);
+4. land Qt Test harness and one failing fixture (`denied_inner_dir_not_empty_folder`);
+5. update impl §15 to note plan revision commit.
+
+### Next step
+
+Execute Phase 1 per revised §1. Record evidence under `docs/verification/` and close dispute findings only when tests and inspection pass.
+
