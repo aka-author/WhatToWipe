@@ -1,8 +1,8 @@
 #include <winver.h>
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,5
- PRODUCTVERSION 1,0,0,5
+ FILEVERSION 1,0,0,6
+ PRODUCTVERSION 1,0,0,6
  FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
  FILEFLAGS 0x0L
  FILEOS VOS__WINDOWS32
@@ -15,12 +15,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "WhatToWipe"
             VALUE "FileDescription", "WhatToWipe folder size treemap"
-            VALUE "FileVersion", "1.0.0.0005"
+            VALUE "FileVersion", "1.0.0.0006"
             VALUE "InternalName", "whattowipe"
             VALUE "LegalCopyright", "See repository license"
             VALUE "OriginalFilename", "WhatToWipe.exe"
             VALUE "ProductName", "WhatToWipe"
-            VALUE "ProductVersion", "1.0.0.0005"
+            VALUE "ProductVersion", "1.0.0.0006"
         END
     END
     BLOCK "VarFileInfo"

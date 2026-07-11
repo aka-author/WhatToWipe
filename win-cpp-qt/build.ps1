@@ -296,6 +296,7 @@ New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 Set-Content -LiteralPath $compilerMarker -Value $mingwRoot -NoNewline
 
 $env:PATH = "$(Join-Path $mingwRoot 'bin');$(Join-Path $qtPrefix 'bin');$env:PATH"
+$env:QT_MINGW_ROOT = $mingwRoot
 Write-Host "Using CMAKE_PREFIX_PATH=$qtPrefix"
 Write-Host "Using QT_MINGW_ROOT=$mingwRoot"
 
