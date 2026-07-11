@@ -1,0 +1,239 @@
+name: Append fixplan reviewer comments
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - .github/append-fixplan.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  append:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Append reviewer comments without changing prior bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='docs/specs/fixplan.md'
+          marker='## Reviewer comments on fix plan (2026-07-11)'
+          before_sha="$(sha256sum "$file" | awk '{print $1}')"
+          before_size="$(wc -c < "$file")"
+
+          if grep -Fqx "$marker" "$file"; then
+            echo 'Review already present; refusing to append twice.'
+            exit 1
+          fi
+
+          cat >> "$file" <<'REVIEW_EOF'
+
+---
+
+## Reviewer comments on fix plan (2026-07-11)
+
+### Overall verdict
+
+The plan is substantially sound and follows the accepted priority order. It is good enough to guide the correction work, but several details must be tightened before implementation starts. Otherwise the team can follow the plan literally and still reproduce some of the same defects under different names.
+
+### 1. Phase ordering is too absolute
+
+The statement that later phases must not start until all prior phase acceptance tests pass is unnecessarily rigid. Some preparation can safely proceed in parallel, especially archive-library proof work, version-source generation, test-harness setup, and configuration parser unit tests.
+
+Keep the dependency gates where they are real:
+
+- Phase 2 publication work depends on Phase 1 typed results and identity fields.
+- Phase 4 minimum-size clumping depends on a stable projection contract.
+- Release sign-off depends on all phases.
+
+Do not prohibit independent proof-of-capability and test-fixture work merely because an earlier implementation phase is still open.
+
+### 2. `ScanResult` must not default to success
+
+The proposed type initializes `ScanOutcome outcome = ScanOutcome::Success`. That is a dangerous default for a result that may be partially constructed or returned from an exceptional path.
+
+Use an explicit invalid/unset state or require construction through named factories. A missing assignment must fail closed, not silently become success.
+
+Also, `FolderDescriptor tree` should be optional or variant-bound to outcomes that actually carry a descriptor. Cancelled and failed results must not contain an accidentally default-constructed tree that later code could publish.
+
+### 3. `unreadEntryCount` conflates unreadable entries and reparse skips
+
+Section 1.4 says to increment `unreadEntryCount` for unreadable directories and reparse skips “as appropriate.” These are not the same condition:
+
+- unreadable means traversal was attempted and failed;
+- reparse target not traversed is intentional policy, not an access failure.
+
+Use separate structured diagnostics or counters. Do not let support logs, tests, or later UI work report reparse entries as unreadable.
+
+### 4. Directory enumeration should return a native entry type, not reconstruct `QFileInfo`
+
+`WIN32_FIND_DATAW` already contains the attributes, file size, and timestamps needed by the scanner. Converting each entry back into `QFileInfo` can trigger additional filesystem queries, lose the exact native error boundary, and undermine the point of replacing `QDir` enumeration.
+
+Prefer a thin immutable `DirEntry` containing:
+
+- name and full path;
+- attributes and reparse tag where available;
+- 64-bit size;
+- creation and last-write timestamps;
+- directory/reparse flags.
+
+Construct higher-level descriptor nodes from this native snapshot. Use `QFileInfo` only where an operation genuinely requires it.
+
+### 5. Stale-result rejection must occur before every externally visible mutation
+
+Section 1.6 says stale results cause no status, chrome, or descriptor change, which is correct. Make the implementation rule stronger: identity validation must happen at the first line of the completion callback, before clearing the active worker, changing progress state, hiding Stop, showing errors, or updating diagnostics attached to the current session.
+
+Worker/thread resource cleanup may occur independently, but stale completion must be observationally inert for the active session.
+
+### 6. Phase 1 tests are incomplete for the stated scanner contract
+
+Add automated or controlled fixtures for:
+
+- root access denied versus inner access denied;
+- root deleted before enumeration;
+- cancellation before first entry and after several entries;
+- stale result with matching `scanId` but wrong `targetSessionId`;
+- stale result with correct session but wrong base descriptor version;
+- native handle closure on cancellation and failure;
+- a directory reparse point whose target is non-empty, proving target contents are excluded.
+
+The manual denied-ACL fixture is useful, but it cannot be the only proof of unreadable-directory semantics.
+
+### 7. Phase 2 publish wording is not atomic enough
+
+The sequence says to replace `publishedTree` and clear `pendingUpdateSnapshot`, then rebuild the treemap. Treat the entire publication as one session-state transaction. No event handler should observe a new tree with an old descriptor version, old context resolution, or stale action state.
+
+Prepare the complete new session snapshot first, including incremented descriptor version and resolved context, then publish it in one GUI-thread operation and rebuild from that snapshot.
+
+Also define what happens when the current context path disappeared during the update. The plan should name the FS-defined fallback or error path rather than merely saying “resolve contextPath.”
+
+### 8. Archive API must return typed outcomes, not `bool` plus error string
+
+The proposed `IArchiveCatalogReader::readCatalog(..., QString* error)` repeats the same design error already rejected in scanner outcomes. Classification needs to distinguish at least:
+
+- readable catalog;
+- encrypted/unavailable catalog;
+- unsupported format/variant;
+- corrupt catalog;
+- resource-limit breach;
+- cancelled;
+- I/O failure.
+
+Return a typed result with structured diagnostics. Presentation strings do not belong in the archive reader.
+
+The cancellation token must be an explicit input to the interface, not an implied global checked every N entries.
+
+### 9. Archive path handling should not say “reject” without defining classification behavior
+
+The plan says to reject traversal-style names. Since the scanner is not extracting, “reject” is ambiguous. Define whether one unsafe entry makes the catalog unavailable and therefore `PackedClump`, or whether unsafe entries are ignored for effective top-level classification.
+
+Choose one deterministic rule and test mixed catalogs containing both safe and unsafe names. Do not let backend-specific behavior decide this.
+
+### 10. Do not call the Go implementation a behavioral baseline
+
+Section 4.4 says to port from the Go implementation “as the behavioral baseline.” The dispute explicitly replaced behavioral parity with FS conformance, using Go only for regression comparison where useful.
+
+Use the Go code as an implementation reference, not the normative baseline. The new algorithm must be accepted against FS properties and tests even if its rectangle order differs from Go.
+
+### 11. Minimum-tile dimensions are in Qt logical coordinates, not raw device pixels
+
+Section 4.3 says to detect undersized tiles in device pixels. The FS `TSize` values and Qt widget geometry should be compared in one documented logical coordinate system. In a Qt 6 widget application, layout geometry is normally device-independent.
+
+Convert configured `TSize` values to the same logical units used by the treemap viewport, then compare external rectangles there. Raw physical-pixel comparison will make clumping change incorrectly across device-pixel ratios.
+
+### 12. The `TSize` DPI rule is currently wrong for Qt layout
+
+Section 6.2 says conversion to device-independent pixels uses screen DPI. Clarify each unit separately:
+
+- `px` should map to the chosen FS/Qt logical-pixel interpretation;
+- `pt`, `mm`, `cm`, and `in` require a documented physical/logical conversion policy;
+- Qt widget coordinates remain device-independent and must not be multiplied again by device pixel ratio.
+
+Do not use a generic “screen DPI” conversion that changes layout unpredictably between monitors or double-applies scaling. Add cross-monitor tests for configured `pt`, `mm`, and `px` values.
+
+### 13. `double` is acceptable internally only with explicit validation and equality rules
+
+The proposed `TSize` uses `double magnitude`. Require finite, non-negative values where the corresponding field allows zero, and reject NaN/infinity before storing the typed configuration.
+
+Define comparison and serialization behavior. Exact binary equality is unsuitable for dirty-state detection after unit conversion. Prefer preserving the original typed magnitude/unit and comparing normalized values with a documented tolerance only where semantic comparison is needed.
+
+### 14. Passthrough configuration preservation needs a precise rewrite algorithm
+
+“Rewrite known keys in place or append section” is too loose. Define:
+
+- whether original spelling and whitespace of known keys are preserved;
+- how comments attached to known keys are retained;
+- where missing known keys are inserted;
+- whether line endings and final newline are preserved;
+- how duplicate known keys fail without rewriting anything;
+- whether unknown malformed lines remain byte-for-byte unchanged.
+
+The safest design is an ordered token/document model, not separate maps and vectors that can lose association between comments and fields.
+
+### 15. Phase 7 cannot waive release blockers with a techspec row
+
+The exit criterion “findings 42–46 closed or explicitly waived with techspec row” is too broad. A technical specification cannot waive a defect that contradicts the FS, and it cannot substitute for required runtime evidence.
+
+In particular:
+
+- finding 44 requires version consistency;
+- finding 46 is the verification gate;
+- scanner, archive, projection, and transaction tests cannot be waived by prose.
+
+Only optional quality risks that do not contradict FS may be accepted explicitly by the owner. Replace the blanket waiver clause with per-finding closure criteria and owner approval where genuinely applicable.
+
+### 16. Runtime boundary rules are not a satisfactory preferred solution
+
+Section 7.2 suggests documenting “no cross-DLL `new`/`delete`, no exceptions across boundaries” if mixed runtime instances remain. That is a mitigation, not proof that the Qt and plugin/library boundaries are safe.
+
+Prefer a single compatible MinGW runtime model. If mixed runtime linkage remains, require a concrete ABI boundary inventory covering Qt callbacks, STL objects, exceptions, allocators, locales, and third-party archive-library interfaces. A two-line rule is insufficient.
+
+### 17. Test framework must be selected, not left as “GoogleTest or Qt Test”
+
+The plan should make one test-framework decision before Phase 1 implementation. For a Qt application, Qt Test is the simplest default unless existing infrastructure strongly favors GoogleTest.
+
+Leaving the choice open weakens file layout, CI integration, fixture design, and ownership. Record one selection and its runner command.
+
+### 18. Exit criteria must require fresh code inspection, not only green tests
+
+Tests can prove selected cases but cannot prove that obsolete branches, string heuristics, handwritten archive parsing, or unused configuration paths were actually removed.
+
+Each phase exit should include:
+
+- tests passing;
+- relevant governing documents updated;
+- implementation diff reviewed against the finding;
+- no old contradictory path remains reachable;
+- evidence links recorded.
+
+### Final disposition
+
+The fix plan is accepted as the working roadmap after the corrections above are incorporated. Its overall priority order is correct. The main required changes are typed failure-safe APIs, clearer transaction publication, a native directory-entry model, correct Qt/TSize coordinate semantics, precise config passthrough rules, and non-waivable closure criteria for release blockers.
+
+Do not start bulk implementation from the current text without resolving items 2, 3, 8, 10, 11, 12, and 15. Those affect core data models and acceptance rules and would otherwise cause avoidable rework.
+REVIEW_EOF
+
+          after_size="$(wc -c < "$file")"
+          if [ "$after_size" -le "$before_size" ]; then
+            echo 'Append failed: file did not grow.'
+            exit 1
+          fi
+
+          prefix_sha="$(head -c "$before_size" "$file" | sha256sum | awk '{print $1}')"
+          if [ "$prefix_sha" != "$before_sha" ]; then
+            echo 'Append-only verification failed: previous bytes changed.'
+            exit 1
+          fi
+
+          git rm .github/workflows/append-fixplan-review.yml .github/append-fixplan.trigger
+          git add "$file"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: append fixplan review comments'
+          git push origin HEAD:dev
