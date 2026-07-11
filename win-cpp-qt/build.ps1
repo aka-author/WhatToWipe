@@ -197,6 +197,25 @@ function Commit-BuildSnapshot {
     if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
 }
 
+function Resolve-QtMingwRoot {
+    param([Parameter(Mandatory = $true)][string]$QtPrefix)
+    $versionDir = Split-Path $QtPrefix -Parent
+    $qtRoot = Split-Path $versionDir -Parent
+    $toolsDir = Join-Path $qtRoot "Tools"
+    if (-not (Test-Path -LiteralPath $toolsDir)) {
+        throw "Qt Tools directory not found: $toolsDir"
+    }
+    $candidates = Get-ChildItem -LiteralPath $toolsDir -Directory -Filter "mingw*_64" |
+        Sort-Object Name -Descending
+    foreach ($cand in $candidates) {
+        $gpp = Join-Path $cand.FullName "bin\g++.exe"
+        if (Test-Path -LiteralPath $gpp) {
+            return (Resolve-Path -LiteralPath $cand.FullName).Path
+        }
+    }
+    throw "No mingw*_64 toolchain with g++.exe under $toolsDir"
+}
+
 $GitRoot = $null
 $walkDir = (Resolve-Path -LiteralPath $ModuleRoot).Path
 while ($walkDir) {
@@ -247,6 +266,7 @@ $qtPrefix = $env:CMAKE_PREFIX_PATH
 if (-not $qtPrefix) {
     $qtGuess = @(
         "C:\cpp\qt\6.10.3\mingw_64",
+        "C:\Qt\6.10.3\mingw_64",
         "C:\Qt\6.8.0\mingw_64",
         "C:\Qt\6.7.3\mingw_64",
         "C:\Qt\6.6.3\mingw_64"
@@ -258,12 +278,35 @@ if (-not $qtPrefix) {
         }
     }
 }
-
-$cmakeArgs = @("-S", $ModuleRoot, "-B", $BuildDir, "-DCMAKE_BUILD_TYPE=Release")
-if ($qtPrefix) {
-    $cmakeArgs += "-DCMAKE_PREFIX_PATH=$qtPrefix"
-    Write-Host "Using CMAKE_PREFIX_PATH=$qtPrefix"
+if (-not $qtPrefix) {
+    throw "Qt prefix not found. Set CMAKE_PREFIX_PATH."
 }
+$qtPrefix = (Resolve-Path -LiteralPath $qtPrefix).Path
+$mingwRoot = Resolve-QtMingwRoot -QtPrefix $qtPrefix
+$toolchainFile = Join-Path $ModuleRoot "toolchain-qt-mingw.cmake"
+$compilerMarker = Join-Path $BuildDir ".qt_mingw_compiler"
+if (Test-Path -LiteralPath $compilerMarker) {
+    $prev = (Get-Content -LiteralPath $compilerMarker -Raw).Trim()
+    if ($prev -ne $mingwRoot) {
+        Write-Host "Qt MinGW toolchain changed; reconfiguring build directory."
+        Remove-Item -LiteralPath $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
+Set-Content -LiteralPath $compilerMarker -Value $mingwRoot -NoNewline
+
+$env:PATH = "$(Join-Path $mingwRoot 'bin');$(Join-Path $qtPrefix 'bin');$env:PATH"
+Write-Host "Using CMAKE_PREFIX_PATH=$qtPrefix"
+Write-Host "Using QT_MINGW_ROOT=$mingwRoot"
+
+$cmakeArgs = @(
+    "-S", $ModuleRoot,
+    "-B", $BuildDir,
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_PREFIX_PATH=$qtPrefix",
+    "-DCMAKE_TOOLCHAIN_FILE=$toolchainFile",
+    "-DQT_MINGW_ROOT=$mingwRoot"
+)
 
 & cmake @cmakeArgs
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
@@ -285,8 +328,15 @@ $deployScript = Join-Path $ModuleRoot "deploy-standalone.ps1"
 if (-not (Test-Path -LiteralPath $deployScript)) {
     throw "deploy-standalone.ps1 not found: $deployScript"
 }
-& $deployScript -TargetDir $OutDir -ExePath $Exe -QtPrefix $qtPrefix
+& $deployScript -TargetDir $OutDir -ExePath $Exe -QtPrefix $qtPrefix -MingwRoot $mingwRoot
 if ($LASTEXITCODE -ne 0) { throw "standalone Qt deploy failed" }
+
+$testScript = Join-Path $ModuleRoot "test-run.ps1"
+if (-not (Test-Path -LiteralPath $testScript)) {
+    throw "test-run.ps1 not found: $testScript"
+}
+& $testScript -BinDir $OutDir
+if ($LASTEXITCODE -ne 0) { throw "post-build run test failed" }
 
 if ($env:ERASE_REWRITE_SIGNTOOL) {
     $signTool = $env:ERASE_REWRITE_SIGNTOOL

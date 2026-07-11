@@ -46,10 +46,15 @@ if(WIN32)
     target_link_libraries(WhatToWipe PRIVATE shell32 ole32)
 endif()
 
-# App is built with a newer MinGW than Qt ships; static-link our C++ runtime so the
-# deployed Qt libstdc++-6.dll only satisfies Qt6*.dll imports.
+# App links C++ runtime statically so deployed Qt libstdc++-6.dll only serves Qt6*.dll.
 if(MINGW)
-    target_link_options(WhatToWipe PRIVATE -static-libgcc -static-libstdc++)
+    target_link_options(WhatToWipe PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -Wl,-Bstatic
+        -lwinpthread
+        -Wl,-Bdynamic
+    )
 endif()
 
 install(TARGETS WhatToWipe RUNTIME DESTINATION .)
