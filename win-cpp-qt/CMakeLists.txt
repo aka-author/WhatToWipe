@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Svg)
 
 set(WTW_SOURCES
     src/main.cpp
@@ -30,8 +30,12 @@ set(WTW_SOURCES
     src/ui/SettingsDialog.cpp
     src/ui/AboutDialog.cpp
     src/ui/AlertDialogs.cpp
+    src/ui/ToolbarIcons.cpp
     src/util/Format.cpp
 )
+
+qt_add_resources(WTW_RESOURCES resources/toolbar.qrc)
+list(APPEND WTW_SOURCES ${WTW_RESOURCES})
 
 if(WIN32)
     list(APPEND WTW_SOURCES resources/app.rc)
@@ -41,7 +45,7 @@ qt_add_executable(WhatToWipe ${WTW_SOURCES})
 
 target_include_directories(WhatToWipe PRIVATE src)
 
-target_link_libraries(WhatToWipe PRIVATE Qt6::Widgets)
+target_link_libraries(WhatToWipe PRIVATE Qt6::Widgets Qt6::Svg)
 
 if(WIN32)
     target_link_libraries(WhatToWipe PRIVATE shell32 ole32)

@@ -12,24 +12,48 @@
 #include "ui/AboutDialog.h"
 #include "ui/AlertDialogs.h"
 #include "ui/SettingsDialog.h"
+#include "ui/ToolbarIcons.h"
 #include "util/Format.h"
 
 #include <QAction>
 #include <QDateTime>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenuBar>
 #include <QPushButton>
 #include <QStatusBar>
-#include <QStyle>
 #include <QThread>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 namespace wtw::app {
+
+namespace {
+
+QString normalizeDriveIndicatorToken(const QString& raw) {
+    QString s = raw.trimmed();
+    if (s.isEmpty()) {
+        return QStringLiteral("?");
+    }
+    while (s.endsWith(QLatin1Char(':'))) {
+        s.chop(1);
+    }
+    return s.isEmpty() ? QStringLiteral("?") : s;
+}
+
+QToolButton* makeToolbarButton(QWidget* parent, const QIcon& icon, const QString& tooltip) {
+    auto* button = new QToolButton(parent);
+    button->setIcon(icon);
+    button->setToolTip(tooltip);
+    ui::applyToolbarButtonStyle(button);
+    return button;
+}
+
+}  // namespace
 
 MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     : QMainWindow(parent), m_cfg(settings) {
@@ -45,34 +69,38 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
 void MainWindow::buildUi() {
     auto* central = new QWidget(this);
     auto* layout = new QVBoxLayout(central);
-    layout->setContentsMargins(4, 4, 4, 4);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
     auto* strip = new QWidget(central);
+    strip->setObjectName(QStringLiteral("commandStrip"));
+    strip->setStyleSheet(QStringLiteral(
+        "#commandStrip { background: #f3f3f3; border-bottom: 1px solid #c5c5c5; }"
+        "#commandStrip QToolButton {"
+        "  border: 1px solid transparent; border-radius: 4px; background: transparent; }"
+        "#commandStrip QToolButton:hover:enabled {"
+        "  background: #e6e6e6; border-color: #b8b8b8; }"
+        "#commandStrip QToolButton:pressed:enabled { background: #d4d4d4; }"
+        "#commandStrip QToolButton:disabled { opacity: 0.4; }"
+        "#commandStrip QLabel#volIndicator { padding: 0 4px; }"
+        "#commandStrip QPushButton#volFreeBtn {"
+        "  min-width: 72px; padding: 2px 8px; border: 1px solid #b0b0b0;"
+        "  border-radius: 3px; background: #ffffff; }"
+        "#commandStrip QPushButton#volFreeBtn:hover:enabled { background: #f0f7ff; border-color: #7eb8ff; }"
+        "#commandStrip QPushButton#volFreeBtn:pressed:enabled { background: #dcecff; }"
+        "#commandStrip QPushButton#volFreeBtn:disabled { color: #888888; background: #f7f7f7; }"));
+
     auto* stripLayout = new QHBoxLayout(strip);
-    stripLayout->setContentsMargins(0, 0, 0, 0);
+    stripLayout->setContentsMargins(8, 5, 8, 5);
+    stripLayout->setSpacing(4);
 
-    m_openBtn = new QToolButton(strip);
-    m_openBtn->setIcon(style()->standardIcon(QStyle::SP_DirIcon));
-    m_openBtn->setToolTip(QStringLiteral("Open a folder"));
-    m_openBtn->setAutoRaise(true);
+    m_openBtn = makeToolbarButton(strip, ui::toolbarOpenIcon(), QStringLiteral("Open a folder"));
+    m_upBtn = makeToolbarButton(strip, ui::toolbarUpIcon(), QStringLiteral("Go up"));
+    m_exploreBtn = makeToolbarButton(strip, ui::toolbarManageIcon(), QStringLiteral("Open in file manager"));
+    m_scanBtn = makeToolbarButton(strip, ui::toolbarUpdateIcon(), QStringLiteral("Update the folder data"));
     stripLayout->addWidget(m_openBtn);
-
-    m_upBtn = new QToolButton(strip);
-    m_upBtn->setIcon(style()->standardIcon(QStyle::SP_ArrowUp));
-    m_upBtn->setToolTip(QStringLiteral("Go up"));
-    m_upBtn->setAutoRaise(true);
     stripLayout->addWidget(m_upBtn);
-
-    m_exploreBtn = new QToolButton(strip);
-    m_exploreBtn->setIcon(style()->standardIcon(QStyle::SP_DesktopIcon));
-    m_exploreBtn->setToolTip(QStringLiteral("Open in file manager"));
-    m_exploreBtn->setAutoRaise(true);
     stripLayout->addWidget(m_exploreBtn);
-
-    m_scanBtn = new QToolButton(strip);
-    m_scanBtn->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
-    m_scanBtn->setToolTip(QStringLiteral("Update the folder data"));
-    m_scanBtn->setAutoRaise(true);
     stripLayout->addWidget(m_scanBtn);
 
     connect(m_openBtn, &QToolButton::clicked, this, &MainWindow::onOpenFolder);
@@ -80,14 +108,37 @@ void MainWindow::buildUi() {
     connect(m_exploreBtn, &QToolButton::clicked, this, &MainWindow::onExplore);
     connect(m_scanBtn, &QToolButton::clicked, this, &MainWindow::onUpdateOrStop);
 
-    m_totalLabel = new QLabel(QStringLiteral("Total at ?:"), strip);
-    m_freeLabel = new QLabel(QStringLiteral("Free at ?:"), strip);
-    m_freeBtn = new QPushButton(QStringLiteral("-"), strip);
-    connect(m_freeBtn, &QPushButton::clicked, this, &MainWindow::onRefreshFree);
-    stripLayout->addStretch();
+    auto* separator = new QFrame(strip);
+    separator->setFrameShape(QFrame::VLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    separator->setFixedHeight(26);
+    stripLayout->addSpacing(6);
+    stripLayout->addWidget(separator);
+    stripLayout->addSpacing(6);
+
+    m_totalLabel = new QLabel(QStringLiteral("Total at -: -"), strip);
+    m_totalLabel->setObjectName(QStringLiteral("volIndicator"));
+    m_totalLabel->setToolTip(QStringLiteral("Total capacity of the volume"));
     stripLayout->addWidget(m_totalLabel);
-    stripLayout->addWidget(m_freeLabel);
-    stripLayout->addWidget(m_freeBtn);
+
+    auto* freeGroup = new QWidget(strip);
+    auto* freeLayout = new QHBoxLayout(freeGroup);
+    freeLayout->setContentsMargins(0, 0, 0, 0);
+    freeLayout->setSpacing(4);
+    m_freeLabel = new QLabel(QStringLiteral("Free at -:"), freeGroup);
+    m_freeLabel->setObjectName(QStringLiteral("volIndicator"));
+    m_freeLabel->setToolTip(QStringLiteral("Free space on the volume"));
+    m_freeBtn = new QPushButton(QStringLiteral("-"), freeGroup);
+    m_freeBtn->setObjectName(QStringLiteral("volFreeBtn"));
+    m_freeBtn->setToolTip(QStringLiteral("Free space on the volume. Click to refresh."));
+    m_freeBtn->setEnabled(false);
+    freeLayout->addWidget(m_freeLabel);
+    freeLayout->addWidget(m_freeBtn);
+    stripLayout->addWidget(freeGroup);
+
+    connect(m_freeBtn, &QPushButton::clicked, this, &MainWindow::onRefreshFree);
+
+    stripLayout->addStretch();
 
     m_treemap = new treemap::TreemapWidget(central);
     connect(m_treemap, &treemap::TreemapWidget::diveRequested, this, &MainWindow::onDive);
@@ -131,18 +182,29 @@ QString MainWindow::statusForContext() const {
 }
 
 void MainWindow::refreshVolumeToolbar() {
-    const QString label = m_session.volLabel.isEmpty() ? QStringLiteral("?") : m_session.volLabel;
-    QString totalText = QStringLiteral("Total at %1:").arg(label);
-    totalText.replace(QStringLiteral("::"), QStringLiteral(":"));
-    m_totalLabel->setText(totalText);
-    QString freeText = QStringLiteral("Free at %1:").arg(label);
-    freeText.replace(QStringLiteral("::"), QStringLiteral(":"));
-    m_freeLabel->setText(freeText);
-    if (m_session.driveTotal > 0) {
-        m_totalLabel->setToolTip(util::formatObjectSize(static_cast<qint64>(m_session.driveTotal)));
+    if (m_session.targetPath.isEmpty() || m_session.volBarRoot.isEmpty()) {
+        m_totalLabel->setText(QStringLiteral("Total at -: -"));
+        m_freeLabel->setText(QStringLiteral("Free at -:"));
+        m_freeBtn->setText(QStringLiteral("-"));
+        m_freeBtn->setEnabled(false);
+        return;
     }
-    m_freeBtn->setText(m_session.driveFree > 0 ? util::formatObjectSize(static_cast<qint64>(m_session.driveFree))
-                                               : QStringLiteral("-"));
+
+    const QString label = normalizeDriveIndicatorToken(m_session.volLabel);
+    const quint64 total = m_session.driveTotal;
+    const quint64 free = m_session.driveFree;
+
+    if (total == 0) {
+        m_totalLabel->setText(QStringLiteral("Total at %1: -").arg(label));
+        m_freeLabel->setText(QStringLiteral("Free at %1:").arg(label));
+        m_freeBtn->setText(QStringLiteral("-"));
+    } else {
+        m_totalLabel->setText(QStringLiteral("Total at %1: %2")
+                                  .arg(label, util::formatObjectSize(static_cast<qint64>(total))));
+        m_freeLabel->setText(QStringLiteral("Free at %1:").arg(label));
+        m_freeBtn->setText(util::formatObjectSize(static_cast<qint64>(free)));
+    }
+    m_freeBtn->setEnabled(!m_session.scanning);
 }
 
 void MainWindow::updateChrome() {
@@ -160,11 +222,12 @@ void MainWindow::updateChrome() {
     m_stopAct->setVisible(scanning);
     m_updateAct->setEnabled(!scanning && hasTarget && complete);
     m_scanBtn->setEnabled(scanning || m_updateAct->isEnabled());
-    m_scanBtn->setIcon(style()->standardIcon(scanning ? QStyle::SP_MediaStop : QStyle::SP_MediaPlay));
+    m_scanBtn->setIcon(scanning ? ui::toolbarStopIcon() : ui::toolbarUpdateIcon());
     m_scanBtn->setToolTip(scanning ? QStringLiteral("Stop scanning folders")
                                    : QStringLiteral("Update the folder data"));
     m_settingsAct->setEnabled(!scanning);
     m_aboutAct->setEnabled(!scanning);
+    m_freeBtn->setEnabled(!scanning && !m_session.targetPath.isEmpty());
 
     if (scanning) {
         setCursor(Qt::BusyCursor);
@@ -342,12 +405,12 @@ void MainWindow::onAbout() {
 }
 
 void MainWindow::onRefreshFree() {
-    if (m_session.targetPath.isEmpty()) {
+    if (m_session.targetPath.isEmpty() || m_session.volBarRoot.isEmpty()) {
         return;
     }
     quint64 total = 0;
     quint64 free = 0;
-    if (platform::diskSpace(m_session.targetPath, &total, &free)) {
+    if (platform::diskSpace(m_session.volBarRoot, &total, &free)) {
         m_session.driveTotal = total;
         m_session.driveFree = free;
         model::annotateShares(m_session.publishedTree, m_session.driveTotal);
