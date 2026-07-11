@@ -39,7 +39,7 @@ As-built implementation descriptions (when present) use:
 
 `docs/specs/impl-<platform>-<stack>.md`
 
-**Supported today:** Windows + Go (`techspec-win-go.md`, `arch-win-go.md`) and Windows + C++ + Qt (`techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`, `impl-win-cpp-qt.md`). The Go module remains until the Qt target is verified against FS. Do not add spec files or repo-root implementation siblings for other OSes until those targets are actually supported.
+**Supported today:** Windows + Go (`techspec-win-go.md`, `arch-win-go.md`) and Windows + C++ + Qt (`techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`, `impl-win-cpp-qt.md`, `fixplan.md`). The Go module remains until the Qt target is verified against FS. Do not add spec files or repo-root implementation siblings for other OSes until those targets are actually supported.
 
 Rules for the slug `<platform>-<stack>` in the filename:
 

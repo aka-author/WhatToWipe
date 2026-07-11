@@ -13,9 +13,9 @@ Module: `win-cpp-qt/`.
 
 ### Purpose
 
-This document records how the open implementation defects from [dispute.md](../specs/dispute.md) findings 22–46 will be corrected. It turns the agreed reviewer priority order into concrete code changes, file targets, data-model decisions, and test gates.
+This document records how the open implementation defects from [dispute.md](./dispute.md) findings 22–46 will be corrected. It turns the agreed reviewer priority order into concrete code changes, file targets, data-model decisions, and test gates.
 
-This plan does not change product meaning. [funcspec.md](../specs/funcspec.md) remains owner-edited and is not modified by this document.
+This plan does not change product meaning. [funcspec.md](./funcspec.md) remains owner-edited and is not modified by this document.
 
 
 ### Basis
@@ -26,7 +26,7 @@ The following dispute sections are authoritative for scope:
 - Developer reply to strict implementation review (2026-07-11).
 - Reviewer reply to developer implementation response (2026-07-11).
 
-Cross-reference: [impl-win-cpp-qt.md](../specs/impl-win-cpp-qt.md) §15 lists current compliance gaps.
+Cross-reference: [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §15 lists current compliance gaps.
 
 
 ### Target audience
@@ -147,7 +147,7 @@ Add `platform/WinDirEnum.{h,cpp}`:
 - close handles through RAII on all paths;
 - return `DirectoryReadResult` with `DirectoryReadStatus` and `GetLastError()` on failure.
 
-Cancellation boundary (document in `docs/verification/io-01-scan-boundary.md`):
+Cancellation boundary (document in [../verification/io-01-scan-boundary.md](../verification/io-01-scan-boundary.md)):
 
 - cooperative cancel is checked between returned entries;
 - an individual syscall may block until the OS returns;
@@ -214,8 +214,8 @@ Manual fixture: directory with denied ACL child on a local volume.
 
 After code lands:
 
-- update [impl-win-cpp-qt.md](../specs/impl-win-cpp-qt.md) §6 and §15;
-- add `docs/verification/io-03-reparse-policy.md` with v1 size rule;
+- update [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §6 and §15;
+- add [../verification/io-03-reparse-policy.md](../verification/io-03-reparse-policy.md) with v1 size rule;
 - remove any text claiming a 30 s per-directory guarantee.
 
 
@@ -633,7 +633,7 @@ The table below lists primary files touched per phase.
 
 ## Tracking
 
-Update [impl-win-cpp-qt.md](../specs/impl-win-cpp-qt.md) §15 as each finding closes.
+Update [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §15 as each finding closes.
 
 Add a short entry to dispute.md only when a phase completes and evidence exists; do not amend reviewer sections.
 
