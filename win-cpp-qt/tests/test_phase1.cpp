@@ -8,6 +8,7 @@
 #include "scan/ScanWorker.h"
 #include "scan/SubtreeMerge.h"
 #include "treemap/TreemapProjection.h"
+#include "treemap/TreemapLayout.h"
 #include "util/Format.h"
 
 #include "util/CheckedMath.h"
@@ -499,6 +500,33 @@ private slots:
 #else
         QSKIP("Windows-only");
 #endif
+    }
+
+    void squarify_fills_layout_area() {
+        std::vector<model::TreemapItem> items;
+        for (int i = 0; i < 5; ++i) {
+            model::TreemapItem item;
+            item.name = QString::number(i);
+            item.size = static_cast<quint64>(100 + i * 50);
+            items.push_back(item);
+        }
+        const QRect area(0, 0, 400, 300);
+        const auto blocks = treemap::squarify(items, area, 1, 1);
+        QVERIFY(!blocks.empty());
+        int minLeft = area.left();
+        int maxRight = area.left();
+        int minTop = area.top();
+        int maxBottom = area.top();
+        for (const auto& block : blocks) {
+            minLeft = qMin(minLeft, block.rect.left());
+            maxRight = qMax(maxRight, block.rect.right());
+            minTop = qMin(minTop, block.rect.top());
+            maxBottom = qMax(maxBottom, block.rect.bottom());
+        }
+        QCOMPARE(minLeft, area.left());
+        QCOMPARE(maxRight, area.right());
+        QCOMPARE(minTop, area.top());
+        QCOMPARE(maxBottom, area.bottom());
     }
 
     void empty_dir_enumeration() {

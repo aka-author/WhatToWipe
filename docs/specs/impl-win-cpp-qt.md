@@ -172,6 +172,8 @@ The strip contains Open, Up, Explore, and Update/Stop buttons at 32×32 pixels w
 
 Volume indicators sit after the buttons with a separator: a static Total at X label and a Free at X label with a refresh `QPushButton`.
 
+`MainWindow::refreshVolumeToolbar()` formats Total and Free from `Session::driveTotal`, `driveFree`, and `volLabel`. Opening a folder calls `platform::validateLocalVolume` and updates session volume fields before the first scan. After a successful **Update**, `ScanDelivery::applyScanFinishedIfCurrent` re-queries the current volume, updates session totals, re-annotates `publishedTree` shares, and queues `ScanFinishUiAction::RefreshVolumeIndicators` so the strip shows fresh capacity and free space. The Free button still refreshes free space alone on click.
+
 `updateChrome()` mirrors menu enablement onto strip buttons via `app/UpdateChromePolicy`. During `UpdateContext` scans, **Up**, **Dive**, and **Explore** stay enabled against the published tree; during `OpenTarget` scans navigation is disabled. Update and Stop share one button and swap play/stop icons.
 
 
@@ -211,7 +213,7 @@ Update behavior is split across three helpers:
 
 During `UpdateContext`, the treemap reads only `publishedTree`; the in-flight worker tree is never painted. **Up**, **Dive**, and **Explore** stay enabled against the published snapshot. Open, Update, and Settings stay disabled until the scan ends.
 
-On successful Update completion, `prepareUpdatePublication` merges the pending snapshot with the scanned subtree, resolves the **live** `contextPath` (navigation during the scan counts), validates that path in the merged tree, increments `descriptorVersion` once, and `publishPreparedUpdate` assigns tree, context, version, and completeness atomically.
+On successful Update completion, `prepareUpdatePublication` merges the pending snapshot with the scanned subtree, resolves the **live** `contextPath` (navigation during the scan counts), validates that path in the merged tree, increments `descriptorVersion` once, and `publishPreparedUpdate` assigns tree, context, version, and completeness atomically. `applyScanFinishedIfCurrent` then refreshes volume-indicator session fields from `validateLocalVolume(targetPath)` and requests toolbar refresh.
 
 On Update cancel or failure, `restorePendingUpdateSession` restores the snapshot tree but **preserves the live `contextPath`** when that path still exists in the restored tree; otherwise it falls back to the snapshot context or target. `ResetTreemapUi` clears painted tiles, volume strip, and status text when Open paths unset the session.
 
@@ -260,7 +262,9 @@ When enumeration fails, the node keeps `traversalState = Unreadable`, `treeRole 
 | `TechnicalFailure` | error 002; restore or unset per scan kind |
 | `RootUnavailable` | error 001 |
 | Open success | replace `publishedTree`, set context to scan root, rebuild treemap |
-| Update success | `prepareUpdatePublication` + `publishPreparedUpdate`; live `contextPath` preserved on restore after cancel/failure when still valid in snapshot tree |
+| Update success | merge + publish; refresh volume indicators; rebuild treemap; live `contextPath` preserved on restore after cancel/failure when still valid in snapshot tree |
+
+`ScanFinishUiAction` values handled in `MainWindow::onScanFinished` include `RebuildTreemap`, `ResetTreemapUi`, `StatusForContext`, `RefreshVolumeIndicators`, and FS error or interruption alerts.
 
 
 ### 6.7 Open compliance gap (IO-02)
@@ -282,6 +286,8 @@ The treemap pipeline has four stages: projection, layout, label fit, and view.
 
 `treemap/TreemapLayout.cpp` ports `win-go/internal/layout/squarify.go`. Minimum tile dimensions convert from config point fields using widget DPI (`devicePixelRatio * 96 / 72`).
 
+Each recursive split extends the trailing child rectangle to the parent area edge on the split axis so integer rounding does not leave unfilled bands inside the treemap region. Test `squarify_fills_layout_area` in `phase1_tests` checks that the laid-out tile bounds reach all four edges of the layout rectangle.
+
 
 ### 7.3 Label fit
 
@@ -292,7 +298,9 @@ In the details block, the size line is rendered by `TreemapWidget` using `util::
 
 ### 7.4 View
 
-`treemap/TreemapWidget.cpp` paints tiles, hit-tests, and handles input.
+`treemap/TreemapWidget.cpp` paints tiles, hit-tests, and handles input. The widget uses `QSizePolicy::Expanding` and occupies the stretch slot below the command strip in `MainWindow::buildUi`.
+
+`MainWindow::rebuildTreemap()` projects context children, runs `squarify()` over the widget’s full `rect()`, and passes blocks to `setBlocks()`. On widget resize, `layoutAreaChanged` triggers another `rebuildTreemap()` so the diagram rescales to the new treemap region (FS treemap size rules).
 
 A left click on a folder tile dives in. A right click opens a context menu: Explore… on folder tiles, Open… on file tiles (disabled for executables). Dive is not duplicated on the context menu.
 
@@ -327,7 +335,7 @@ The grid has four shared columns.
 
 ### 8.3 Rows
 
-`SettingsSchema::treemapRowSchemas()` supplies 32 rows in the same order and with the same validation rules as `win-go/internal/ui/row_schema.go`, `validation.go`, and `config_mapper.go`.
+`SettingsSchema::treemapRowSchemas()` supplies treemap parameter rows in the same order and with the same validation rules as `win-go/internal/ui/row_schema.go`, `validation.go`, and `config_mapper.go`. On Windows the grid lists 31 rows: host-OS-specific executable-extension parameters show only `treemap.win.exeFiles` (not Linux or macOS rows). Other platforms include only their own `treemap.*.exeFiles` key.
 
 Numeric fields use `QLineEdit` with schema bounds. TSize fields accept `pt` and `mm` via `parsePointsInputToPt`. `treemap.clumpThreshold` stores a fraction and serializes with a `%` suffix. `treemap.tileFontName` is an editable `QComboBox` from `QFontDatabase::families()`. Color rows keep hex in the Value column, a live swatch in Preview, and `QColorDialog` from the picker column.
 
@@ -473,7 +481,7 @@ The table below records techspec row status as of the current tree. Update it wh
 | WR-01–WR-03 | implemented | `app.rc` + `AppVersion` |
 | WR-04 | open | Authenticode not in build script |
 | WR-05 | implemented | `Copy-WithRetry` in `build.ps1` |
-| DP-01–DP-02 | implemented | pt→px in layout/labels; relayout on resize |
+| DP-01–DP-02 | implemented | pt→px in layout/labels; treemap relayout on widget resize via `layoutAreaChanged` |
 | IO-01 | open | no documented `longPathAware` manifest |
 | IO-02 | gap | `errorCount` not shown after scan |
 | IO-03 | implemented | skip reparse; see [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md) |

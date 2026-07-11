@@ -177,17 +177,9 @@ void TreemapWidget::paintEvent(QPaintEvent* event) {
 
 void TreemapWidget::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    if (m_blocks.empty()) {
-        return;
+    if (!m_blocks.empty()) {
+        emit layoutAreaChanged();
     }
-    const int dpi = widgetDpi(this);
-    const QRect chartRect = rect();
-    m_labels.clear();
-    m_labels.reserve(m_blocks.size());
-    for (const auto& b : m_blocks) {
-        m_labels.push_back(resolveTileLabel(externalTileRect(b, chartRect), m_cfg, dpi));
-    }
-    update();
 }
 
 void TreemapWidget::mouseMoveEvent(QMouseEvent* event) {

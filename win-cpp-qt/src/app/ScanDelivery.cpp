@@ -3,6 +3,7 @@
 #include "app/ScanSessionGate.h"
 #include "app/UpdatePublish.h"
 
+#include "platform/VolumeInfo.h"
 #include "util/Format.h"
 
 #include <QDir>
@@ -181,7 +182,17 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
         out.uiActions.push_back(ScanFinishUiAction::Error002);
         return out;
     }
+    session.pendingUpdateSnapshot.reset();
+    const auto vol = platform::validateLocalVolume(session.targetPath);
+    if (vol.ok) {
+        session.volBarRoot = vol.root;
+        session.volLabel = vol.label;
+        session.driveTotal = vol.totalBytes;
+        session.driveFree = vol.freeBytes;
+        model::annotateShares(session.publishedTree, session.driveTotal);
+    }
     out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
+    out.uiActions.push_back(ScanFinishUiAction::RefreshVolumeIndicators);
     out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
     return out;
 }

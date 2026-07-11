@@ -84,8 +84,9 @@ std::vector<model::BlockLayout> squarifyRecursive(const std::vector<model::Treem
         if (wA >= area.width()) {
             wA = area.width() - 1;
         }
+        const int bLeft = area.left() + wA;
         aRect = QRect(area.left(), area.top(), wA, area.height());
-        bRect = QRect(area.left() + wA, area.top(), area.width() - wA, area.height());
+        bRect = QRect(bLeft, area.top(), area.right() - bLeft + 1, area.height());
     } else {
         int hA = static_cast<int>((static_cast<quint64>(area.height()) * aSum) / total);
         if (hA < 1) {
@@ -94,8 +95,9 @@ std::vector<model::BlockLayout> squarifyRecursive(const std::vector<model::Treem
         if (hA >= area.height()) {
             hA = area.height() - 1;
         }
+        const int bTop = area.top() + hA;
         aRect = QRect(area.left(), area.top(), area.width(), hA);
-        bRect = QRect(area.left(), area.top() + hA, area.width(), area.height() - hA);
+        bRect = QRect(area.left(), bTop, area.width(), area.bottom() - bTop + 1);
     }
 
     std::vector<model::BlockLayout> out;

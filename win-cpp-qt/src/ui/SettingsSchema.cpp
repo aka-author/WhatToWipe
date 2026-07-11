@@ -423,8 +423,11 @@ const QVector<SettingsRowSchema>& treemapRowSchemas() {
         addColor(QStringLiteral("treemap.packedClumpTextColor"), QStringLiteral("Packed clump text color"));
 
         addText(QStringLiteral("treemap.win.exeFiles"), QStringLiteral("Windows executable extensions"));
+#if defined(Q_OS_LINUX)
         addText(QStringLiteral("treemap.linux.exeFiles"), QStringLiteral("Linux executable extensions"));
+#elif defined(Q_OS_MACOS)
         addText(QStringLiteral("treemap.macos.exeFiles"), QStringLiteral("macOS executable extensions"));
+#endif
         return rows;
     }();
     return schemas;

@@ -265,7 +265,9 @@ private slots:
         const scan::ScanResult result = scan::ScanResult::success({3, 2, 4}, std::move(refreshed));
         const app::ScanFinishApply apply = app::applyScanFinishedIfCurrent(session, result);
         QVERIFY(apply.accepted);
-        assertUiActions(apply, {app::ScanFinishUiAction::RebuildTreemap, app::ScanFinishUiAction::StatusForContext});
+        assertUiActions(apply, {app::ScanFinishUiAction::RebuildTreemap,
+                                app::ScanFinishUiAction::RefreshVolumeIndicators,
+                                app::ScanFinishUiAction::StatusForContext});
         QVERIFY(session.resolveContextFolder() != nullptr);
         QCOMPARE(session.publishedTree.children.front().files.size(), static_cast<size_t>(1));
     }

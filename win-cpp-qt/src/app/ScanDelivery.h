@@ -40,6 +40,7 @@ enum class ScanFinishUiAction {
     RebuildTreemap,
     ResetTreemapUi,
     StatusForContext,
+    RefreshVolumeIndicators,
 };
 
 struct ScanFinishApply {

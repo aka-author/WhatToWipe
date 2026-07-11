@@ -22,6 +22,7 @@ signals:
     void diveRequested(QString folderPath);
     void exploreRequested(QString path);
     void openFileRequested(QString path);
+    void layoutAreaChanged();
 
 protected:
     void paintEvent(QPaintEvent* event) override;

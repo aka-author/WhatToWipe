@@ -309,6 +309,7 @@ All of the following conditions are met:
    If the scanning has finished successfully:
 
    - Update the treemap data.
+   - Update the volume indicators.
    - Display the treemap for the context folder as complete.
    - Recognize the result as positive.
 
@@ -958,6 +959,8 @@ The static label must be *Free at X:*. The *X* stands for the current volume let
 
 The button must display the volume free space. When the user clicks on the button the volume free space updates.
 
+When *Updating the Context Folder* finishes with a positive result, the program must refresh both volume indicators (**Total** and **Free**) from the current volume. The displayed total capacity and free space must reflect the volume state at the end of the update, not values left over from an earlier scan or folder open.
+
 
 ### Treemap
 
@@ -1181,7 +1184,13 @@ The tooltip must provide the following data on the file system object:
 
 ##### Treemap Size
 
-The treemap fills the client area and rescales when the main window is resized.
+The treemap must occupy the full area allocated to it in the main window: the region below the toolbar and above the status bar, edge to edge.
+
+The treemap must cover that entire region. White margins, unused border bands, letterboxing, or pillarboxing around the diagram are strictly forbidden.
+
+Clipping the treemap is strictly forbidden. Every tile must be drawn wholly inside the treemap region, and the union of all tile external rectangles must exactly fill the treemap region with no gaps and no overflow past its edges.
+
+When the main window is resized, the treemap must rescale to the new treemap region immediately. Tile layout must be recomputed from the new width and height; retaining a previous pixel layout after resize is not allowed.
 
 
 ### Status Bar
