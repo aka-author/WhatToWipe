@@ -1,6 +1,7 @@
 #include "app/Application.h"
 
 #include "app/MainWindow.h"
+#include "app/Product.h"
 #include "config/ConfigStore.h"
 
 #include <QApplication>
@@ -9,9 +10,9 @@
 namespace wtw::app {
 
 void WtwApplication::configure(QApplication& app) {
-    QApplication::setApplicationName(QStringLiteral("WhatToWipe"));
-    QApplication::setApplicationDisplayName(QStringLiteral("WhatToWipe"));
-    QApplication::setOrganizationName(QStringLiteral("WhatToWipe"));
+    QApplication::setApplicationName(productDisplayName());
+    QApplication::setApplicationDisplayName(productDisplayName());
+    QApplication::setOrganizationName(productDisplayName());
     QApplication::setApplicationVersion(QStringLiteral("1.0.0.0000"));
     app.setStyle(QStringLiteral("Fusion"));
     const QIcon windowIcon(QStringLiteral(":/app/app.ico"));

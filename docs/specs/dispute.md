@@ -677,3 +677,17 @@ One typed schema traceable to FS; tests compare editable key set to FS table.
 
 Revise `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md` to reflect this thread. Then request a fresh FS consistency review. `win-cpp-qt/` implementation remains blocked until that revision lands.
 
+---
+
+## 21. Product name — FS amended to Erase & Rewrite (2026-07-11)
+
+**Owner decision:** The shipping product name is **Erase & Rewrite** everywhere normative identity applies: FS, About dialog, main window title, PE `ProductName`/`FileDescription`, configuration folder/file, and Qt implementation strings.
+
+**Executable filename:** `EraseAndRewrite.exe` (no spaces or `&` in the PE file name).
+
+**Legacy:** Interim Qt builds used `WhatToWipe` / `WhatToWipe.config.txt`; that path remains for one-time import only. Historical dispute entries above that mandated WhatToWipe are superseded by this FS amendment.
+
+**Qt `&` escaping:** Display strings use `Erase & Rewrite`; menu/action labels that include the product name must use `Erase && Rewrite` where Qt treats `&` as a mnemonic marker.
+
+**Status:** Accepted. Implemented in `funcspec.md`, `techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`, and `win-cpp-qt/`.
+

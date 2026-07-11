@@ -10,14 +10,14 @@ if (-not $BinDir) {
     $BinDir = Join-Path $root "bin\win\current"
 }
 $BinDir = (Resolve-Path -LiteralPath $BinDir).Path
-$exe = Join-Path $BinDir "WhatToWipe.exe"
+$exe = Join-Path $BinDir "EraseAndRewrite.exe"
 
 if (-not (Test-Path -LiteralPath $exe)) {
     throw "Missing executable: $exe"
 }
 
 $required = @(
-    "WhatToWipe.exe",
+    "EraseAndRewrite.exe",
     "Qt6Core.dll",
     "Qt6Gui.dll",
     "Qt6Widgets.dll",
@@ -68,7 +68,7 @@ if (-not $p) {
 
 Start-Sleep -Seconds 4
 if ($p.HasExited) {
-    throw "WhatToWipe exited early with code $($p.ExitCode)"
+    throw "EraseAndRewrite exited early with code $($p.ExitCode)"
 }
 
 $hasWindow = $false
@@ -76,7 +76,7 @@ $deadline = (Get-Date).AddSeconds(8)
 while ((Get-Date) -lt $deadline) {
     $p.Refresh()
     if ($p.HasExited) {
-        throw "WhatToWipe exited during window check with code $($p.ExitCode)"
+        throw "EraseAndRewrite exited during window check with code $($p.ExitCode)"
     }
     if ($p.MainWindowHandle -ne [IntPtr]::Zero) {
         $hasWindow = $true
@@ -87,7 +87,7 @@ while ((Get-Date) -lt $deadline) {
 
 if (-not $hasWindow) {
     Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-    throw "WhatToWipe started but no main window appeared."
+    throw "EraseAndRewrite started but no main window appeared."
 }
 
 Stop-Process -Id $p.Id -Force

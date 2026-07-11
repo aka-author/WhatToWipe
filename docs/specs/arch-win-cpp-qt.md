@@ -161,8 +161,8 @@ Measure fonts with the same DPI used for painting (techspec DP-01).
 - Parse/write same key=value text format as `win-go/internal/config/file.go`.
 - Defaults from FS table.
 - Load order (techspec CF-03):
-  1. FS path: `%LocalAppData%\WhatToWipe\WhatToWipe.config.txt`
-  2. Legacy: `%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt`
+  1. FS path: `%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt`
+  2. Legacy: `%LocalAppData%\WhatToWipe\WhatToWipe.config.txt` (interim Qt builds only)
 - Save: prefer FS path for new installs; document behavior when legacy file was the source.
 
 ---

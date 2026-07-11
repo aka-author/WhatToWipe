@@ -1,5 +1,7 @@
 #include "app/MainWindow.h"
 
+#include "app/Product.h"
+
 #include "config/ConfigStore.h"
 #include "model/FolderDescriptor.h"
 #include "platform/ShellOpen.h"
@@ -57,7 +59,7 @@ QToolButton* makeToolbarButton(QWidget* parent, const QIcon& icon, const QString
 
 MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     : QMainWindow(parent), m_cfg(settings) {
-    setWindowTitle(QStringLiteral("WhatToWipe"));
+    setWindowTitle(productDisplayName());
     resize(1100, 720);
     buildUi();
     buildMenus();

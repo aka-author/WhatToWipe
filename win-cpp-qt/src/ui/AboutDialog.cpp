@@ -1,5 +1,7 @@
 #include "ui/AboutDialog.h"
 
+#include "app/Product.h"
+
 #include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QLabel>
@@ -8,9 +10,9 @@
 namespace wtw::ui {
 
 AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
-    setWindowTitle(QStringLiteral("About WhatToWipe"));
+    setWindowTitle(QStringLiteral("About %1").arg(wtw::app::productDisplayName()));
     auto* layout = new QVBoxLayout(this);
-    auto* title = new QLabel(QStringLiteral("WhatToWipe"), this);
+    auto* title = new QLabel(wtw::app::productDisplayName(), this);
     QFont f = title->font();
     f.setPointSize(f.pointSize() + 4);
     f.setBold(true);

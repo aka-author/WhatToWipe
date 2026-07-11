@@ -1,5 +1,7 @@
 #include "ui/AlertDialogs.h"
 
+#include "app/Product.h"
+
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
@@ -49,7 +51,7 @@ QDialog* makeAlert(QWidget* parent, const QString& title, const QString& body, c
 
 void showError(QWidget* parent, const QString& code, const QString& message) {
     const QString body = QStringLiteral("Error code: %1\n\n%2").arg(code, message);
-    auto* dlg = makeAlert(parent, QStringLiteral("WhatToWipe"), body, QColor(255, 220, 0), QStringLiteral("!"));
+    auto* dlg = makeAlert(parent, wtw::app::productDisplayName(), body, QColor(255, 220, 0), QStringLiteral("!"));
     dlg->exec();
     dlg->deleteLater();
 }
@@ -69,7 +71,7 @@ void showError004(QWidget* parent, const QString& folderPath) {
 }
 
 void showInterruptionAlert(QWidget* parent) {
-    auto* dlg = makeAlert(parent, QStringLiteral("WhatToWipe"), QString::fromUtf8(kInterruption),
+    auto* dlg = makeAlert(parent, wtw::app::productDisplayName(), QString::fromUtf8(kInterruption),
                           QColor(30, 120, 220), QStringLiteral("i"));
     dlg->exec();
     dlg->deleteLater();

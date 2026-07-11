@@ -3,8 +3,8 @@
 1 ICON "app.ico"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,13
- PRODUCTVERSION 1,0,0,13
+ FILEVERSION 1,0,0,14
+ PRODUCTVERSION 1,0,0,14
  FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
  FILEFLAGS 0x0L
  FILEOS VOS__WINDOWS32
@@ -15,14 +15,14 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "WhatToWipe"
-            VALUE "FileDescription", "WhatToWipe folder size treemap"
-            VALUE "FileVersion", "1.0.0.000D"
-            VALUE "InternalName", "whattowipe"
+            VALUE "CompanyName", "Erase & Rewrite"
+            VALUE "FileDescription", "Erase & Rewrite folder size treemap"
+            VALUE "FileVersion", "1.0.0.000E"
+            VALUE "InternalName", "eraserewrite"
             VALUE "LegalCopyright", "See repository license"
-            VALUE "OriginalFilename", "WhatToWipe.exe"
-            VALUE "ProductName", "WhatToWipe"
-            VALUE "ProductVersion", "1.0.0.000D"
+            VALUE "OriginalFilename", "EraseAndRewrite.exe"
+            VALUE "ProductName", "Erase & Rewrite"
+            VALUE "ProductVersion", "1.0.0.000E"
         END
     END
     BLOCK "VarFileInfo"

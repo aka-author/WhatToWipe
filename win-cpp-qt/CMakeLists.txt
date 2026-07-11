@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(WhatToWipe VERSION 1.0.0 LANGUAGES CXX)
+project(EraseAndRewrite VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,19 +41,19 @@ if(WIN32)
     list(APPEND WTW_SOURCES resources/app.rc)
 endif()
 
-qt_add_executable(WhatToWipe ${WTW_SOURCES})
+qt_add_executable(EraseAndRewrite ${WTW_SOURCES})
 
-target_include_directories(WhatToWipe PRIVATE src)
+target_include_directories(EraseAndRewrite PRIVATE src)
 
-target_link_libraries(WhatToWipe PRIVATE Qt6::Widgets Qt6::Svg)
+target_link_libraries(EraseAndRewrite PRIVATE Qt6::Widgets Qt6::Svg)
 
 if(WIN32)
-    target_link_libraries(WhatToWipe PRIVATE shell32 ole32)
+    target_link_libraries(EraseAndRewrite PRIVATE shell32 ole32)
 endif()
 
 # App links C++ runtime statically so deployed Qt libstdc++-6.dll only serves Qt6*.dll.
 if(MINGW)
-    target_link_options(WhatToWipe PRIVATE
+    target_link_options(EraseAndRewrite PRIVATE
         -static-libgcc
         -static-libstdc++
         -Wl,-Bstatic
@@ -62,4 +62,4 @@ if(MINGW)
     )
 endif()
 
-install(TARGETS WhatToWipe RUNTIME DESTINATION .)
+install(TARGETS EraseAndRewrite RUNTIME DESTINATION .)

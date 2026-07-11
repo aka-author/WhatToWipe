@@ -1,8 +1,8 @@
-# The WhatToWipe Utility. Functional Specification
+# The Erase & Rewrite Utility. Functional Specification
 
 ## Purpose
 
-The WhatToWipe utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
+The Erase & Rewrite utility helps users see how disk space is used. It shows how large each part is next to the full volume, without guesswork. It supports clear choices about what to keep, move, or remove.
 
 
 ## Concepts and Terms
@@ -44,7 +44,7 @@ The WhatToWipe utility helps users see how disk space is used. It shows how larg
 
 *Node folder:* A folder that contains at least one nested folder.
 
-*Program:* If not specified, the WhatToWipe utility.
+*Program:* If not specified, the Erase & Rewrite utility.
 
 *Scanning a folder:* An automatic activity during which the program collects data on the folder and all inner file system objects recursively.
 
@@ -789,7 +789,7 @@ Neither modal dialog box is open.
 
 While the **About** dialog box is open, the following text must be visible:
 
-- The product name **WhatToWipe**.
+- The product name **Erase & Rewrite**.
 - The application version as a single dotted string **Major.Minor.Patch.Build**, where Major, Minor, Patch, and Build are decimal integers and the string is identical to the **File version** value shown in Windows File Explorer for the running executable (Properties → Details).
 
 **Result**
@@ -1386,7 +1386,7 @@ Program configuration includes a set of parameters that describe the behavior an
 
 Values of the configuration parameters must be stored in a configuration file.
 
-The configuration file name must be `WhatToWipe.config.txt`.
+The configuration file name must be `Erase & Rewrite.config.txt`.
 
 The executable must contain a built-in default configuration.
 
@@ -1403,7 +1403,7 @@ A configuration file must be a human-readable text file.
 
 #### Windows
 
-The configuration folder path must be `%LocalAppData%\WhatToWipe`.
+The configuration folder path must be `%LocalAppData%\Erase & Rewrite`.
 
 
 ### Configuration Parameter Structure

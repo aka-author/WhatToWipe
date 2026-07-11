@@ -12,14 +12,14 @@ namespace wtw::config {
 
 static QString configDir() {
     return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-           + QStringLiteral("/WhatToWipe");
+           + QStringLiteral("/Erase & Rewrite");
 }
 
-QString fsConfigPath() { return configDir() + QStringLiteral("/WhatToWipe.config.txt"); }
+QString fsConfigPath() { return configDir() + QStringLiteral("/Erase & Rewrite.config.txt"); }
 
 QString legacyConfigPath() {
     return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-           + QStringLiteral("/Erase & Rewrite/Erase & Rewrite.config.txt");
+           + QStringLiteral("/WhatToWipe/WhatToWipe.config.txt");
 }
 
 static QColor parseHex(const QString& s) {

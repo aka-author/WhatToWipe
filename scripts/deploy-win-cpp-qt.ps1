@@ -14,9 +14,9 @@ if (-not $SourceDir) {
 }
 $SourceDir = (Resolve-Path -LiteralPath $SourceDir).Path
 
-$exe = Join-Path $SourceDir "WhatToWipe.exe"
+$exe = Join-Path $SourceDir "EraseAndRewrite.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
-    throw "WhatToWipe.exe not found in $SourceDir"
+    throw "EraseAndRewrite.exe not found in $SourceDir"
 }
 
 $deployScript = Join-Path $CodebaseRoot "win-cpp-qt\deploy-standalone.ps1"

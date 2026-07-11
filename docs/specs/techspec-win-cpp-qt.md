@@ -140,8 +140,8 @@ The Go + walk target failed FS Settings Form acceptance: overlay editors on `Sys
 | ID | Requirement |
 |----|-------------|
 | CF-01 | Config key names, value text format, and semantics must remain compatible with the existing `win-go` implementation and FS Program Setup Configuration (same `treemap.*` keys, TSize/Percentage/Color token rules). |
-| CF-02 | FS defines config folder `%LocalAppData%\WhatToWipe` and file `WhatToWipe.config.txt`. The Qt build must use those paths for new installs. |
-| CF-03 | For upgrade from existing `win-go` builds, the Qt program must also detect and load `%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt` when the FS path is absent, without requiring the user to migrate manually. On successful load from the legacy path, the next save may write the FS path or continue the legacy path; the chosen behavior must be documented in architecture notes and tested. |
+| CF-02 | FS defines config folder `%LocalAppData%\Erase & Rewrite` and file `Erase & Rewrite.config.txt`. The Qt build must use those paths for new installs. |
+| CF-03 | For upgrade from interim Qt builds, the program must detect and load `%LocalAppData%\WhatToWipe\WhatToWipe.config.txt` when the FS path is absent, without requiring the user to migrate manually. On successful load from the legacy path, the next save writes the FS path. |
 | CF-04 | Built-in defaults embedded in the executable must match FS default values for all treemap parameters. |
 
 

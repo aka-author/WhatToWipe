@@ -1,13 +1,6 @@
-# WhatToWipe (Windows, Qt 6)
+# Erase & Rewrite (Windows, Qt 6)
 
-C++/Qt 6 implementation of the WhatToWipe functional specification: folder-size treemap with FS-compliant scanning, projection, settings grid, and shell integration.
-
-## Requirements
-
-- Windows 10+
-- CMake 3.21+
-- Qt 6.5+ (Widgets)
-- C++17 compiler (MinGW-w64 or MSVC matching your Qt build)
+C++/Qt 6 implementation of the Erase & Rewrite functional specification: folder-size treemap with FS-compliant scanning, projection, settings grid, and shell integration.
 
 ## Build
 
@@ -17,27 +10,14 @@ From this directory:
 .\build.ps1
 ```
 
-Output executable:
+Output:
 
-`../../bin/win/current/WhatToWipe.exe`
+`../../bin/win/current/EraseAndRewrite.exe`
 
-Version metadata is taken from `versioninfo.json` (default `1.0.0.0000`).
+## Config
 
-## Configuration
+New installs use:
 
-On first run the app creates:
+`%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt`
 
-`%LocalAppData%\WhatToWipe\WhatToWipe.config.txt`
-
-Legacy settings may be imported once from `%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt` after defaults are written.
-
-## Layout
-
-- `src/app` — application shell, session, main window
-- `src/scan` — background scanner, archive classifier, subtree merge
-- `src/treemap` — projection, squarified layout, widget
-- `src/platform` — volume validation and shell open helpers
-- `src/config` — typed treemap settings and atomic save
-- `src/ui` — alerts, about, settings grid
-
-Behavior follows `codebase/docs/specs/funcspec.md` and dispute resolutions (reject `DRIVE_REMOTE`, design A reparse handling, subtree merge on update, no cancel confirmation in settings).
+Legacy Qt builds may have used `%LocalAppData%\WhatToWipe\WhatToWipe.config.txt`; that path is imported on first run when the FS path is missing.

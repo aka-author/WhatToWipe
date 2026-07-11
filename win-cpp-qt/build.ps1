@@ -9,7 +9,7 @@ $OutDir = Join-Path $WinBinRoot "current"
 $BuildDir = Join-Path $ModuleRoot "build"
 $VersionInfoPath = Join-Path $ModuleRoot "versioninfo.json"
 $AppRcPath = Join-Path $ModuleRoot "resources\app.rc"
-$Exe = Join-Path $OutDir "WhatToWipe.exe"
+$Exe = Join-Path $OutDir "EraseAndRewrite.exe"
 
 function Copy-WithRetry {
     param(
@@ -340,12 +340,12 @@ $cmakeArgs = @(
 & cmake @cmakeArgs
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
 
-& cmake --build $BuildDir --config Release --target WhatToWipe
+& cmake --build $BuildDir --config Release --target EraseAndRewrite
 if ($LASTEXITCODE -ne 0) { throw "cmake build failed" }
 
-$built = Join-Path $BuildDir "WhatToWipe.exe"
+$built = Join-Path $BuildDir "EraseAndRewrite.exe"
 if (-not (Test-Path -LiteralPath $built)) {
-    $built = Join-Path $BuildDir "Release\WhatToWipe.exe"
+    $built = Join-Path $BuildDir "Release\EraseAndRewrite.exe"
 }
 if (-not (Test-Path -LiteralPath $built)) {
     throw "Built executable not found under $BuildDir"
