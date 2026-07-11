@@ -176,7 +176,7 @@ CMAKE_OBJCOPY:FILEPATH=C:/cpp/qt/Tools/mingw1310_64/bin/objcopy.exe
 CMAKE_OBJDUMP:FILEPATH=C:/cpp/qt/Tools/mingw1310_64/bin/objdump.exe
 
 //No help, variable specified on the command line.
-CMAKE_PREFIX_PATH:UNINITIALIZED=C:/cpp/qt/6.10.3/mingw_64_static
+CMAKE_PREFIX_PATH:UNINITIALIZED=C:\cpp\qt\6.10.3\mingw_64_static
 
 //Value Computed by CMake
 CMAKE_PROJECT_COMPAT_VERSION:STATIC=
@@ -286,7 +286,7 @@ CMAKE_STRIP:FILEPATH=C:/cpp/qt/Tools/mingw1310_64/bin/strip.exe
 CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 
 //No help, variable specified on the command line.
-CMAKE_TOOLCHAIN_FILE:UNINITIALIZED=toolchain-qt-mingw
+CMAKE_TOOLCHAIN_FILE:UNINITIALIZED=C:\privat\misha\Shitwiper\codebase\win-cpp-qt\toolchain-qt-mingw.cmake
 
 //If this value is on, makefiles will be generated without the
 // .SILENT directive, and all commands will be echoed to the console
@@ -314,7 +314,7 @@ QT_ADDITIONAL_HOST_PACKAGES_PREFIX_PATH:STRING=
 QT_ADDITIONAL_PACKAGES_PREFIX_PATH:STRING=
 
 //No help, variable specified on the command line.
-QT_MINGW_ROOT:UNINITIALIZED=C:/cpp/qt/Tools/mingw1310_64
+QT_MINGW_ROOT:UNINITIALIZED=C:\cpp\qt\Tools\mingw1310_64
 
 //The directory containing a CMake configuration file for Qt6BundledFreetype.
 Qt6BundledFreetype_DIR:PATH=C:/cpp/qt/6.10.3/mingw_64_static/lib/cmake/Qt6BundledFreetype

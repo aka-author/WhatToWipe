@@ -41,3 +41,8 @@
 54464	74456	8055060769098246	CMakeFiles/EraseAndRewrite.dir/src/ui/SettingsSchema.cpp.obj	ab599af50f3ffc18
 54577	75409	8055060770233504	CMakeFiles/EraseAndRewrite.dir/src/ui/SettingsDialog.cpp.obj	399fc83e255b32e4
 75410	85007	8055060978551295	EraseAndRewrite.exe	62016a8f428bbbc3
+33	310	8055061351682942	qrc_app.cpp	599de1e355b8cc1a
+33	310	8055061351682942	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/qrc_app.cpp	599de1e355b8cc1a
+327	513	8055061351966809	CMakeFiles/EraseAndRewrite.dir/resources/app.rc.obj	51e65949fd055998
+310	3306	8055061351794949	CMakeFiles/EraseAndRewrite.dir/qrc_app.cpp.obj	aeb8172ca6ff13b5
+3306	12509	8055061381748758	EraseAndRewrite.exe	62016a8f428bbbc3
