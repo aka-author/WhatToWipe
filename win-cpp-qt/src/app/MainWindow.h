@@ -34,7 +34,7 @@ private slots:
     void onSettings();
     void onAbout();
     void onRefreshFree();
-    void onScanProgress(const QString& path);
+    void onScanProgress(wtw::scan::ScanIdentity identity, const QString& path);
     void onScanFinished(wtw::scan::ScanResult result);
     void onDive(const QString& folderPath);
     void onExploreTile(const QString& path);
@@ -76,7 +76,6 @@ private:
 
     QThread* m_scanThread = nullptr;
     scan::ScanWorker* m_scanWorker = nullptr;
-    scan::ScanIdentity m_activeScanIdentity{};
     QString m_latestProgressPath;
     qint64 m_lastProgressEmitMs = 0;
 };

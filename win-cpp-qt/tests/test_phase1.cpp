@@ -1,16 +1,29 @@
+#include "app/ScanSessionGate.h"
+#include "app/Session.h"
 #include "config/TreemapConfig.h"
 #include "model/FolderDescriptor.h"
 #include "platform/WinDirEnum.h"
 #include "scan/ScanResult.h"
+#include "scan/ScanWorker.h"
 #include "scan/SubtreeMerge.h"
 #include "treemap/TreemapProjection.h"
 #include "util/Format.h"
 
+#include "util/CheckedMath.h"
+
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QEventLoop>
+#include <QProcess>
 #include <QTemporaryDir>
+#include <QThread>
+#include <QTimer>
 #include <QtTest>
+#include <limits>
+#include <optional>
+#include <stdexcept>
 
 using namespace wtw;
 
@@ -101,21 +114,41 @@ private slots:
     }
 
     void scan_result_stale_scan_id() {
-        scan::ScanIdentity expected{1, 10, 0};
-        scan::ScanIdentity stale{2, 10, 0};
-        QVERIFY(stale.scanId != expected.scanId);
+        app::Session session;
+        session.scanId = 5;
+        session.sessionId = 10;
+        session.descriptorVersion = 2;
+        const scan::ScanIdentity delivered{4, 10, 2};
+        QVERIFY(!app::acceptsScanDelivery(delivered, session));
     }
 
     void scan_result_stale_session_id() {
-        scan::ScanIdentity expected{1, 10, 0};
-        scan::ScanIdentity stale{1, 11, 0};
-        QVERIFY(stale.targetSessionId != expected.targetSessionId);
+        app::Session session;
+        session.scanId = 1;
+        session.sessionId = 10;
+        session.descriptorVersion = 0;
+        const scan::ScanIdentity delivered{1, 11, 0};
+        QVERIFY(!app::acceptsScanDelivery(delivered, session));
     }
 
     void scan_result_stale_descriptor_version() {
-        scan::ScanIdentity expected{1, 10, 5};
-        scan::ScanIdentity stale{1, 10, 4};
-        QVERIFY(stale.baseDescriptorVersion != expected.baseDescriptorVersion);
+        app::Session session;
+        session.scanId = 1;
+        session.sessionId = 10;
+        session.descriptorVersion = 5;
+        const scan::ScanIdentity delivered{1, 10, 4};
+        QVERIFY(!app::acceptsScanDelivery(delivered, session));
+    }
+
+    void stale_delivery_rejected_after_session_reset() {
+        app::Session session;
+        session.scanId = 3;
+        session.sessionId = 7;
+        session.descriptorVersion = 1;
+        const scan::ScanIdentity delivered = app::liveScanIdentity(session);
+        QVERIFY(app::acceptsScanDelivery(delivered, session));
+        session.resetToInitial();
+        QVERIFY(!app::acceptsScanDelivery(delivered, session));
     }
 
     void success_requires_tree() {
@@ -199,17 +232,192 @@ private slots:
             ++seen;
             return seen > 1;
         });
-        QCOMPARE(result.status(), scan::DirectoryReadStatus::OtherError);
+        QCOMPARE(result.status(), scan::DirectoryReadStatus::Cancelled);
         QCOMPARE(platform::testOpenFindHandles(), 0);
     }
 
     void native_handle_closed_on_failure() {
-        const auto result = platform::enumerateDirectory(
-            QStringLiteral("Z:/this/path/should/not/exist/on/most/systems"), []() { return false; });
-        QVERIFY(result.status() != scan::DirectoryReadStatus::Ok);
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        QFile file(temp.filePath(QStringLiteral("one.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("a");
+        file.close();
+
+        platform::testSetFindNextHook([](HANDLE, WIN32_FIND_DATAW*) {
+            SetLastError(ERROR_ACCESS_DENIED);
+            return FALSE;
+        });
+        const auto result = platform::enumerateDirectory(temp.path(), []() { return false; });
+        platform::testClearFindNextHook();
+
+        QCOMPARE(result.status(), scan::DirectoryReadStatus::AccessDenied);
         QCOMPARE(platform::testOpenFindHandles(), 0);
+    }
+
+    void cancel_before_first_entry_through_worker() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        QFile file(temp.filePath(QStringLiteral("one.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("a");
+        file.close();
+
+        scan::ScanIdentity identity{1, 1, 0};
+        scan::ScanWorker worker(temp.path(), identity);
+        std::optional<scan::ScanResult> captured;
+        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
+                         [&](scan::ScanResult result) { captured = std::move(result); });
+        worker.requestCancel();
+        worker.run();
+
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::Cancelled);
+    }
+
+    void cancel_after_several_entries_through_worker() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        for (int i = 0; i < 200; ++i) {
+            QFile file(temp.filePath(QStringLiteral("file_%1.txt").arg(i, 4, 10, QChar('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("abcdefghijklmnop");
+            file.close();
+        }
+
+        scan::ScanIdentity identity{2, 1, 0};
+        auto* worker = new scan::ScanWorker(QDir::cleanPath(temp.path()), identity);
+        std::optional<scan::ScanResult> captured;
+        QObject* app = QCoreApplication::instance();
+
+        QThread thread;
+        worker->moveToThread(&thread);
+        QObject::connect(&thread, &QThread::started, worker, &scan::ScanWorker::run);
+        QObject::connect(worker, &scan::ScanWorker::finished, app,
+                         [&](scan::ScanResult result) { captured = std::move(result); }, Qt::QueuedConnection);
+
+        thread.start();
+        const qint64 deadline = QDateTime::currentMSecsSinceEpoch() + 5000;
+        while (!captured.has_value() && thread.isRunning() && QDateTime::currentMSecsSinceEpoch() < deadline) {
+            worker->requestCancel();
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+            QThread::msleep(5);
+        }
+        thread.quit();
+        QVERIFY(thread.wait(10000));
+        worker->deleteLater();
+
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::Cancelled);
+    }
+
+    void root_deleted_before_enum() {
+        const QString missing = QDir::tempPath() + QStringLiteral("/wtw_missing_root_") +
+                                QString::number(QDateTime::currentMSecsSinceEpoch());
+        scan::ScanIdentity identity{3, 1, 0};
+        scan::ScanWorker worker(missing, identity);
+        std::optional<scan::ScanResult> captured;
+        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
+                         [&](scan::ScanResult result) { captured = std::move(result); });
+        worker.run();
+
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::RootUnavailable);
+    }
+
+    void empty_dir_scan_through_worker() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+
+        scan::ScanIdentity identity{4, 1, 0};
+        scan::ScanWorker worker(temp.path(), identity);
+        std::optional<scan::ScanResult> captured;
+        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
+                         [&](scan::ScanResult result) { captured = std::move(result); });
+        worker.run();
+
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::Success);
+        QVERIFY(captured->tree().has_value());
+        QCOMPARE(captured->tree()->treeRole, model::TreeRole::EmptyFolder);
+    }
+
+    void reparse_target_nonempty_excluded() {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QString targetPath = temp.filePath(QStringLiteral("target"));
+        const QString junctionPath = temp.filePath(QStringLiteral("junction"));
+        QVERIFY(QDir().mkpath(targetPath));
+
+        QFile inner(temp.filePath(QStringLiteral("target/inner.dat")));
+        QVERIFY(inner.open(QIODevice::WriteOnly));
+        inner.write("payload");
+        inner.close();
+
+        const int mklinkCode = QProcess::execute(
+            QStringLiteral("cmd.exe"),
+            {QStringLiteral("/c"), QStringLiteral("mklink"), QStringLiteral("/J"),
+             QDir::toNativeSeparators(junctionPath), QDir::toNativeSeparators(targetPath)});
+        if (mklinkCode != 0) {
+            QSKIP("Directory junction creation unavailable on this machine");
+        }
+
+        scan::ScanIdentity identity{5, 1, 0};
+        scan::ScanWorker worker(temp.path(), identity);
+        std::optional<scan::ScanResult> captured;
+        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
+                         [&](scan::ScanResult result) { captured = std::move(result); });
+        worker.run();
+
+        QVERIFY(captured.has_value());
+        QCOMPARE(captured->outcome(), scan::ScanOutcome::Success);
+        QVERIFY(captured->tree().has_value());
+
+        bool foundReparse = false;
+        bool targetHasFile = false;
+        for (const auto& child : captured->tree()->children) {
+            if (child.fullPath.compare(junctionPath, Qt::CaseInsensitive) == 0) {
+                foundReparse = true;
+                QCOMPARE(child.traversalState, scan::TraversalState::ReparseTargetNotTraversed);
+                QVERIFY(child.children.empty());
+                QVERIFY(child.files.empty());
+            }
+            if (child.fullPath.compare(targetPath, Qt::CaseInsensitive) == 0) {
+                targetHasFile = !child.files.empty();
+            }
+        }
+        QVERIFY(foundReparse);
+        QVERIFY(targetHasFile);
+    }
+
+    void try_add_detects_overflow() {
+        quint64 out = 0;
+        QVERIFY(!util::tryAdd(std::numeric_limits<quint64>::max(), 1, &out));
+    }
+
+    void aggregate_overflow_throws() {
+        model::FolderDescriptor root;
+        root.traversalState = scan::TraversalState::Complete;
+        model::FileDescriptor huge;
+        huge.size = std::numeric_limits<quint64>::max();
+        root.files.push_back(huge);
+        root.files.push_back(huge);
+        bool threw = false;
+        try {
+            scan::recomputeAggregates(root);
+        } catch (const std::overflow_error&) {
+            threw = true;
+        }
+        QVERIFY(threw);
     }
 };
 
-QTEST_MAIN(Phase1Tests)
+int main(int argc, char* argv[]) {
+    QCoreApplication app(argc, argv);
+    qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
+    qRegisterMetaType<scan::ScanIdentity>("wtw::scan::ScanIdentity");
+    Phase1Tests tests;
+    return QTest::qExec(&tests, argc, argv);
+}
+
 #include "test_phase1.moc"

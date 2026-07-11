@@ -18,6 +18,7 @@ enum class ScanOutcome {
 enum class DirectoryReadStatus {
     Invalid,
     Ok,
+    Cancelled,
     AccessDenied,
     SharingViolation,
     NotFound,
@@ -38,6 +39,7 @@ enum class SizeCompleteness {
 class DirectoryReadResult {
 public:
     static DirectoryReadResult ok(QVector<platform::DirEntry> entries);
+    static DirectoryReadResult cancelled();
     static DirectoryReadResult accessDenied(DWORD nativeError);
     static DirectoryReadResult sharingViolation(DWORD nativeError);
     static DirectoryReadResult notFound(DWORD nativeError);

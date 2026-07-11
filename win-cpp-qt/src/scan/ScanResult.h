@@ -37,4 +37,5 @@ private:
 
 }  // namespace wtw::scan
 
+Q_DECLARE_METATYPE(wtw::scan::ScanIdentity)
 Q_DECLARE_METATYPE(wtw::scan::ScanResult)

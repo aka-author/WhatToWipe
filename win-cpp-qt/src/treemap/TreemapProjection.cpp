@@ -1,6 +1,7 @@
 #include "treemap/TreemapProjection.h"
 
 #include "scan/ScanTypes.h"
+#include "util/CheckedMath.h"
 
 #include <QFileInfo>
 #include <algorithm>
@@ -173,7 +174,12 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
         std::vector<Candidate> clumpMembers = forcedClump;
         clumpMembers.insert(clumpMembers.end(), kept.begin() + head, kept.end());
         for (const Candidate& candidate : clumpMembers) {
-            sum += candidate.size;
+            quint64 next = 0;
+            if (!util::tryAdd(sum, candidate.size, &next)) {
+                sum = 0;
+                break;
+            }
+            sum = next;
             if (!candidate.isFolder && candidate.packing != model::PackingType::Native) {
                 anyNonNative = true;
             }

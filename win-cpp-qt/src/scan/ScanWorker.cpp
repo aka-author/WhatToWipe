@@ -35,7 +35,7 @@ void ScanWorker::maybeEmitProgress(const QString& path) {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (m_lastProgressMs == 0 || now - m_lastProgressMs >= 500) {
         m_lastProgressMs = now;
-        emit progress(path);
+        emit progress(m_identity, path);
     }
 }
 
@@ -79,6 +79,13 @@ model::FolderDescriptor ScanWorker::scanDir(const QString& path, ScanDiagnostics
     const auto isCancelled = [this]() { return m_cancel.load(); };
     const DirectoryReadResult readResult = platform::enumerateDirectory(path, isCancelled);
     const DirectoryReadStatus status = readResult.status();
+
+    if (status == DirectoryReadStatus::Cancelled) {
+        if (cancelled) {
+            *cancelled = true;
+        }
+        return {};
+    }
 
     if (status == DirectoryReadStatus::Ok) {
         std::optional<QDateTime> oldest;
@@ -177,35 +184,35 @@ void ScanWorker::run() {
     ScanDiagnostics diagnostics;
     bool cancelled = false;
     DirectoryReadStatus rootReadStatus = DirectoryReadStatus::Invalid;
-    model::FolderDescriptor tree = scanDir(m_rootPath, &diagnostics, &cancelled, true, &rootReadStatus);
 
-    if (cancelled) {
-        emit finished(ScanResult::cancelled(m_identity, diagnostics));
-        return;
-    }
+    try {
+        model::FolderDescriptor tree = scanDir(m_rootPath, &diagnostics, &cancelled, true, &rootReadStatus);
 
-    if (rootReadStatus != DirectoryReadStatus::Invalid && rootReadStatus != DirectoryReadStatus::Ok) {
-        const ScanOutcome outcome = rootOutcomeForStatus(rootReadStatus);
-        if (outcome == ScanOutcome::RootUnavailable) {
-            emit finished(ScanResult::rootUnavailable(m_identity, diagnostics));
-        } else {
-            emit finished(ScanResult::technicalFailure(m_identity, diagnostics));
+        if (cancelled) {
+            emit finished(ScanResult::cancelled(m_identity, diagnostics));
+            return;
         }
-        return;
-    }
 
-    if (tree.traversalState == TraversalState::Unreadable && tree.children.empty() && tree.files.empty()) {
-        emit finished(ScanResult::rootUnavailable(m_identity, diagnostics));
-        return;
-    }
+        if (rootReadStatus != DirectoryReadStatus::Invalid && rootReadStatus != DirectoryReadStatus::Ok) {
+            const ScanOutcome outcome = rootOutcomeForStatus(rootReadStatus);
+            if (outcome == ScanOutcome::RootUnavailable) {
+                emit finished(ScanResult::rootUnavailable(m_identity, diagnostics));
+            } else {
+                emit finished(ScanResult::technicalFailure(m_identity, diagnostics));
+            }
+            return;
+        }
 
-    tree.fullPath = QDir::cleanPath(m_rootPath);
-    tree.name = QFileInfo(m_rootPath).fileName();
-    if (tree.name.isEmpty()) {
-        tree.name = tree.fullPath;
+        tree.fullPath = QDir::cleanPath(m_rootPath);
+        tree.name = QFileInfo(m_rootPath).fileName();
+        if (tree.name.isEmpty()) {
+            tree.name = tree.fullPath;
+        }
+        recomputeAggregates(tree);
+        emit finished(ScanResult::success(m_identity, std::move(tree), diagnostics));
+    } catch (const std::exception&) {
+        emit finished(ScanResult::technicalFailure(m_identity, diagnostics));
     }
-    recomputeAggregates(tree);
-    emit finished(ScanResult::success(m_identity, std::move(tree), diagnostics));
 }
 
 }  // namespace wtw::scan

@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 
 #include "app/Product.h"
+#include "app/ScanSessionGate.h"
 
 #include "config/ConfigStore.h"
 #include "model/FolderDescriptor.h"
@@ -62,6 +63,7 @@ QToolButton* makeToolbarButton(QWidget* parent, const QIcon& icon, const QString
 MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     : QMainWindow(parent), m_cfg(settings) {
     qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
+    qRegisterMetaType<scan::ScanIdentity>("wtw::scan::ScanIdentity");
     setWindowTitle(productDisplayName());
     resize(1100, 720);
     buildUi();
@@ -461,9 +463,9 @@ void MainWindow::startScan(const QString& scanRoot, ScanKind kind) {
         m_treemap->clearBlocks();
     }
 
-    m_activeScanIdentity = {scanId, m_session.sessionId, m_session.descriptorVersion};
+    const scan::ScanIdentity workerIdentity{scanId, m_session.sessionId, m_session.descriptorVersion};
     m_scanThread = new QThread(this);
-    m_scanWorker = new scan::ScanWorker(m_session.scanRootPath, m_activeScanIdentity);
+    m_scanWorker = new scan::ScanWorker(m_session.scanRootPath, workerIdentity);
     m_scanWorker->moveToThread(m_scanThread);
 
     connect(m_scanThread, &QThread::started, m_scanWorker, &scan::ScanWorker::run);
@@ -482,7 +484,10 @@ void MainWindow::startScan(const QString& scanRoot, ScanKind kind) {
     m_scanThread->start();
 }
 
-void MainWindow::onScanProgress(const QString& path) {
+void MainWindow::onScanProgress(scan::ScanIdentity identity, const QString& path) {
+    if (!acceptsScanDelivery(identity, m_session)) {
+        return;
+    }
     m_latestProgressPath = path;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (m_lastProgressEmitMs != 0 && now - m_lastProgressEmitMs < 500) {
@@ -493,9 +498,7 @@ void MainWindow::onScanProgress(const QString& path) {
 }
 
 void MainWindow::onScanFinished(scan::ScanResult result) {
-    if (result.identity().scanId != m_activeScanIdentity.scanId ||
-        result.identity().targetSessionId != m_activeScanIdentity.targetSessionId ||
-        result.identity().baseDescriptorVersion != m_activeScanIdentity.baseDescriptorVersion) {
+    if (!acceptsScanDelivery(result.identity(), m_session)) {
         return;
     }
 

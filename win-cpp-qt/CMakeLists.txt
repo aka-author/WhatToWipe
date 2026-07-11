@@ -71,10 +71,13 @@ enable_testing()
 
 set(WTW_TEST_SOURCES
     tests/test_phase1.cpp
+    src/app/Session.cpp
     src/model/FolderDescriptor.cpp
     src/config/TreemapConfig.cpp
     src/scan/ScanTypes.cpp
     src/scan/ScanResult.cpp
+    src/scan/ScanWorker.cpp
+    src/scan/ArchiveClassifier.cpp
     src/scan/SubtreeMerge.cpp
     src/treemap/TreemapProjection.cpp
     src/platform/WinDirEnum.cpp

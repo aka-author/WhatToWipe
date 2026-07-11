@@ -21,7 +21,7 @@ public slots:
     void run();
 
 signals:
-    void progress(QString path);
+    void progress(scan::ScanIdentity identity, QString path);
     void finished(ScanResult result);
 
 private:

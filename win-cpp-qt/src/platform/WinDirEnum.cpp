@@ -11,6 +11,7 @@ namespace {
 
 #ifdef WTW_UNIT_TEST
 int g_openFindHandles = 0;
+FindNextHook g_findNextHook;
 #endif
 
 class FindHandle {
@@ -56,6 +57,15 @@ private:
     HANDLE handle_ = INVALID_HANDLE_VALUE;
 };
 
+BOOL queryFindNext(HANDLE handle, WIN32_FIND_DATAW* data) {
+#ifdef WTW_UNIT_TEST
+    if (g_findNextHook) {
+        return g_findNextHook(handle, data);
+    }
+#endif
+    return FindNextFileW(handle, data);
+}
+
 quint64 fileSizeFromFindData(const WIN32_FIND_DATAW& data) {
     ULARGE_INTEGER size;
     size.HighPart = data.nFileSizeHigh;
@@ -100,7 +110,7 @@ platform::DirEntry entryFromFindData(const QString& parentPath, const WIN32_FIND
 
 scan::DirectoryReadResult enumerateDirectory(const QString& path, CancelPredicate isCancelled) {
     if (isCancelled && isCancelled()) {
-        return scan::DirectoryReadResult::otherError(ERROR_OPERATION_ABORTED);
+        return scan::DirectoryReadResult::cancelled();
     }
 
     const QString nativePath = QDir::toNativeSeparators(path);
@@ -115,12 +125,12 @@ scan::DirectoryReadResult enumerateDirectory(const QString& path, CancelPredicat
     QVector<platform::DirEntry> entries;
     do {
         if (isCancelled && isCancelled()) {
-            return scan::DirectoryReadResult::otherError(ERROR_OPERATION_ABORTED);
+            return scan::DirectoryReadResult::cancelled();
         }
         if (!isDotOrDotDot(data.cFileName)) {
             entries.push_back(entryFromFindData(path, data));
         }
-    } while (FindNextFileW(handle.get(), &data));
+    } while (queryFindNext(handle.get(), &data));
 
     const DWORD enumError = GetLastError();
     if (enumError != ERROR_NO_MORE_FILES) {
@@ -133,7 +143,14 @@ scan::DirectoryReadResult enumerateDirectory(const QString& path, CancelPredicat
 #ifdef WTW_UNIT_TEST
 int testOpenFindHandles() { return g_openFindHandles; }
 
-void testResetFindHandleState() { g_openFindHandles = 0; }
+void testResetFindHandleState() {
+    g_openFindHandles = 0;
+    g_findNextHook = nullptr;
+}
+
+void testSetFindNextHook(FindNextHook hook) { g_findNextHook = std::move(hook); }
+
+void testClearFindNextHook() { g_findNextHook = nullptr; }
 #endif
 
 }  // namespace wtw::platform

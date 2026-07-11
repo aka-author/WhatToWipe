@@ -12,6 +12,10 @@ DirectoryReadResult DirectoryReadResult::ok(QVector<platform::DirEntry> entries)
     return DirectoryReadResult(DirectoryReadStatus::Ok, std::move(entries));
 }
 
+DirectoryReadResult DirectoryReadResult::cancelled() {
+    return DirectoryReadResult(DirectoryReadStatus::Cancelled, 0);
+}
+
 DirectoryReadResult DirectoryReadResult::accessDenied(DWORD nativeError) {
     return DirectoryReadResult(DirectoryReadStatus::AccessDenied, nativeError);
 }
