@@ -3,6 +3,8 @@
 #include <QIcon>
 #include <QSize>
 
+class QToolButton;
+
 namespace wtw::ui {
 
 QSize toolbarIconSize();
@@ -12,6 +14,6 @@ QIcon toolbarManageIcon();
 QIcon toolbarUpdateIcon();
 QIcon toolbarStopIcon();
 
-void applyToolbarButtonStyle(class QToolButton* button);
+void applyToolbarButtonStyle(QToolButton* button);
 
 }  // namespace wtw::ui
