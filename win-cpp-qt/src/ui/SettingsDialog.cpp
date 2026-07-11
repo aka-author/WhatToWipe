@@ -73,17 +73,32 @@ private:
 
 namespace {
 
+constexpr int kDefaultDialogW = 540;
+constexpr int kDefaultDialogH = 440;
+constexpr int kMaxDialogW = 640;
+constexpr int kMaxDialogH = 520;
+constexpr int kMinDialogW = 380;
+constexpr int kMinDialogH = 280;
+constexpr int kGridRowHeight = 24;
+
+int clampDialogDimension(int value, int fallback, int minV, int maxV) {
+    if (value <= 0 || value > maxV) {
+        return fallback;
+    }
+    return qBound(minV, value, maxV);
+}
+
 QLabel* makeNameLabel(const QString& text, QWidget* parent) {
     auto* label = new QLabel(text, parent);
-    label->setWordWrap(true);
+    label->setWordWrap(false);
     label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    label->setMargin(4);
+    label->setMargin(2);
     return label;
 }
 
 QLabel* makeSwatch(QWidget* parent) {
     auto* swatch = new QLabel(parent);
-    swatch->setFixedSize(28, 20);
+    swatch->setFixedSize(24, 16);
     swatch->setFrameStyle(QFrame::Box | QFrame::Plain);
     swatch->setLineWidth(1);
     return swatch;
@@ -103,7 +118,7 @@ void paintSwatch(QLabel* swatch, const QString& value) {
 
 QWidget* makeEmptyCell(QWidget* parent) {
     auto* cell = new QWidget(parent);
-    cell->setMinimumHeight(28);
+    cell->setMinimumHeight(kGridRowHeight);
     return cell;
 }
 
@@ -112,7 +127,11 @@ QWidget* makeEmptyCell(QWidget* parent) {
 SettingsDialog::SettingsDialog(const config::TreemapSettings& initial, QWidget* parent)
     : QDialog(parent), m_initial(initial), m_effective(initial) {
     setWindowTitle(QStringLiteral("Settings"));
-    resize(m_initial.settingsDialogW, m_initial.settingsDialogH);
+    const int dialogW =
+        clampDialogDimension(m_initial.settingsDialogW, kDefaultDialogW, kMinDialogW, kMaxDialogW);
+    const int dialogH =
+        clampDialogDimension(m_initial.settingsDialogH, kDefaultDialogH, kMinDialogH, kMaxDialogH);
+    resize(dialogW, dialogH);
     if (m_initial.settingsDialogX || m_initial.settingsDialogY) {
         move(m_initial.settingsDialogX, m_initial.settingsDialogY);
     }
@@ -135,9 +154,10 @@ SettingsDialog::SettingsDialog(const config::TreemapSettings& initial, QWidget* 
     m_table->horizontalHeader()->setSectionResizeMode(ColValue, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(ColSwatch, QHeaderView::Fixed);
     m_table->horizontalHeader()->setSectionResizeMode(ColPicker, QHeaderView::Fixed);
-    m_table->setColumnWidth(ColSwatch, 44);
-    m_table->setColumnWidth(ColPicker, 44);
-    m_table->verticalHeader()->setDefaultSectionSize(32);
+    m_table->setColumnWidth(ColSwatch, 36);
+    m_table->setColumnWidth(ColPicker, 32);
+    m_table->verticalHeader()->setDefaultSectionSize(kGridRowHeight);
+    m_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     root->addWidget(m_table, 1);
 
     buildGrid();
@@ -215,7 +235,7 @@ void SettingsDialog::attachRowWidgets(int row) {
         m_table->setIndexWidget(m_model->index(row, ColSwatch), widgets.swatchCell);
 
         auto* pick = new QPushButton(QStringLiteral("…"), m_table);
-        pick->setFixedWidth(36);
+        pick->setFixedSize(28, kGridRowHeight - 4);
         widgets.pickerCell = pick;
         m_table->setIndexWidget(m_model->index(row, ColPicker), pick);
         connect(pick, &QPushButton::clicked, this, [this, row]() {

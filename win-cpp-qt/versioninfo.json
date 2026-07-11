@@ -4,13 +4,13 @@
                                               "Major":  1,
                                               "Minor":  0,
                                               "Patch":  0,
-                                              "Build":  9
+                                              "Build":  10
                                           },
                           "ProductVersion":  {
                                                  "Major":  1,
                                                  "Minor":  0,
                                                  "Patch":  0,
-                                                 "Build":  9
+                                                 "Build":  10
                                              },
                           "FileFlagsMask":  "3f",
                           "FileFlags":  "00",
@@ -22,11 +22,11 @@
                            "Comments":  "Disk usage treemap (WhatToWipe functional spec)",
                            "CompanyName":  "WhatToWipe",
                            "FileDescription":  "WhatToWipe folder size treemap",
-                           "FileVersion":  "1.0.0.0009",
+                           "FileVersion":  "1.0.0.000A",
                            "InternalName":  "whattowipe",
                            "LegalCopyright":  "See repository license",
                            "OriginalFilename":  "WhatToWipe.exe",
                            "ProductName":  "WhatToWipe",
-                           "ProductVersion":  "1.0.0.0009"
+                           "ProductVersion":  "1.0.0.000A"
                        }
 }

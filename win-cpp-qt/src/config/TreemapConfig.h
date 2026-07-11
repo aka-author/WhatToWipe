@@ -44,8 +44,8 @@ struct TreemapSettings {
 
     int settingsDialogX = 0;
     int settingsDialogY = 0;
-    int settingsDialogW = 1080;
-    int settingsDialogH = 760;
+    int settingsDialogW = 540;
+    int settingsDialogH = 440;
 };
 
 TreemapSettings defaultTreemapSettings();
