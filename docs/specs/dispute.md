@@ -1418,7 +1418,9 @@ Do not declare `win-cpp-qt/` the active Windows delivery line until a fresh FS-t
 - [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md) — untraversed reparse size rule
 - [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §6 (as-built scanner), §15.1 (findings 23, 24, 25, 39, 40 closed)
 
-**Automated tests:** `win-cpp-qt/tests/test_phase1.cpp`, target `phase1_tests` via `ctest` in `win-cpp-qt/build`.
+**Automated tests:** `win-cpp-qt/tests/test_phase1.cpp`, target `phase1_tests` via `ctest` in `win-cpp-qt/build`. Windows CI job `.github/workflows/win-cpp-qt-phase1.yml` sets `WTW_REQUIRE_PLATFORM_FIXTURES=1` so ACL and reparse fixtures must execute (skips fail the gate).
+
+**Review round 2 fixes (Phase 1 closure):** clump overflow throws via `checkedAdd`; QObject cleanup by pointer identity; full `ScanDelivery` acceptance tests; mandatory platform fixtures in CI.
 
 **Findings closed in Phase 1:** 23 (enumeration/cancel/RAII), 24 (unreadable ≠ empty), 25 (reparse semantics), 39 (scan identity validation), 40 (typed outcomes).
 

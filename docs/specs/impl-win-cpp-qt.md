@@ -226,7 +226,7 @@ When enumeration fails, the node keeps `traversalState = Unreadable`, `treeRole 
 
 ### 6.6 Scan completion
 
-`MainWindow::onScanFinished` validates `ScanResult::identity()` against the live session (`app::applyScanFinishedIfCurrent`) before mutating session state.
+`MainWindow::onScanFinished` and `onScanProgress` delegate session mutations to `app/ScanDelivery` after identity validation. Stale deliveries are observationally inert for progress, chrome-related session fields, diagnostics, published descriptor, and pending update state.
 
 | Outcome | Behavior |
 |---------|----------|

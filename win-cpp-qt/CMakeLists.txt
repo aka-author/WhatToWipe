@@ -14,6 +14,7 @@ set(WTW_SOURCES
     src/app/Application.cpp
     src/app/MainWindow.cpp
     src/app/Session.cpp
+    src/app/ScanDelivery.cpp
     src/model/FolderDescriptor.cpp
     src/config/TreemapConfig.cpp
     src/config/ConfigStore.cpp
@@ -72,6 +73,7 @@ enable_testing()
 set(WTW_TEST_SOURCES
     tests/test_phase1.cpp
     src/app/Session.cpp
+    src/app/ScanDelivery.cpp
     src/model/FolderDescriptor.cpp
     src/config/TreemapConfig.cpp
     src/scan/ScanTypes.cpp

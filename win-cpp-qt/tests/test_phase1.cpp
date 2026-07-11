@@ -74,6 +74,48 @@ bool installDeniedReadFixture(const QString& path) {
     return true;
 }
 
+bool platformFixturesRequired() {
+    return qEnvironmentVariableIntValue("WTW_REQUIRE_PLATFORM_FIXTURES") != 0;
+}
+
+void requirePlatformFixture(bool available, const char* detail) {
+    if (available) {
+        return;
+    }
+    if (platformFixturesRequired()) {
+        QFAIL(qPrintable(QStringLiteral("Required platform fixture unavailable: ") +
+                         QString::fromUtf8(detail)));
+    }
+    QSKIP(detail);
+}
+
+bool snapshotsEqual(const app::SessionDeliverySnapshot& a, const app::SessionDeliverySnapshot& b) {
+    return a.scanning == b.scanning && a.scanId == b.scanId && a.sessionId == b.sessionId &&
+           a.descriptorVersion == b.descriptorVersion && a.treemapComplete == b.treemapComplete &&
+           a.contextPath == b.contextPath && a.publishedTreeName == b.publishedTreeName &&
+           a.hasPendingUpdate == b.hasPendingUpdate && a.pendingContextPath == b.pendingContextPath &&
+           a.latestProgressPath == b.latestProgressPath && a.lastProgressEmitMs == b.lastProgressEmitMs;
+}
+
+app::Session populatedUpdateSession() {
+    app::Session session;
+    session.scanning = true;
+    session.scanId = 9;
+    session.sessionId = 42;
+    session.descriptorVersion = 7;
+    session.treemapComplete = true;
+    session.contextPath = QStringLiteral("C:/ctx");
+    session.targetPath = QStringLiteral("C:/ctx");
+    session.scanRootPath = QStringLiteral("C:/ctx/sub");
+    session.scanKind = app::ScanKind::UpdateContext;
+    session.publishedTree.name = QStringLiteral("keep-me");
+    app::UpdateSnapshot pending;
+    pending.contextPath = QStringLiteral("C:/ctx");
+    pending.tree.name = QStringLiteral("snapshot-tree");
+    session.pendingUpdateSnapshot = std::move(pending);
+    return session;
+}
+
 std::optional<scan::ScanResult> runWorkerSync(const QString& root, const scan::ScanIdentity& identity,
                                               const std::function<void(scan::ScanWorker*)>& beforeRun = {}) {
     scan::ScanWorker worker(root, identity);
@@ -110,7 +152,7 @@ private slots:
         DenyReadAclGuard guard;
         guard.path = deniedPath;
         if (!installDeniedReadFixture(deniedPath)) {
-            QSKIP("Could not install a denied-read ACL fixture on this machine");
+            requirePlatformFixture(false, "denied-read ACL fixture");
         }
         guard.active = true;
 
@@ -139,7 +181,7 @@ private slots:
         DenyReadAclGuard guard;
         guard.path = temp.path();
         if (!installDeniedReadFixture(temp.path())) {
-            QSKIP("Could not install a denied-read ACL fixture on this machine");
+            requirePlatformFixture(false, "root denied-read ACL fixture");
         }
         guard.active = true;
 
@@ -214,36 +256,63 @@ private slots:
     }
 
     void scan_result_stale_scan_id() {
-        app::Session session;
-        session.scanning = true;
-        session.scanId = 5;
-        session.sessionId = 10;
-        session.descriptorVersion = 2;
-        const scan::ScanResult result = scan::ScanResult::cancelled({4, 10, 2});
-        QVERIFY(!app::applyScanFinishedIfCurrent(session, result));
-        QVERIFY(session.scanning);
+        app::Session session = populatedUpdateSession();
+        app::ScanProgressState progress;
+        progress.latestProgressPath = QStringLiteral("scanning/sub");
+        progress.lastProgressEmitMs = 1000;
+        const auto before = app::captureDeliverySnapshot(session, progress);
+
+        model::FolderDescriptor tree;
+        tree.name = QStringLiteral("must-not-publish");
+        const scan::ScanResult result = scan::ScanResult::success({8, 42, 7}, std::move(tree));
+        const app::ScanFinishApply apply = app::applyScanFinishedIfCurrent(session, result);
+
+        QVERIFY(!apply.accepted);
+        QVERIFY(snapshotsEqual(before, app::captureDeliverySnapshot(session, progress)));
     }
 
     void scan_result_stale_session_id() {
-        app::Session session;
-        session.scanning = true;
-        session.scanId = 1;
-        session.sessionId = 10;
-        session.descriptorVersion = 0;
-        const scan::ScanResult result = scan::ScanResult::cancelled({1, 11, 0});
-        QVERIFY(!app::applyScanFinishedIfCurrent(session, result));
+        app::Session session = populatedUpdateSession();
+        app::ScanProgressState progress;
+        progress.latestProgressPath = QStringLiteral("scanning/sub");
+        const auto before = app::captureDeliverySnapshot(session, progress);
+
+        const scan::ScanResult result = scan::ScanResult::cancelled({9, 41, 7});
+        const app::ScanFinishApply apply = app::applyScanFinishedIfCurrent(session, result);
+
+        QVERIFY(!apply.accepted);
         QVERIFY(session.scanning);
+        QVERIFY(snapshotsEqual(before, app::captureDeliverySnapshot(session, progress)));
     }
 
     void scan_result_stale_descriptor_version() {
-        app::Session session;
-        session.scanning = true;
-        session.scanId = 1;
-        session.sessionId = 10;
-        session.descriptorVersion = 5;
-        const scan::ScanResult result = scan::ScanResult::cancelled({1, 10, 4});
-        QVERIFY(!app::applyScanFinishedIfCurrent(session, result));
-        QVERIFY(session.scanning);
+        app::Session session = populatedUpdateSession();
+        app::ScanProgressState progress;
+        const auto before = app::captureDeliverySnapshot(session, progress);
+
+        model::FolderDescriptor tree;
+        tree.name = QStringLiteral("must-not-publish");
+        const scan::ScanResult result = scan::ScanResult::success({9, 42, 6}, std::move(tree));
+        const app::ScanFinishApply apply = app::applyScanFinishedIfCurrent(session, result);
+
+        QVERIFY(!apply.accepted);
+        QVERIFY(session.pendingUpdateSnapshot.has_value());
+        QVERIFY(snapshotsEqual(before, app::captureDeliverySnapshot(session, progress)));
+    }
+
+    void stale_progress_delivery_inert() {
+        app::Session session = populatedUpdateSession();
+        app::ScanProgressState progress;
+        progress.latestProgressPath = QStringLiteral("before");
+        progress.lastProgressEmitMs = 1000;
+        const auto before = app::captureDeliverySnapshot(session, progress);
+
+        const app::ScanProgressApply apply =
+            app::applyScanProgressIfCurrent(session, progress, {9, 99, 7}, QStringLiteral("after"), 2000);
+
+        QVERIFY(!apply.accepted);
+        QVERIFY(apply.statusText.isEmpty());
+        QVERIFY(snapshotsEqual(before, app::captureDeliverySnapshot(session, progress)));
     }
 
     void stale_delivery_rejected_after_session_reset() {
@@ -399,37 +468,36 @@ private slots:
     void cancel_after_several_entries() {
         QTemporaryDir temp;
         QVERIFY(temp.isValid());
-        for (int i = 0; i < 200; ++i) {
-            QFile file(temp.filePath(QStringLiteral("file_%1.txt").arg(i, 4, 10, QChar('0'))));
+        for (int i = 0; i < 20; ++i) {
+            QFile file(temp.filePath(QStringLiteral("file_%1.txt").arg(i, 2, 10, QChar('0'))));
             QVERIFY(file.open(QIODevice::WriteOnly));
             file.write("abcdefghijklmnop");
             file.close();
         }
 
-        scan::ScanIdentity identity{2, 1, 0};
-        auto* worker = new scan::ScanWorker(QDir::cleanPath(temp.path()), identity);
+        scan::ScanWorker worker(QDir::cleanPath(temp.path()), {2, 1, 0});
+        scan::ScanWorker* workerPtr = &worker;
+        int entriesBeforeCancel = 0;
+        platform::testSetFindNextHook([&](HANDLE handle, WIN32_FIND_DATAW* data) {
+            const BOOL ok = FindNextFileW(handle, data);
+            if (ok) {
+                ++entriesBeforeCancel;
+                if (entriesBeforeCancel >= 5) {
+                    workerPtr->requestCancel();
+                }
+            }
+            return ok;
+        });
+
         std::optional<scan::ScanResult> captured;
-        QObject* app = QCoreApplication::instance();
-
-        QThread thread;
-        worker->moveToThread(&thread);
-        QObject::connect(&thread, &QThread::started, worker, &scan::ScanWorker::run);
-        QObject::connect(worker, &scan::ScanWorker::finished, app,
-                         [&](scan::ScanResult result) { captured = std::move(result); }, Qt::QueuedConnection);
-
-        thread.start();
-        const qint64 deadline = QDateTime::currentMSecsSinceEpoch() + 5000;
-        while (!captured.has_value() && thread.isRunning() && QDateTime::currentMSecsSinceEpoch() < deadline) {
-            worker->requestCancel();
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-            QThread::msleep(5);
-        }
-        thread.quit();
-        QVERIFY(thread.wait(10000));
-        worker->deleteLater();
+        QObject::connect(&worker, &scan::ScanWorker::finished, &worker,
+                         [&](scan::ScanResult result) { captured = std::move(result); });
+        worker.run();
+        platform::testClearFindNextHook();
 
         QVERIFY(captured.has_value());
         QCOMPARE(captured->outcome(), scan::ScanOutcome::Cancelled);
+        QVERIFY(entriesBeforeCancel >= 5);
     }
 
     void root_deleted_before_enum() {
@@ -457,7 +525,7 @@ private slots:
             {QStringLiteral("/c"), QStringLiteral("mklink"), QStringLiteral("/J"),
              QDir::toNativeSeparators(junctionPath), QDir::toNativeSeparators(targetPath)});
         if (mklinkCode != 0) {
-            QSKIP("Directory junction creation unavailable on this machine");
+            requirePlatformFixture(false, "directory junction creation");
         }
 
         scan::ScanIdentity identity{5, 1, 0};
@@ -486,6 +554,30 @@ private slots:
         }
         QVERIFY(foundReparse);
         QVERIFY(targetHasFile);
+    }
+
+    void clump_sum_overflow_throws() {
+        model::FolderDescriptor context;
+        context.traversalState = scan::TraversalState::Complete;
+        context.measuredSize = std::numeric_limits<quint64>::max();
+        for (int i = 0; i < 3; ++i) {
+            model::FileDescriptor file;
+            file.name = QStringLiteral("big");
+            file.fullPath = QStringLiteral("C:/ctx/big");
+            file.size = (std::numeric_limits<quint64>::max() / 2) + 1;
+            context.files.push_back(file);
+        }
+
+        config::TreemapSettings cfg;
+        cfg.maxTiles = 1;
+        cfg.clumpThreshold = 0.01;
+        bool threw = false;
+        try {
+            treemap::buildTreemapItems(&context, 100, cfg);
+        } catch (const std::overflow_error&) {
+            threw = true;
+        }
+        QVERIFY(threw);
     }
 
     void try_add_detects_overflow() {

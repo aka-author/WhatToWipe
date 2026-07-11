@@ -2,7 +2,6 @@
 
 #include "app/Product.h"
 #include "app/ScanDelivery.h"
-#include "app/ScanSessionGate.h"
 
 #include "config/ConfigStore.h"
 #include "model/FolderDescriptor.h"
@@ -10,7 +9,6 @@
 #include "platform/VolumeInfo.h"
 #include "scan/ScanResult.h"
 #include "scan/ScanWorker.h"
-#include "scan/SubtreeMerge.h"
 #include "treemap/TreemapLayout.h"
 #include "treemap/TreemapProjection.h"
 #include "treemap/TreemapWidget.h"
@@ -465,138 +463,72 @@ void MainWindow::startScan(const QString& scanRoot, ScanKind kind) {
     }
 
     const scan::ScanIdentity workerIdentity{scanId, m_session.sessionId, m_session.descriptorVersion};
-    m_scanThread = new QThread(this);
-    m_scanWorker = new scan::ScanWorker(m_session.scanRootPath, workerIdentity);
-    m_scanWorker->moveToThread(m_scanThread);
+    QThread* thread = new QThread(this);
+    scan::ScanWorker* worker = new scan::ScanWorker(m_session.scanRootPath, workerIdentity);
+    m_scanThread = thread;
+    m_scanWorker = worker;
+    worker->moveToThread(thread);
 
-    connect(m_scanThread, &QThread::started, m_scanWorker, &scan::ScanWorker::run);
-    connect(m_scanWorker, &scan::ScanWorker::progress, this, &MainWindow::onScanProgress);
-    connect(m_scanWorker, &scan::ScanWorker::finished, this, &MainWindow::onScanFinished);
-    connect(m_scanWorker, &scan::ScanWorker::finished, m_scanThread, &QThread::quit);
-    connect(m_scanWorker, &scan::ScanWorker::finished, m_scanWorker, &QObject::deleteLater);
-    connect(m_scanThread, &QThread::finished, m_scanThread, &QObject::deleteLater);
-    connect(m_scanThread, &QThread::finished, this, [this, scanId]() {
-        if (m_session.scanId == scanId) {
+    connect(thread, &QThread::started, worker, &scan::ScanWorker::run);
+    connect(worker, &scan::ScanWorker::progress, this, &MainWindow::onScanProgress);
+    connect(worker, &scan::ScanWorker::finished, this, &MainWindow::onScanFinished);
+    connect(worker, &scan::ScanWorker::finished, thread, &QThread::quit);
+    connect(worker, &scan::ScanWorker::finished, worker, &QObject::deleteLater);
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    connect(thread, &QThread::finished, this, [this, thread, worker]() {
+        if (m_scanThread == thread) {
             m_scanThread = nullptr;
+        }
+        if (m_scanWorker == worker) {
             m_scanWorker = nullptr;
         }
     });
 
-    m_scanThread->start();
+    thread->start();
 }
 
 void MainWindow::onScanProgress(scan::ScanIdentity identity, const QString& path) {
-    if (!acceptsScanDelivery(identity, m_session)) {
+    ScanProgressState progress{m_latestProgressPath, m_lastProgressEmitMs};
+    const ScanProgressApply apply =
+        applyScanProgressIfCurrent(m_session, progress, identity, path, QDateTime::currentMSecsSinceEpoch());
+    m_latestProgressPath = progress.latestProgressPath;
+    m_lastProgressEmitMs = progress.lastProgressEmitMs;
+    if (!apply.accepted || apply.statusText.isEmpty()) {
         return;
     }
-    m_latestProgressPath = path;
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (m_lastProgressEmitMs != 0 && now - m_lastProgressEmitMs < 500) {
-        return;
-    }
-    m_lastProgressEmitMs = now;
-    setStatusText(m_latestProgressPath);
+    setStatusText(apply.statusText);
 }
 
 void MainWindow::onScanFinished(scan::ScanResult result) {
-    if (!applyScanFinishedIfCurrent(m_session, result)) {
+    const ScanFinishApply apply = applyScanFinishedIfCurrent(m_session, result);
+    if (!apply.accepted) {
         return;
     }
-
-    const ScanKind kind = m_session.scanKind;
-    const QString scanRoot = m_session.scanRootPath;
-    const QString expectedTarget = m_session.targetPath;
 
     updateChrome();
 
-    switch (result.outcome()) {
-    case scan::ScanOutcome::TechnicalFailure:
-        if (kind == ScanKind::UpdateContext && m_session.pendingUpdateSnapshot) {
-            restorePendingUpdate();
-        } else {
-            unsetTreemap();
-        }
-        ui::showError002(this);
-        m_session.pendingUpdateSnapshot.reset();
-        return;
-    case scan::ScanOutcome::Cancelled:
-        if (kind == ScanKind::UpdateContext && m_session.pendingUpdateSnapshot) {
-            restorePendingUpdate();
-            ui::showInterruptionAlert(this);
-        } else {
-            unsetTreemap();
-            ui::showInterruptionAlert(this);
-        }
-        m_session.pendingUpdateSnapshot.reset();
-        return;
-    case scan::ScanOutcome::RootUnavailable:
-        if (kind == ScanKind::UpdateContext && m_session.pendingUpdateSnapshot) {
-            restorePendingUpdate();
+    for (ScanFinishUiAction action : apply.uiActions) {
+        switch (action) {
+        case ScanFinishUiAction::Error001:
             ui::showError001(this);
-        } else {
-            unsetTreemap();
-            ui::showError001(this);
+            break;
+        case ScanFinishUiAction::Error002:
+            ui::showError002(this);
+            break;
+        case ScanFinishUiAction::Error004:
+            ui::showError004(this, apply.error004Target);
+            break;
+        case ScanFinishUiAction::InterruptionAlert:
+            ui::showInterruptionAlert(this);
+            break;
+        case ScanFinishUiAction::RebuildTreemap:
+            rebuildTreemap();
+            break;
+        case ScanFinishUiAction::StatusForContext:
+            setStatusText(statusForContext());
+            break;
         }
-        m_session.pendingUpdateSnapshot.reset();
-        return;
-    case scan::ScanOutcome::Success:
-        break;
-    default:
-        return;
     }
-
-    if (!result.tree()) {
-        return;
-    }
-
-    model::FolderDescriptor tree = *result.tree();
-    model::annotateShares(tree, m_session.driveTotal);
-
-    if (kind == ScanKind::OpenTarget) {
-        if (!expectedTarget.isEmpty()) {
-            const QFileInfo targetFi(expectedTarget);
-            if (!targetFi.exists()) {
-                ui::showError004(this, expectedTarget);
-                unsetTreemap();
-                return;
-            }
-        }
-        m_session.publishedTree = std::move(tree);
-        m_session.contextPath = scanRoot;
-        m_session.treemapComplete = true;
-        ++m_session.descriptorVersion;
-        m_session.pendingUpdateSnapshot.reset();
-        rebuildTreemap();
-        setStatusText(statusForContext());
-        return;
-    }
-
-    if (!m_session.pendingUpdateSnapshot) {
-        return;
-    }
-    const QFileInfo ctxFi(scanRoot);
-    if (!ctxFi.exists()) {
-        unsetTreemap();
-        ui::showError004(this, scanRoot);
-        m_session.pendingUpdateSnapshot.reset();
-        return;
-    }
-
-    auto merged = scan::mergeSubtree(m_session.pendingUpdateSnapshot->tree, scanRoot, tree);
-    if (!merged) {
-        restorePendingUpdate();
-        ui::showError002(this);
-        m_session.pendingUpdateSnapshot.reset();
-        return;
-    }
-    model::annotateShares(*merged, m_session.driveTotal);
-    m_session.publishedTree = std::move(*merged);
-    m_session.contextPath = m_session.pendingUpdateSnapshot->contextPath;
-    m_session.treemapComplete = true;
-    ++m_session.descriptorVersion;
-    m_session.pendingUpdateSnapshot.reset();
-    rebuildTreemap();
-    setStatusText(statusForContext());
 }
 
 }  // namespace wtw::app

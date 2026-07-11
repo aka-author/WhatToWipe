@@ -23,3 +23,4 @@ Directory enumeration uses `FindFirstFileExW` / `FindNextFileW` in `platform/Win
 
 - `win-cpp-qt/tests/test_phase1.cpp` (Phase 1 harness, `ctest` target `phase1_tests`)
 - `docs/specs/impl-win-cpp-qt.md` §6
+- `.github/workflows/win-cpp-qt-phase1.yml` with `WTW_REQUIRE_PLATFORM_FIXTURES=1`

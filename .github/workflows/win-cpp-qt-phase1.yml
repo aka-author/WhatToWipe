@@ -1,0 +1,52 @@
+name: win-cpp-qt Phase 1
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'win-cpp-qt/**'
+      - '.github/workflows/win-cpp-qt-phase1.yml'
+      - 'docs/verification/io-01-scan-boundary.md'
+      - 'docs/verification/io-03-reparse-policy.md'
+  pull_request:
+    paths:
+      - 'win-cpp-qt/**'
+      - '.github/workflows/win-cpp-qt-phase1.yml'
+  workflow_dispatch:
+
+jobs:
+  phase1-tests:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: qtbase qtsvg qttools
+
+      - name: Configure
+        working-directory: win-cpp-qt
+        run: cmake -S . -B build -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH"
+
+      - name: Build
+        working-directory: win-cpp-qt
+        run: cmake --build build --config Release
+
+      - name: Run Phase 1 tests
+        working-directory: win-cpp-qt
+        env:
+          WTW_REQUIRE_PLATFORM_FIXTURES: '1'
+        run: ctest --test-dir build --output-on-failure -C Release
