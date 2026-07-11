@@ -69,7 +69,7 @@ The module ships one Windows GUI program. Its technical parameters are listed be
 | Toolchain | Qt 6.10.3 `mingw_64` + MinGW 13.1.0 via `toolchain-qt-mingw.cmake` |
 | Version resource | `resources/app.rc` from `versioninfo.json`; About reads `FileVersion` in `platform/AppVersion.cpp` |
 
-`build.ps1` bumps the build counter, commits a snapshot, runs CMake/ninja, copies the program to `bin/win/current`, runs `windeployqt`, writes `build-meta.json` and a `.date` marker, appends `docs/history/builds.txt`, and runs `test-run.ps1`.
+`build.ps1` bumps the build counter, commits a snapshot, runs CMake/ninja, copies the program to `bin/win/current`, runs standalone Qt deploy (`deploy-standalone.ps1`), writes `build-meta.json` and a `.date` marker, appends `docs/history/builds.txt`, and runs `test-run.ps1`. Unit tests `phase1_tests` and `phase2_tests` run via `ctest` in `win-cpp-qt/build`.
 
 
 ## 2. Source layout
@@ -90,15 +90,20 @@ win-cpp-qt/
     toolbar.qrc
   src/
     main.cpp
-    app/           Application, MainWindow, Session, Product
+    app/           Application, MainWindow, Session, ScanDelivery,
+                   UpdateChromePolicy, UpdatePublish, Product
     config/        TreemapConfig, ConfigStore
     model/         FolderDescriptor
-    scan/          ScanWorker, ArchiveClassifier, SubtreeMerge
+    scan/          ScanWorker, ScanTypes, ScanResult, ArchiveClassifier,
+                   SubtreeMerge
+    platform/      VolumeInfo, ShellOpen, AppVersion, WinDirEnum
     treemap/       TreemapProjection, TreemapLayout, LabelFit, TreemapWidget
-    platform/      VolumeInfo, ShellOpen, AppVersion
     ui/            SettingsSchema, SettingsDialog, AboutDialog, AlertDialogs,
                    MenuLabels, ToolbarIcons
-    util/          Format
+    util/          Format, CheckedMath
+  tests/
+    test_phase1.cpp
+    test_phase2.cpp
 ```
 
 Build products never live inside `codebase/`; they land under `<ProjectRoot>/bin/win/current/` per [folder-structure.md](../folder-structure.md).
@@ -192,6 +197,25 @@ The status bar shows the context path while the treemap is complete, a throttled
 `pushContext`, `goUp`, and `canGoUp` walk `contextPath` relative to `targetPath`. Dive-in is a left click on a non-empty folder tile; `TreemapWidget` emits `diveRequested`.
 
 
+### 5.1 Update navigation and publication
+
+Update behavior is split across three helpers:
+
+| Module | Role |
+|--------|------|
+| `app/UpdateChromePolicy` | `computeChromeAvailability`, `canNavigateUp`, `canNavigateDive` — scanKind-gated chrome during `OpenTarget` vs `UpdateContext` |
+| `app/ScanDelivery` | identity-gated progress and scan-finished delivery; maps outcomes to session mutations and `ScanFinishUiAction` list |
+| `app/UpdatePublish` | `prepareUpdatePublication`, `publishPreparedUpdate`, `restorePendingUpdateSession`, `resolveRestoredUpdateContext` |
+
+During `UpdateContext`, the treemap reads only `publishedTree`; the in-flight worker tree is never painted. **Up**, **Dive**, and **Explore** stay enabled against the published snapshot. Open, Update, and Settings stay disabled until the scan ends.
+
+On successful Update completion, `prepareUpdatePublication` merges the pending snapshot with the scanned subtree, resolves the **live** `contextPath` (navigation during the scan counts), validates that path in the merged tree, increments `descriptorVersion` once, and `publishPreparedUpdate` assigns tree, context, version, and completeness atomically.
+
+On Update cancel or failure, `restorePendingUpdateSession` restores the snapshot tree but **preserves the live `contextPath`** when that path still exists in the restored tree; otherwise it falls back to the snapshot context or target. `ResetTreemapUi` clears painted tiles, volume strip, and status text when Open paths unset the session.
+
+Automated coverage: `tests/test_phase1.cpp` (`phase1_tests`) for scanner foundation; `tests/test_phase2.cpp` (`phase2_tests`) for Update chrome, publication, stale delivery, and rollback semantics. Windows CI: `.github/workflows/win-cpp-qt-phase1.yml` with `WTW_REQUIRE_PLATFORM_FIXTURES=1`.
+
+
 ## 6. Scanning
 
 `scan/ScanWorker` performs the directory walk on a dedicated `QThread` off the Qt GUI thread. Results are delivered as typed `scan::ScanResult` values with `scan::ScanIdentity` (`scanId`, `targetSessionId`, `baseDescriptorVersion`).
@@ -230,7 +254,7 @@ When enumeration fails, the node keeps `traversalState = Unreadable`, `treeRole 
 
 | Outcome | Behavior |
 |---------|----------|
-| `Cancelled` | Update restores `pendingUpdateSnapshot` and shows an interruption alert; Open unsets the treemap |
+| `Cancelled` | Update restores snapshot tree (live `contextPath` preserved when valid) and shows interruption alert; Open unsets treemap |
 | `TechnicalFailure` | error 002; restore or unset per scan kind |
 | `RootUnavailable` | error 001 |
 | Open success | replace `publishedTree`, set context to scan root, rebuild treemap |
