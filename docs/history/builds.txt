@@ -99,3 +99,4 @@ version	branch	commit_full	commit_short
 1.0.0.0013	dev	cf9d0df18773b8868bcf84d0c24aeed0bfda0d5a	cf9d0df
 1.0.0.0014	dev	064d5e8f662267a4f5645dd3cce0e5908e00d5e4	064d5e8
 1.0.0.0015	dev	35a7c9c2d17b42b870b9143073123fcf535ad8a0	35a7c9c
+1.0.0.0016	dev	7c0a2f3e627ccb34753aeca53ceac73586ca7b8d	7c0a2f3
