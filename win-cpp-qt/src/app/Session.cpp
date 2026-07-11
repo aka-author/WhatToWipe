@@ -1,8 +1,8 @@
 #include "app/Session.h"
+#include "app/UpdatePublish.h"
 
 #include <QDir>
 #include <QFileInfo>
-#include <functional>
 
 namespace wtw::app {
 
@@ -37,29 +37,7 @@ const model::FolderDescriptor* Session::resolveContextFolder() const {
     if (!treemapComplete || targetPath.isEmpty()) {
         return nullptr;
     }
-    if (contextPath.isEmpty() ||
-        QDir::cleanPath(contextPath).compare(QDir::cleanPath(targetPath), Qt::CaseInsensitive) == 0) {
-        return &publishedTree;
-    }
-    const QString wanted = QDir::cleanPath(contextPath);
-    const model::FolderDescriptor* cur = &publishedTree;
-    if (QDir::cleanPath(cur->fullPath).compare(wanted, Qt::CaseInsensitive) == 0) {
-        return cur;
-    }
-    // Walk tree by matching full paths under target.
-    std::function<const model::FolderDescriptor*(const model::FolderDescriptor&)> find =
-        [&](const model::FolderDescriptor& node) -> const model::FolderDescriptor* {
-        if (QDir::cleanPath(node.fullPath).compare(wanted, Qt::CaseInsensitive) == 0) {
-            return &node;
-        }
-        for (const auto& child : node.children) {
-            if (const model::FolderDescriptor* hit = find(child)) {
-                return hit;
-            }
-        }
-        return nullptr;
-    };
-    return find(publishedTree);
+    return findFolderByContextPath(publishedTree, targetPath, contextPath);
 }
 
 void Session::setContextPath(const QString& path) { contextPath = QDir::cleanPath(path); }

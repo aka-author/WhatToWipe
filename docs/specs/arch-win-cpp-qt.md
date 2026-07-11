@@ -86,7 +86,9 @@ Logical roles; class names are suggestions.
 - **Treemap host** — `TreemapWidget` (stretch).
 - **Status bar** — `QStatusBar`.
 
-Menu `QAction`s are the source of truth for shortcuts; a single `updateChrome()` syncs menu, strip, and treemap enabled state (mirrors `setScanChrome` in `win-go`).
+Menu `QAction`s are the source of truth for shortcuts; `updateChrome()` syncs menu, strip, and treemap enabled state via `app/UpdateChromePolicy` (mirrors `setScanChrome` in `win-go`).
+
+During `UpdateContext` scans, navigation (**Up**, treemap **Dive**, **Explore**) continues against `publishedTree` until the merged snapshot is published atomically through `app/UpdatePublish`. During `OpenTarget` scans, navigation stays disabled because no complete published treemap exists yet.
 
 FS wording "toolbar" means these command affordances, not a specific Win32 or Qt toolbar class.
 

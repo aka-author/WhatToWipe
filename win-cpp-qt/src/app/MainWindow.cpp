@@ -2,6 +2,7 @@
 
 #include "app/Product.h"
 #include "app/ScanDelivery.h"
+#include "app/UpdateChromePolicy.h"
 
 #include "config/ConfigStore.h"
 #include "model/FolderDescriptor.h"
@@ -219,31 +220,27 @@ void MainWindow::refreshVolumeToolbar() {
 }
 
 void MainWindow::updateChrome() {
-    const bool scanning = m_session.scanning;
-    const bool openScanning = scanning && m_session.scanKind == ScanKind::OpenTarget;
-    const bool updateScanning = scanning && m_session.scanKind == ScanKind::UpdateContext;
-    const bool hasTarget = !m_session.targetPath.isEmpty();
-    const bool complete = m_session.treemapComplete;
+    const ChromeAvailability chrome = computeChromeAvailability(m_session);
 
-    m_openAct->setEnabled(!scanning);
-    m_openBtn->setEnabled(!scanning);
-    m_exitAct->setEnabled(!scanning);
-    m_upAct->setEnabled((!openScanning && m_session.canGoUp()) || (updateScanning && m_session.canGoUp()));
-    m_upBtn->setEnabled(m_upAct->isEnabled());
-    m_exploreAct->setEnabled(complete && !openScanning);
-    m_exploreBtn->setEnabled(m_exploreAct->isEnabled());
-    m_updateAct->setVisible(!scanning);
-    m_stopAct->setVisible(scanning);
-    m_updateAct->setEnabled(!scanning && hasTarget && complete);
-    m_scanBtn->setEnabled(scanning || m_updateAct->isEnabled());
-    m_scanBtn->setIcon(scanning ? ui::toolbarStopIcon() : ui::toolbarUpdateIcon());
-    m_scanBtn->setToolTip(scanning ? QStringLiteral("Stop scanning folders")
-                                   : QStringLiteral("Update the folder data"));
-    m_settingsAct->setEnabled(!scanning);
-    m_aboutAct->setEnabled(!scanning);
-    m_freeBtn->setEnabled(!scanning && !m_session.targetPath.isEmpty());
+    m_openAct->setEnabled(chrome.open);
+    m_openBtn->setEnabled(chrome.open);
+    m_exitAct->setEnabled(chrome.open);
+    m_upAct->setEnabled(chrome.up);
+    m_upBtn->setEnabled(chrome.up);
+    m_exploreAct->setEnabled(chrome.explore);
+    m_exploreBtn->setEnabled(chrome.explore);
+    m_updateAct->setVisible(!chrome.stop);
+    m_stopAct->setVisible(chrome.stop);
+    m_updateAct->setEnabled(chrome.update);
+    m_scanBtn->setEnabled(chrome.stop || chrome.update);
+    m_scanBtn->setIcon(chrome.stop ? ui::toolbarStopIcon() : ui::toolbarUpdateIcon());
+    m_scanBtn->setToolTip(chrome.stop ? QStringLiteral("Stop scanning folders")
+                                      : QStringLiteral("Update the folder data"));
+    m_settingsAct->setEnabled(chrome.settings);
+    m_aboutAct->setEnabled(chrome.settings);
+    m_freeBtn->setEnabled(chrome.open && !m_session.targetPath.isEmpty());
 
-    if (scanning) {
+    if (m_session.scanning) {
         setCursor(Qt::BusyCursor);
     } else {
         unsetCursor();
@@ -343,7 +340,7 @@ void MainWindow::onOpenFolder() {
 }
 
 void MainWindow::onUp() {
-    if ((m_session.scanKind == ScanKind::OpenTarget && m_session.scanning) || !m_session.canGoUp()) {
+    if (!canNavigateUp(m_session)) {
         return;
     }
     m_session.goUp();
@@ -445,7 +442,7 @@ void MainWindow::onRefreshFree() {
 }
 
 void MainWindow::onDive(const QString& folderPath) {
-    if (m_session.scanKind == ScanKind::OpenTarget && m_session.scanning) {
+    if (!canNavigateDive(m_session)) {
         return;
     }
     m_session.pushContext(folderPath);

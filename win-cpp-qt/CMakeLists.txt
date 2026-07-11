@@ -15,6 +15,8 @@ set(WTW_SOURCES
     src/app/MainWindow.cpp
     src/app/Session.cpp
     src/app/ScanDelivery.cpp
+    src/app/UpdateChromePolicy.cpp
+    src/app/UpdatePublish.cpp
     src/model/FolderDescriptor.cpp
     src/config/TreemapConfig.cpp
     src/config/ConfigStore.cpp
@@ -70,10 +72,11 @@ install(TARGETS EraseAndRewrite RUNTIME DESTINATION .)
 
 enable_testing()
 
-set(WTW_TEST_SOURCES
-    tests/test_phase1.cpp
+set(WTW_TEST_LIB_SOURCES
     src/app/Session.cpp
     src/app/ScanDelivery.cpp
+    src/app/UpdateChromePolicy.cpp
+    src/app/UpdatePublish.cpp
     src/model/FolderDescriptor.cpp
     src/config/TreemapConfig.cpp
     src/scan/ScanTypes.cpp
@@ -86,6 +89,11 @@ set(WTW_TEST_SOURCES
     src/util/Format.cpp
 )
 
+set(WTW_TEST_SOURCES
+    tests/test_phase1.cpp
+    ${WTW_TEST_LIB_SOURCES}
+)
+
 qt_add_executable(phase1_tests ${WTW_TEST_SOURCES})
 target_include_directories(phase1_tests PRIVATE src)
 target_compile_definitions(phase1_tests PRIVATE WTW_UNIT_TEST)
@@ -95,3 +103,13 @@ if(WIN32)
 endif()
 
 add_test(NAME phase1_tests COMMAND phase1_tests)
+
+qt_add_executable(phase2_tests tests/test_phase2.cpp ${WTW_TEST_LIB_SOURCES})
+target_include_directories(phase2_tests PRIVATE src)
+target_compile_definitions(phase2_tests PRIVATE WTW_UNIT_TEST)
+target_link_libraries(phase2_tests PRIVATE Qt6::Test Qt6::Core Qt6::Gui)
+if(WIN32)
+    target_link_libraries(phase2_tests PRIVATE shell32 ole32 version)
+endif()
+
+add_test(NAME phase2_tests COMMAND phase2_tests)

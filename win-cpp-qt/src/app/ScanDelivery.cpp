@@ -1,7 +1,7 @@
 #include "app/ScanDelivery.h"
 
 #include "app/ScanSessionGate.h"
-#include "scan/SubtreeMerge.h"
+#include "app/UpdatePublish.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -157,8 +157,11 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
         return out;
     }
 
-    auto merged = scan::mergeSubtree(session.pendingUpdateSnapshot->tree, scanRoot, tree);
-    if (!merged) {
+    const QString liveContext = session.contextPath.isEmpty() ? session.targetPath : session.contextPath;
+    PreparedUpdatePublication prepared = prepareUpdatePublication(
+        *session.pendingUpdateSnapshot, scanRoot, tree, liveContext, session.targetPath,
+        session.descriptorVersion, session.driveTotal);
+    if (prepared.status == UpdatePublicationStatus::MergeFailed) {
         restorePendingUpdateSession(session);
         session.pendingUpdateSnapshot.reset();
         out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
@@ -166,12 +169,16 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
         out.uiActions.push_back(ScanFinishUiAction::Error002);
         return out;
     }
-    model::annotateShares(*merged, session.driveTotal);
-    session.publishedTree = std::move(*merged);
-    session.contextPath = session.pendingUpdateSnapshot->contextPath;
-    session.treemapComplete = true;
-    ++session.descriptorVersion;
-    session.pendingUpdateSnapshot.reset();
+    if (prepared.status == UpdatePublicationStatus::ContextMissing) {
+        restorePendingUpdateSession(session);
+        session.pendingUpdateSnapshot.reset();
+        out.error004Target = prepared.error004Target;
+        out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
+        out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
+        out.uiActions.push_back(ScanFinishUiAction::Error004);
+        return out;
+    }
+    publishPreparedUpdate(session, std::move(prepared));
     out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
     out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
     return out;

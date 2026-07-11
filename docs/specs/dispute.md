@@ -1424,3 +1424,13 @@ Do not declare `win-cpp-qt/` the active Windows delivery line until a fresh FS-t
 **Review round 3 fixes:** `ResetTreemapUi` restores visible treemap/volume/status; projection overflow caught in `rebuildTreemap()`; fixture skip/fail control flow fixed; findings not closed until CI passes.
 
 **Findings addressed in Phase 1 (pending CI gate):** 23, 24, 25, 39, 40.
+
+---
+
+## Phase 2 closure evidence (Update navigation)
+
+**Status:** Phase 2 implementation complete; **finding 22 remains pending** until `phase2_tests` pass in Windows CI.
+
+**Code:** `UpdateChromePolicy`, `UpdatePublish`, `ScanDelivery` update publish path, `MainWindow` navigation gates.
+
+**Tests:** `win-cpp-qt/tests/test_phase2.cpp` (`phase2_tests` via `ctest`).

@@ -167,7 +167,7 @@ The strip contains Open, Up, Explore, and Update/Stop buttons at 32×32 pixels w
 
 Volume indicators sit after the buttons with a separator: a static Total at X label and a Free at X label with a refresh `QPushButton`.
 
-`updateChrome()` mirrors menu enablement onto strip buttons. Update and Stop share one button and swap play/stop icons.
+`updateChrome()` mirrors menu enablement onto strip buttons via `app/UpdateChromePolicy`. During `UpdateContext` scans, **Up**, **Dive**, and **Explore** stay enabled against the published tree; during `OpenTarget` scans navigation is disabled. Update and Stop share one button and swap play/stop icons.
 
 
 ### 4.4 Status bar
@@ -234,7 +234,7 @@ When enumeration fails, the node keeps `traversalState = Unreadable`, `treeRole 
 | `TechnicalFailure` | error 002; restore or unset per scan kind |
 | `RootUnavailable` | error 001 |
 | Open success | replace `publishedTree`, set context to scan root, rebuild treemap |
-| Update success | `SubtreeMerge::mergeSubtree` into the pending snapshot, restore context |
+| Update success | `UpdatePublish::prepareUpdatePublication` merges against the pending snapshot, resolves the live `contextPath`, publishes atomically via `publishPreparedUpdate`, then rebuilds treemap |
 
 
 ### 6.7 Open compliance gap (IO-02)
@@ -455,6 +455,15 @@ The table below records techspec row status as of the current tree. Update it wh
 | 40 | pending CI | typed `ScanOutcome`; string-heuristic outcomes removed from scanner path |
 
 Findings in this table move to **closed** only after a passing Windows CI run with mandatory platform fixtures.
+
+
+### 15.2 Dispute findings addressed in Phase 2
+
+| Finding | Status | Evidence |
+|---------|--------|----------|
+| 22 | pending CI | `UpdateChromePolicy`, `UpdatePublish`, `test_phase2.cpp`; navigation during `UpdateContext` scan |
+
+Finding 22 moves to **closed** after `phase2_tests` pass in CI.
 
 
 ## 16. Document maintenance
