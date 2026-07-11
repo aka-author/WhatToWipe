@@ -1248,3 +1248,158 @@ Execute the reviewer's priority order on `win-cpp-qt/`:
 
 Do not declare the Qt implementation the active Windows delivery line until a fresh FS-to-code verification pass completes after those corrections.
 
+---
+
+## Reviewer reply to developer implementation response (2026-07-11)
+
+### General disposition
+
+The developer response is accepted. It correctly confirms findings 22–46 and preserves the essential release gate: the Qt implementation remains an early prototype until the corrections are implemented and verified.
+
+There is no remaining substantive disagreement about the identified defects. Acceptance in this section does not close a finding by itself. A finding closes only after the code, governing documents where applicable, and verification evidence agree.
+
+### Qualifications to the proposed corrections
+
+#### Finding 23 — directory enumeration, cancellation, and timeout
+
+Replacing the per-directory `std::async` wrapper is mandatory. `FindFirstFileExW` / `FindNextFileW` is a sensible Windows implementation, but it does not create a hard wall-clock timeout by itself. Cancellation can be checked between returned entries; an individual OS or filesystem call may still block.
+
+Therefore:
+
+- remove every claim that a directory read is guaranteed to finish within 30 seconds unless the implementation enforces that guarantee outside the blocking call;
+- describe the real cancellation boundary precisely;
+- if a strict hard timeout is required, isolate scanning in a separate process that can be terminated, not merely another thread in the GUI process;
+- close all native search handles through RAII on success, failure, cancellation, and exceptions.
+
+A dedicated scanner thread with honest non-cancellable syscall boundaries is preferable to a fake timeout.
+
+#### Findings 24 and 25 — unreadable and untraversed entries
+
+Do not solve these findings by adding ad hoc values to `TreeRole`. The FS meaning of tree role and the scanner's knowledge state are separate concepts.
+
+Use an orthogonal state, for example:
+
+```cpp
+enum class TraversalState {
+    Complete,
+    Unreadable,
+    ReparseTargetNotTraversed
+};
+```
+
+`TreeRole::EmptyFolder` is valid only when enumeration completed successfully and established that the folder contains no nested objects. Aggregate recomputation must never overwrite `Unreadable` or `ReparseTargetNotTraversed` with `EmptyFolder` merely because no children were collected.
+
+For a directory reparse entry, do not use `QFileInfo::size()` as recursive folder size. The techspec must define the represented size explicitly. A conservative first-release value is zero for the untraversed entry, with the linked target excluded from aggregate size, provided this Windows interpretation is stated normatively and verified.
+
+#### Findings 26 and 27 — archive reader
+
+The proposed `IArchiveCatalogReader` boundary is correct. The selected implementation must additionally enforce limits before trusting catalog data:
+
+- maximum catalog entry count;
+- maximum total catalog-name bytes;
+- maximum individual path length;
+- cancellation checks during catalog traversal;
+- no extraction and no creation of filesystem objects;
+- normalized path-component analysis that rejects `..`, absolute roots, drive prefixes, and equivalent traversal forms for classification purposes.
+
+A library returning an entry is not proof that the entry name is safe or semantically valid.
+
+#### Finding 28 — minimum-dimension clumping
+
+The iterative merge cycle needs explicit termination rules. Cover at least:
+
+- `maxTiles == 1`;
+- no pre-existing clump;
+- all regular entries becoming undersized;
+- the clump tile itself remaining below a configured minimum;
+- a window too small to satisfy the minimum for even one tile;
+- repeated layout producing the same merge set.
+
+Each iteration must strictly reduce the number of regular tiles or terminate. Otherwise a resize-dependent loop is possible. The final layout may contain one unavoidable undersized clump when the available rectangle itself is too small; it must not loop forever or distort area.
+
+#### Finding 30 — timestamp fallback
+
+On supported Windows filesystems, use native creation time for the oldest-file field and last-write time for the newest-file field. Do not silently substitute last-write time for a missing creation time because that makes the two fields semantically indistinguishable again.
+
+When creation time is unavailable, prefer an explicit absent value and propagate `std::optional<QDateTime>` through aggregation. Any different fallback must be stated in the techspec.
+
+#### Findings 31 and 32 — TSize representation
+
+One parser is necessary but not sufficient. Use one typed value representation, not an early conversion to integer points:
+
+```cpp
+enum class TSizeUnit { Px, Pt, Mm, Cm, In };
+
+struct TSize {
+    double magnitude;
+    TSizeUnit unit;
+};
+```
+
+Parsing and serialization should preserve the declared unit unless canonicalization is explicitly selected. Conversion to device-independent pixels belongs at the rendering/layout boundary and must use the relevant screen DPI. Decimal values must not be truncated during load, edit, comparison, or save.
+
+Return parse status separately from the numeric value so valid zero remains representable.
+
+#### Findings 35 and 36 — configuration document policy
+
+The passthrough model is the safer choice. Preserve unknown lines, comments, and relative ordering byte-for-byte where they do not conflict with rewritten known keys. Reject duplicate known keys before mutating either the live configuration or the file.
+
+If canonical destructive rewriting is selected instead, it must be an explicit normative policy and must not be described as preservation. Silent deletion remains unacceptable.
+
+#### Findings 39 and 40 — typed scan result and identity
+
+Validate result identity before any session or UI mutation, not merely before replacing the descriptor. A stale result must not change:
+
+- status text;
+- progress state;
+- enabled actions;
+- current context;
+- error presentation;
+- published descriptor version.
+
+The result should carry at least `scanId`, target-session ID, scan kind, scan root, base descriptor version, typed outcome, native diagnostics, and the candidate descriptor/subtree. A stale result may release its own resources and do nothing else.
+
+#### Finding 42 — Settings grid
+
+Retaining the current `QTableView` implementation until higher-priority defects are fixed is a reasonable scheduling decision. It is not SG acceptance. The evidence gate remains mandatory.
+
+Test real keyboard traversal in both directions, focus restoration after scrolling, screen-reader names and relationships, row-height changes under large fonts, column alignment after resize, and survival of every permanent widget for the entire dialog lifetime. If any of these fail, replace the construction with one `QGridLayout` inside a `QScrollArea` rather than layering more workarounds over `setIndexWidget`.
+
+#### Finding 44 — version source
+
+CMake supports a fourth version component as the tweak component. Generate a single normalized four-component version and derive all consumers from it. Verify numeric equality, not only textual similarity, because Windows resources may display leading zeroes differently.
+
+The automated check must compare at least:
+
+- CMake project version;
+- PE `FileVersion`;
+- PE `ProductVersion`;
+- About dialog version;
+- installer version;
+- produced artifact metadata.
+
+#### Finding 45 — MinGW runtime model
+
+Dependency listing alone is not enough. Statically linking libgcc/libstdc++/winpthread into the executable while Qt DLLs depend on dynamic MinGW runtime DLLs can place two runtime instances in one process. That deserves suspicion wherever C++ objects, exceptions, allocation ownership, locale state, or thread primitives cross DLL boundaries.
+
+Prefer one runtime-linkage model compatible with the Qt distribution and all C++ dependencies. If the mixed model is retained, prove it with dependency inspection and boundary analysis; do not justify it with a comment that a runtime DLL “only serves Qt.”
+
+#### Finding 46 — tests
+
+The adopted list is a release gate, not merely backlog. Each release-blocking defect needs a failing regression test or reproducible verification fixture before the fix and passing evidence afterward. Manual screenshots are insufficient for scanner outcomes, descriptor semantics, arithmetic safety, archive classification, and update transaction identity.
+
+### Final reviewer disposition
+
+The developer response is technically sound and may be treated as agreement on the correction plan, subject to the qualifications above. No finding 22–46 is closed yet because the implementation has not been corrected and the required evidence has not been produced.
+
+The existing priority order remains valid:
+
+1. scanner I/O, traversal state, and typed outcomes;
+2. Update navigation and versioned result publication;
+3. archive reader replacement;
+4. projection and layout correctness;
+5. timestamp and reparse semantics;
+6. configuration parsing and persistence;
+7. version, runtime, DPI, Settings, and complete verification evidence.
+
+Do not declare `win-cpp-qt/` the active Windows delivery line until a fresh FS-to-code review confirms the corrected implementation.
