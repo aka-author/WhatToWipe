@@ -80,11 +80,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "windeployqt failed with exit code $LASTEXITCODE"
 }
 
+# windeployqt copies Qt's MinGW runtime for Qt6*.dll. Do not overwrite with the
+# app compiler's newer libstdc++ (ABI mismatch). The app links libstdc++/libgcc statically.
+
 $required = @(
     "Qt6Core.dll",
     "Qt6Gui.dll",
     "Qt6Widgets.dll",
-    (Join-Path "platforms" "qwindows.dll")
+    (Join-Path "platforms" "qwindows.dll"),
+    "libstdc++-6.dll",
+    "libgcc_s_seh-1.dll"
 )
 foreach ($rel in $required) {
     $full = Join-Path $TargetDir $rel
