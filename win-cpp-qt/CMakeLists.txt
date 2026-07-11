@@ -63,9 +63,6 @@ target_link_libraries(EraseAndRewrite PRIVATE Qt6::Widgets Qt6::Svg)
 
 if(WIN32)
     target_link_libraries(EraseAndRewrite PRIVATE shell32 ole32 version)
-    if(WTW_STATIC_QT)
-        target_link_libraries(EraseAndRewrite PRIVATE Qt6::EntryPoint)
-    endif()
 endif()
 
 if(WTW_STATIC_QT)

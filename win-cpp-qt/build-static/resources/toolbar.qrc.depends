@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/toolbar">
+        <file alias="toolbar-open.svg">../../assets/icons/toolbar-open.svg</file>
+        <file alias="toolbar-up.svg">../../assets/icons/toolbar-up.svg</file>
+        <file alias="toolbar-manage.svg">../../assets/icons/toolbar-manage.svg</file>
+        <file alias="toolbar-update.svg">../../assets/icons/toolbar-update.svg</file>
+        <file alias="toolbar-stop.svg">../../assets/icons/toolbar-stop.svg</file>
+    </qresource>
+</RCC>
