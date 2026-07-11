@@ -5,3 +5,25 @@ Rules: for each release provide the following data:
 - precise URL of the commit on GitHub
 - what's appended to the product
 - known issues: what's still wrong with the product now
+
+---
+
+2026-07-11 19:58
+1.0.0.0015 (build 21)
+delivery/win/2026-07-11_19-58
+https://github.com/aka-author/WhatToWipe/commit/be958afc6c74ea4ad6c2981a5ff9a659993bf2b0
+
+What's appended:
+- First Qt/C++ Windows installer release (`EraseAndRewrite.exe`) with standalone Qt 6.10.3 runtime deploy.
+- Phase 1 scanner foundation: `WinDirEnum`, typed `ScanResult`/`ScanOutcome`, `ScanDelivery` identity-gated progress and finished delivery, `ResetTreemapUi` contract, `measuredSize`/`sizeCompleteness`, reparse-skip policy (IO-03), Phase 1 unit tests and `win-cpp-qt-phase1` CI workflow.
+- Phase 2 Update flow: navigation (Up/Dive/Explore) enabled on the published tree during `UpdateContext`; Open/Update/Settings disabled; atomic `publishPreparedUpdate` on success; `restorePendingUpdateSession` preserves live `contextPath` on cancel/failure when still valid; `UpdateChromePolicy`, `UpdatePublish`, Phase 2 unit tests.
+- GPLv3 EULA in the installer; settings grid, treemap, About, volume validation, and cancelable background scans from prior Qt milestones on `master`.
+
+Known issues:
+- IO-02: scan diagnostics (`errorCount`, unreadable dirs) are not surfaced in an incomplete-run summary after Open/Update.
+- IO-01: no documented `longPathAware` application manifest.
+- IO-04 partial: network drives rejected at open; no per-directory enumeration wall-clock bound.
+- WR-04: Authenticode signing optional only via `ERASE_REWRITE_SIGNTOOL`; installer and app are unsigned by default.
+- Dispute findings 22–25 and 39–40 remain **pending CI** (mandatory platform fixtures) until green runs on GitHub Actions.
+- Phase 3+ (erase/rewrite, packing, and later fixplan items) not implemented.
+- `windeployqt` reports missing `dxcompiler.dll` / `dxil.dll` (DirectX shader compiler); not required for current UI.
