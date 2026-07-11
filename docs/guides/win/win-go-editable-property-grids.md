@@ -549,3 +549,89 @@ func collectConfig() map[string]string {
 
 Call this when the user clicks OK or Save. No need to query the controls — the slice is
 always up to date.
+
+# Q&A: Treemap Settings UI Implementation
+
+---
+
+**Q: Should I convert the Treemap settings UI from `TableView` to a full `ScrollView` +
+2-column `Grid` now, even if that means a larger rewrite in `settings_treemap_windows.go`?**
+
+Yes. Do it now, not later. A `TableView` is the wrong control for a config UI — it is
+designed for tabular data with uniform rows, not for mixed editor types. Retrofitting
+a `TableView` to host dropdowns, spinners, and color pickers is harder than writing the
+`ScrollView` + `Grid` from scratch, and the result will always be fragile. The rewrite
+cost is a one-time expense; the maintenance cost of the wrong approach compounds
+indefinitely. Bite the bullet.
+
+---
+
+**Q: For numeric fields, should I use strict `NumberEdit` everywhere (`maxTiles`,
+paddings, font sizes, ratios), or keep ratio/percent fields as text with validation to
+preserve `%` input style?**
+
+Use `NumberEdit` for all pure numeric fields — `maxTiles`, paddings, font sizes. For
+ratio and percent fields, keep `LineEdit` with validation only if the `%` suffix carries
+meaning for the user (for example, if they expect to type `75%` and have it accepted as
+such). If the `%` is purely cosmetic and the underlying value is just a number between 0
+and 1 (or 0 and 100), strip it and use `NumberEdit` with appropriate `MinValue`,
+`MaxValue`, and `Decimals` — it is cleaner and eliminates an entire class of input
+errors. The rule of thumb: if the field stores a number, use a numeric control. If the
+field stores a formatted string that happens to contain a number, use text with
+validation.
+
+---
+
+**Q: For color rows, confirm the preferred behavior: `LineEdit` + `...` button in-cell,
+manual `#RRGGBB` input allowed, invalid input reverts with warning?**
+
+Confirmed. This is the correct pattern:
+
+- The `LineEdit` and `...` button live permanently in the cell as a horizontal
+  `Composite`. They are always visible, never created on click.
+- The user may type a hex color directly into the `LineEdit`. On `OnEditingFinished`,
+  validate against `^#[0-9A-Fa-f]{6}$`. If invalid, show a warning `MsgBox` and revert
+  the field to the last accepted value.
+- The `...` button opens the Win32 `ChooseColor` dialog pre-seeded with the current
+  value. On confirmation, write the result to both `p.Value` and the `LineEdit`.
+- Both paths stay in sync. The `LineEdit` is always the visible representation of the
+  current value.
+
+---
+
+**Q: For `tileFontName`, should it be a strict non-editable dropdown of installed fonts,
+or an editable combo box allowing custom font names?**
+
+Use an editable combo box. Here is the reasoning: enumerating installed fonts via
+`win.EnumFontFamiliesEx` and populating a dropdown is good practice and gives the user
+a convenient picker. However, making it strictly non-editable means a font that is
+present on the target machine but absent on the developer's machine will be impossible
+to enter. An editable combo box gives the best of both worlds — the user gets the list
+as a convenience, but can type a name manually if needed. Validate on
+`OnEditingFinished` only if you want to warn about unknown fonts; do not block the
+input.
+
+---
+
+**Q: Should I remove the `Sample` and empty action columns entirely, or keep a small
+color preview square beside color inputs?**
+
+Keep a small color preview square beside color inputs, and remove everything else. A
+color swatch — a small filled rectangle showing the current color — is genuinely useful
+because hex strings like `#3A7FCB` are not intuitively readable. The swatch gives
+immediate visual feedback without requiring the user to open the color dialog just to
+see what the current value looks like. Implement it as a custom-drawn `ImageView` or a
+borderless `Composite` with a fixed size (for example 20×20 px) whose background color
+is updated whenever the color value changes. The `Sample` column in its current form
+and any empty action columns serve no purpose in the new layout and should go.
+
+---
+
+**Q: After implementing, should I run the full documented build pipeline immediately
+(`win-go/build.ps1` + installer batch)?**
+
+Yes. Run it immediately after the rewrite compiles cleanly. There is no value in
+deferring the build — installer packaging can surface issues (missing resources,
+manifest errors, path assumptions) that are invisible during development runs. Finding
+them at build time rather than later is cheaper. Make sure `go generate` has been run
+first to refresh `rsrc.syso` if the manifest was touched during the rewrite.

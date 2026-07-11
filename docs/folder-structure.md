@@ -35,7 +35,7 @@ Informative architecture notes use the parallel name in the **same** directory:
 
 `docs/specs/arch-<platform>-<stack>.md`
 
-**Supported today:** Windows + Go only РІР‚вЂќ `techspec-win-go.md`, `arch-win-go.md`. Do not add spec files or repo-root **`win-go/`** siblings for other OSes until those targets are actually supported.
+**Supported today:** Windows + Go (`techspec-win-go.md`, `arch-win-go.md`) and Windows + C++ + Qt (`techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`). The Go module remains until the Qt target is verified against FS. Do not add spec files or repo-root implementation siblings for other OSes until those targets are actually supported.
 
 Rules for the slug `<platform>-<stack>` in the filename:
 
@@ -48,7 +48,7 @@ If one target needs several normative add-ons (rare), use an extra hyphenated su
 
 ### 2.3 Implementation folder at repo root
 
-The folder **`win-go/`** at the repository root matches the `win-go` slug in `techspec-win-go.md`. When you add another supported target, add matching `techspec-*.md` / `arch-*.md` under `docs/specs/` and a same-named **`<slug>/`** folder hereРІР‚вЂќdo not keep empty РІР‚СљfutureРІР‚Сњ trees beforehand.
+The folder **`win-go/`** matches `techspec-win-go.md`. The planned Windows C++ Qt module is **`win-cpp-qt/`** (matches `techspec-win-cpp-qt.md`). When you add another supported target, add matching `techspec-*.md` / `arch-*.md` under `docs/specs/` and a same-named **`<slug>/`** folder here — do not keep empty "future" trees beforehand.
 
 ### 2.4 Verification and engineering notes
 
