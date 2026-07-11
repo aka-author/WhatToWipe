@@ -34,7 +34,7 @@ set(WTW_SOURCES
     src/util/Format.cpp
 )
 
-qt_add_resources(WTW_RESOURCES resources/toolbar.qrc)
+qt_add_resources(WTW_RESOURCES resources/toolbar.qrc resources/app.qrc)
 list(APPEND WTW_SOURCES ${WTW_RESOURCES})
 
 if(WIN32)

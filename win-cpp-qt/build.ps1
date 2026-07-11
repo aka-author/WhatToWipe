@@ -72,6 +72,30 @@ function Read-ProductVersionInfo {
     }
 }
 
+function Generate-AppIcon {
+    param(
+        [Parameter(Mandatory = $true)][string]$CodebaseRoot,
+        [Parameter(Mandatory = $true)][string]$IconDestination
+    )
+    $goRoot = Join-Path $CodebaseRoot "win-go"
+    $genicons = Join-Path $goRoot "tools\genicons"
+    if (-not (Test-Path -LiteralPath $genicons)) {
+        throw "genicons tool not found: $genicons"
+    }
+    $go = Get-Command go -ErrorAction SilentlyContinue
+    if (-not $go) {
+        throw "go not found in PATH (required to generate app.ico)"
+    }
+    & $go.Source -C $goRoot run ./tools/genicons
+    if ($LASTEXITCODE -ne 0) { throw "genicons failed" }
+    $srcIco = Join-Path $goRoot "icons\app.ico"
+    if (-not (Test-Path -LiteralPath $srcIco)) {
+        throw "genicons did not produce icons/app.ico"
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path $IconDestination) | Out-Null
+    Copy-Item -LiteralPath $srcIco -Destination $IconDestination -Force
+}
+
 function Update-AppResourceFromVersionInfo {
     param(
         [Parameter(Mandatory = $true)][string]$VersionInfoPath,
@@ -93,6 +117,8 @@ function Update-AppResourceFromVersionInfo {
 
     $rc = @"
 #include <winver.h>
+
+1 ICON "app.ico"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION $maj,$min,$pat,$bld
@@ -234,6 +260,8 @@ if (-not $GitRoot) {
 
 Relocate-ModuleRootExeArtifacts -ModuleRoot $ModuleRoot -ToolsRoot $ToolsRoot
 Increment-VersionBuildNumber -Path $VersionInfoPath
+$AppIconPath = Join-Path $ModuleRoot "resources\app.ico"
+Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath
 Update-AppResourceFromVersionInfo -VersionInfoPath $VersionInfoPath -AppRcPath $AppRcPath
 
 $verInfo = Read-ProductVersionInfo -Path $VersionInfoPath
