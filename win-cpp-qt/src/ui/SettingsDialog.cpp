@@ -74,16 +74,18 @@ private:
 
 namespace {
 
-constexpr int kDefaultDialogW = 580;
+constexpr int kDefaultDialogW = 500;
 constexpr int kDefaultDialogH = 440;
-constexpr int kMaxDialogW = 720;
+constexpr int kMaxDialogW = 560;
 constexpr int kMaxDialogH = 520;
-constexpr int kMinDialogW = 420;
+constexpr int kMinDialogW = 400;
 constexpr int kMinDialogH = 280;
 constexpr int kGridRowHeight = 24;
-constexpr int kParamColWidth = 180;
-constexpr int kPreviewColWidth = 72;
-constexpr int kPickerColWidth = 36;
+constexpr int kParamColWidth = 168;
+constexpr int kPreviewColWidth = 40;
+constexpr int kPickerColWidth = 28;
+constexpr int kSwatchWidth = 30;
+constexpr int kSwatchHeight = 18;
 
 int clampDialogDimension(int value, int fallback, int minV, int maxV) {
     if (value <= 0 || value > maxV) {
@@ -102,7 +104,7 @@ QLabel* makeNameLabel(const QString& text, QWidget* parent) {
 
 QLabel* makeSwatch(QWidget* parent) {
     auto* swatch = new QLabel(parent);
-    swatch->setFixedSize(36, 20);
+    swatch->setFixedSize(kSwatchWidth, kSwatchHeight);
     swatch->setFrameStyle(QFrame::Box | QFrame::Plain);
     swatch->setLineWidth(1);
     return swatch;
@@ -120,8 +122,37 @@ void paintSwatch(QLabel* swatch, const QString& value) {
     swatch->setStyleSheet(QStringLiteral("background:%1;").arg(c.name()));
 }
 
+QLabel* findSwatchInCell(QWidget* cell) {
+    if (!cell) {
+        return nullptr;
+    }
+    return cell->findChild<QLabel*>();
+}
+
 QWidget* makeEmptyCell(QWidget* parent) {
     auto* cell = new QWidget(parent);
+    cell->setFixedHeight(kGridRowHeight);
+    return cell;
+}
+
+QWidget* makePreviewCell(QWidget* parent, QLabel* swatch) {
+    auto* cell = new QWidget(parent);
+    auto* lay = new QHBoxLayout(cell);
+    lay->setContentsMargins(2, 2, 2, 2);
+    lay->setSpacing(0);
+    lay->addWidget(swatch, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    lay->addStretch();
+    cell->setFixedHeight(kGridRowHeight);
+    return cell;
+}
+
+QWidget* makePickerCell(QWidget* parent, QPushButton* button) {
+    auto* cell = new QWidget(parent);
+    auto* lay = new QHBoxLayout(cell);
+    lay->setContentsMargins(0, 2, 2, 2);
+    lay->setSpacing(0);
+    lay->addWidget(button, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    lay->addStretch();
     cell->setFixedHeight(kGridRowHeight);
     return cell;
 }
@@ -132,7 +163,8 @@ void applyGridColumnWidths(QTableView* table) {
     }
     auto* header = table->horizontalHeader();
     header->setStretchLastSection(false);
-    header->setMinimumSectionSize(28);
+    header->setMinimumSectionSize(24);
+    header->setMaximumSectionSize(220);
     header->setSectionResizeMode(ColName, QHeaderView::Fixed);
     header->setSectionResizeMode(ColValue, QHeaderView::Stretch);
     header->setSectionResizeMode(ColSwatch, QHeaderView::Fixed);
@@ -140,7 +172,9 @@ void applyGridColumnWidths(QTableView* table) {
     table->setColumnWidth(ColName, kParamColWidth);
     table->setColumnWidth(ColSwatch, kPreviewColWidth);
     table->setColumnWidth(ColPicker, kPickerColWidth);
-    table->horizontalHeader()->setSectionResizeMode(ColValue, QHeaderView::Stretch);
+    header->setSectionResizeMode(ColValue, QHeaderView::Stretch);
+    header->resizeSection(ColSwatch, kPreviewColWidth);
+    header->resizeSection(ColPicker, kPickerColWidth);
 }
 
 }  // namespace
@@ -242,7 +276,7 @@ void SettingsDialog::attachRowWidgets(int row) {
                 m_states[row].pendingValue = text;
             }
             if (schema->kind == SettingsEditorKind::Color && row < m_rowWidgets.size()) {
-                paintSwatch(qobject_cast<QLabel*>(m_rowWidgets[row].swatchCell), text);
+                paintSwatch(findSwatchInCell(m_rowWidgets[row].swatchCell), text);
             }
             clearError();
         });
@@ -250,14 +284,15 @@ void SettingsDialog::attachRowWidgets(int row) {
     m_table->setIndexWidget(m_model->index(row, ColValue), widgets.valueCell);
 
     if (schema->kind == SettingsEditorKind::Color) {
-        widgets.swatchCell = makeSwatch(m_table);
-        paintSwatch(qobject_cast<QLabel*>(widgets.swatchCell), state.pendingValue);
+        auto* swatch = makeSwatch(m_table);
+        paintSwatch(swatch, state.pendingValue);
+        widgets.swatchCell = makePreviewCell(m_table, swatch);
         m_table->setIndexWidget(m_model->index(row, ColSwatch), widgets.swatchCell);
 
         auto* pick = new QPushButton(QStringLiteral("…"), m_table);
-        pick->setFixedSize(kPickerColWidth - 4, kGridRowHeight - 4);
-        widgets.pickerCell = pick;
-        m_table->setIndexWidget(m_model->index(row, ColPicker), pick);
+        pick->setFixedSize(kPickerColWidth - 4, kGridRowHeight - 6);
+        widgets.pickerCell = makePickerCell(m_table, pick);
+        m_table->setIndexWidget(m_model->index(row, ColPicker), widgets.pickerCell);
         connect(pick, &QPushButton::clicked, this, [this, row]() {
             if (row < 0 || row >= m_rowWidgets.size() || !m_rowWidgets[row].lineEdit) {
                 return;
@@ -273,7 +308,7 @@ void SettingsDialog::attachRowWidgets(int row) {
             if (row < m_states.size()) {
                 m_states[row].pendingValue = hex;
             }
-            paintSwatch(qobject_cast<QLabel*>(m_rowWidgets[row].swatchCell), hex);
+            paintSwatch(findSwatchInCell(m_rowWidgets[row].swatchCell), hex);
             clearError();
         });
     } else {
@@ -307,7 +342,7 @@ void SettingsDialog::syncStatesToWidgets() {
             w.combo->setCurrentText(value);
         }
         if (m_states[row].schema && m_states[row].schema->kind == SettingsEditorKind::Color) {
-            paintSwatch(qobject_cast<QLabel*>(w.swatchCell), value);
+            paintSwatch(findSwatchInCell(w.swatchCell), value);
         }
     }
 }
