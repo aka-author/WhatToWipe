@@ -173,6 +173,7 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
         bool anyNonNative = false;
         std::vector<Candidate> clumpMembers = forcedClump;
         clumpMembers.insert(clumpMembers.end(), kept.begin() + head, kept.end());
+        // Clump members are a subset of context children; sum cannot exceed measuredSize when aggregates are consistent.
         for (const Candidate& candidate : clumpMembers) {
             sum = util::checkedAdd(sum, candidate.size);
             if (!candidate.isFolder && candidate.packing != model::PackingType::Native) {

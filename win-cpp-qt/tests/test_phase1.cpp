@@ -78,17 +78,6 @@ bool platformFixturesRequired() {
     return qEnvironmentVariableIntValue("WTW_REQUIRE_PLATFORM_FIXTURES") != 0;
 }
 
-void requirePlatformFixture(bool available, const char* detail) {
-    if (available) {
-        return;
-    }
-    if (platformFixturesRequired()) {
-        QFAIL(qPrintable(QStringLiteral("Required platform fixture unavailable: ") +
-                         QString::fromUtf8(detail)));
-    }
-    QSKIP(detail);
-}
-
 bool snapshotsEqual(const app::SessionDeliverySnapshot& a, const app::SessionDeliverySnapshot& b) {
     return a.scanning == b.scanning && a.scanId == b.scanId && a.sessionId == b.sessionId &&
            a.descriptorVersion == b.descriptorVersion && a.treemapComplete == b.treemapComplete &&
@@ -114,6 +103,15 @@ app::Session populatedUpdateSession() {
     pending.tree.name = QStringLiteral("snapshot-tree");
     session.pendingUpdateSnapshot = std::move(pending);
     return session;
+}
+
+void assertUiActions(const app::ScanFinishApply& apply,
+                     std::initializer_list<app::ScanFinishUiAction> expected) {
+    QCOMPARE(apply.uiActions.size(), expected.size());
+    size_t index = 0;
+    for (app::ScanFinishUiAction action : expected) {
+        QCOMPARE(apply.uiActions.at(index++), action);
+    }
 }
 
 std::optional<scan::ScanResult> runWorkerSync(const QString& root, const scan::ScanIdentity& identity,
@@ -152,7 +150,11 @@ private slots:
         DenyReadAclGuard guard;
         guard.path = deniedPath;
         if (!installDeniedReadFixture(deniedPath)) {
-            requirePlatformFixture(false, "denied-read ACL fixture");
+            if (platformFixturesRequired()) {
+                QFAIL("Required platform fixture unavailable: denied-read ACL fixture");
+            }
+            QSKIP("Could not install a denied-read ACL fixture on this machine");
+            return;
         }
         guard.active = true;
 
@@ -181,7 +183,11 @@ private slots:
         DenyReadAclGuard guard;
         guard.path = temp.path();
         if (!installDeniedReadFixture(temp.path())) {
-            requirePlatformFixture(false, "root denied-read ACL fixture");
+            if (platformFixturesRequired()) {
+                QFAIL("Required platform fixture unavailable: root denied-read ACL fixture");
+            }
+            QSKIP("Could not install a denied-read ACL fixture on this machine");
+            return;
         }
         guard.active = true;
 
@@ -313,6 +319,110 @@ private slots:
         QVERIFY(!apply.accepted);
         QVERIFY(apply.statusText.isEmpty());
         QVERIFY(snapshotsEqual(before, app::captureDeliverySnapshot(session, progress)));
+    }
+
+    void open_technical_failure_ui_contract() {
+        app::Session session;
+        session.scanning = true;
+        session.scanId = 1;
+        session.sessionId = 1;
+        session.descriptorVersion = 0;
+        session.scanKind = app::ScanKind::OpenTarget;
+        session.treemapComplete = true;
+        session.publishedTree.name = QStringLiteral("old-tree");
+
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::technicalFailure({1, 1, 0}));
+
+        QVERIFY(apply.accepted);
+        assertUiActions(apply, {app::ScanFinishUiAction::ResetTreemapUi, app::ScanFinishUiAction::Error002});
+        QVERIFY(!session.treemapComplete);
+        QVERIFY(session.publishedTree.name.isEmpty());
+    }
+
+    void update_technical_failure_restores_snapshot_ui_contract() {
+        app::Session session = populatedUpdateSession();
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::technicalFailure({9, 42, 7}));
+
+        QVERIFY(apply.accepted);
+        assertUiActions(apply, {app::ScanFinishUiAction::RebuildTreemap, app::ScanFinishUiAction::StatusForContext,
+                                app::ScanFinishUiAction::Error002});
+        QCOMPARE(session.publishedTree.name, QStringLiteral("snapshot-tree"));
+        QVERIFY(!session.pendingUpdateSnapshot.has_value());
+    }
+
+    void open_cancelled_ui_contract() {
+        app::Session session;
+        session.scanning = true;
+        session.scanId = 2;
+        session.sessionId = 1;
+        session.descriptorVersion = 0;
+        session.scanKind = app::ScanKind::OpenTarget;
+        session.treemapComplete = true;
+
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::cancelled({2, 1, 0}));
+
+        QVERIFY(apply.accepted);
+        assertUiActions(apply, {app::ScanFinishUiAction::ResetTreemapUi, app::ScanFinishUiAction::InterruptionAlert});
+        QVERIFY(!session.treemapComplete);
+    }
+
+    void open_root_unavailable_ui_contract() {
+        app::Session session;
+        session.scanning = true;
+        session.scanId = 3;
+        session.sessionId = 1;
+        session.descriptorVersion = 0;
+        session.scanKind = app::ScanKind::OpenTarget;
+        session.treemapComplete = true;
+
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::rootUnavailable({3, 1, 0}));
+
+        QVERIFY(apply.accepted);
+        assertUiActions(apply, {app::ScanFinishUiAction::ResetTreemapUi, app::ScanFinishUiAction::Error001});
+        QVERIFY(!session.treemapComplete);
+    }
+
+    void update_missing_context_error004_ui_contract() {
+        app::Session session = populatedUpdateSession();
+        const QString missingPath = QDir::tempPath() + QStringLiteral("/wtw_missing_update_ctx_") +
+                                    QString::number(QDateTime::currentMSecsSinceEpoch());
+        session.scanRootPath = missingPath;
+
+        model::FolderDescriptor tree;
+        tree.name = QStringLiteral("fresh");
+        const app::ScanFinishApply apply = app::applyScanFinishedIfCurrent(
+            session, scan::ScanResult::success({9, 42, 7}, std::move(tree)));
+
+        QVERIFY(apply.accepted);
+        assertUiActions(apply, {app::ScanFinishUiAction::ResetTreemapUi, app::ScanFinishUiAction::Error004});
+        QCOMPARE(apply.error004Target, missingPath);
+        QVERIFY(!session.treemapComplete);
+        QVERIFY(!session.pendingUpdateSnapshot.has_value());
+    }
+
+    void open_success_ui_contract() {
+        app::Session session;
+        session.scanning = true;
+        session.scanId = 4;
+        session.sessionId = 1;
+        session.descriptorVersion = 0;
+        session.scanKind = app::ScanKind::OpenTarget;
+        session.scanRootPath = QStringLiteral("C:/scan-root");
+
+        model::FolderDescriptor tree;
+        tree.name = QStringLiteral("published");
+        const app::ScanFinishApply apply =
+            app::applyScanFinishedIfCurrent(session, scan::ScanResult::success({4, 1, 0}, std::move(tree)));
+
+        QVERIFY(apply.accepted);
+        assertUiActions(apply, {app::ScanFinishUiAction::RebuildTreemap, app::ScanFinishUiAction::StatusForContext});
+        QCOMPARE(session.publishedTree.name, QStringLiteral("published"));
+        QCOMPARE(session.descriptorVersion, static_cast<quint64>(1));
+        QVERIFY(session.treemapComplete);
     }
 
     void stale_delivery_rejected_after_session_reset() {
@@ -525,7 +635,11 @@ private slots:
             {QStringLiteral("/c"), QStringLiteral("mklink"), QStringLiteral("/J"),
              QDir::toNativeSeparators(junctionPath), QDir::toNativeSeparators(targetPath)});
         if (mklinkCode != 0) {
-            requirePlatformFixture(false, "directory junction creation");
+            if (platformFixturesRequired()) {
+                QFAIL("Required platform fixture unavailable: directory junction creation");
+            }
+            QSKIP("Directory junction creation unavailable on this machine");
+            return;
         }
 
         scan::ScanIdentity identity{5, 1, 0};

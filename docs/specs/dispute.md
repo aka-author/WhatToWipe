@@ -1408,20 +1408,19 @@ Do not declare `win-cpp-qt/` the active Windows delivery line until a fresh FS-t
 
 ## Phase 1 closure evidence (scanner foundation)
 
-**Status:** Phase 1 exit criteria met per [fixplan.md](./fixplan.md) §1.9 (2026-07-11).
+**Status:** Phase 1 implementation complete; **findings 23–25 and 39–40 remain pending** until a passing Windows CI run with `WTW_REQUIRE_PLATFORM_FIXTURES=1` is recorded for the head commit.
 
-**Implementation commits:** `f944915` (initial Phase 1 scanner foundation), `564cb89` (cancellation, stale guards, test gaps), plus Phase 1 completion commit on `dev`.
+**Implementation commits:** `f944915`, `564cb89`, `ec5c185`, `54b1d08`, plus this review-round commit on `dev`.
 
 **Verification artifacts:**
 
 - [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md) — cooperative cancel boundary; no 30 s per-directory claim
 - [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md) — untraversed reparse size rule
-- [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §6 (as-built scanner), §15.1 (findings 23, 24, 25, 39, 40 closed)
+- [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §6 (as-built scanner), §15.1 (findings pending CI)
+- [.github/workflows/win-cpp-qt-phase1.yml](../../.github/workflows/win-cpp-qt-phase1.yml) — mandatory ACL and junction fixtures
 
-**Automated tests:** `win-cpp-qt/tests/test_phase1.cpp`, target `phase1_tests` via `ctest` in `win-cpp-qt/build`. Windows CI job `.github/workflows/win-cpp-qt-phase1.yml` sets `WTW_REQUIRE_PLATFORM_FIXTURES=1` so ACL and reparse fixtures must execute (skips fail the gate).
+**Automated tests:** `win-cpp-qt/tests/test_phase1.cpp`, target `phase1_tests` via `ctest`. `ScanDelivery` tests assert full UI-action sequences for every session-reset path (`ResetTreemapUi`).
 
-**Review round 2 fixes (Phase 1 closure):** clump overflow throws via `checkedAdd`; QObject cleanup by pointer identity; full `ScanDelivery` acceptance tests; mandatory platform fixtures in CI.
+**Review round 3 fixes:** `ResetTreemapUi` restores visible treemap/volume/status; projection overflow caught in `rebuildTreemap()`; fixture skip/fail control flow fixed; findings not closed until CI passes.
 
-**Findings closed in Phase 1:** 23 (enumeration/cancel/RAII), 24 (unreadable ≠ empty), 25 (reparse semantics), 39 (scan identity validation), 40 (typed outcomes).
-
-**Still open from review 22–46:** remaining phases in fixplan (Update navigation, archives, layout, timestamps, config, runtime, IO-02 summary UI, IO-01 long paths, etc.).
+**Findings addressed in Phase 1 (pending CI gate):** 23, 24, 25, 39, 40.

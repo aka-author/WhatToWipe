@@ -21,6 +21,11 @@ void restorePendingUpdateSession(Session& session) {
 
 void unsetTreemapSession(Session& session) { session.resetToInitial(); }
 
+void appendUnsetTreemap(Session& session, ScanFinishApply& out) {
+    unsetTreemapSession(session);
+    out.uiActions.push_back(ScanFinishUiAction::ResetTreemapUi);
+}
+
 }  // namespace
 
 SessionDeliverySnapshot captureDeliverySnapshot(const Session& session, const ScanProgressState& progress) {
@@ -78,7 +83,7 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
             out.uiActions.push_back(ScanFinishUiAction::RebuildTreemap);
             out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
         } else {
-            unsetTreemapSession(session);
+            appendUnsetTreemap(session, out);
         }
         session.pendingUpdateSnapshot.reset();
         out.uiActions.push_back(ScanFinishUiAction::Error002);
@@ -90,7 +95,7 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
             out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
             out.uiActions.push_back(ScanFinishUiAction::InterruptionAlert);
         } else {
-            unsetTreemapSession(session);
+            appendUnsetTreemap(session, out);
             out.uiActions.push_back(ScanFinishUiAction::InterruptionAlert);
         }
         session.pendingUpdateSnapshot.reset();
@@ -102,7 +107,7 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
             out.uiActions.push_back(ScanFinishUiAction::StatusForContext);
             out.uiActions.push_back(ScanFinishUiAction::Error001);
         } else {
-            unsetTreemapSession(session);
+            appendUnsetTreemap(session, out);
             out.uiActions.push_back(ScanFinishUiAction::Error001);
         }
         session.pendingUpdateSnapshot.reset();
@@ -125,7 +130,7 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
             const QFileInfo targetFi(expectedTarget);
             if (!targetFi.exists()) {
                 out.error004Target = expectedTarget;
-                unsetTreemapSession(session);
+                appendUnsetTreemap(session, out);
                 out.uiActions.push_back(ScanFinishUiAction::Error004);
                 return out;
             }
@@ -145,7 +150,7 @@ ScanFinishApply applyScanFinishedIfCurrent(Session& session, const scan::ScanRes
     }
     const QFileInfo ctxFi(scanRoot);
     if (!ctxFi.exists()) {
-        unsetTreemapSession(session);
+        appendUnsetTreemap(session, out);
         out.error004Target = scanRoot;
         session.pendingUpdateSnapshot.reset();
         out.uiActions.push_back(ScanFinishUiAction::Error004);

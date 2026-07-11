@@ -38,6 +38,7 @@ enum class ScanFinishUiAction {
     Error004,
     InterruptionAlert,
     RebuildTreemap,
+    ResetTreemapUi,
     StatusForContext,
 };
 

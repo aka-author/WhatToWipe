@@ -444,15 +444,17 @@ The table below records techspec row status as of the current tree. Update it wh
 | UX-01 | implemented | `pendingUpdateSnapshot` restore |
 
 
-### 15.1 Dispute findings closed in Phase 1
+### 15.1 Dispute findings addressed in Phase 1
 
 | Finding | Status | Evidence |
 |---------|--------|----------|
-| 23 | closed | `WinDirEnum` replaces `readDirBounded`; [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md); `native_handle_closed_on_*` tests |
-| 24 | closed | typed `DirectoryReadResult`; `TraversalState::Unreadable`; `denied_inner_dir_not_empty_folder`, `root_access_denied` |
-| 25 | closed | `TraversalState::ReparseTargetNotTraversed`; [io-03-reparse-policy.md](../verification/io-03-reparse-policy.md); reparse Phase 1 tests |
-| 39 | closed | `ScanResult` + `ScanIdentity`; `applyScanFinishedIfCurrent` / stale delivery tests |
-| 40 | closed | typed `ScanOutcome`; string-heuristic outcomes removed from scanner path |
+| 23 | pending CI | `WinDirEnum` replaces `readDirBounded`; [io-01-scan-boundary.md](../verification/io-01-scan-boundary.md); handle-closure tests; passing run required from [win-cpp-qt-phase1.yml](../../.github/workflows/win-cpp-qt-phase1.yml) |
+| 24 | pending CI | typed `DirectoryReadResult`; `TraversalState::Unreadable`; ACL fixtures with `WTW_REQUIRE_PLATFORM_FIXTURES=1` |
+| 25 | pending CI | `TraversalState::ReparseTargetNotTraversed`; junction fixture in mandatory CI mode |
+| 39 | pending CI | `ScanResult` + `ScanIdentity`; `ScanDelivery` session and UI-action contract tests |
+| 40 | pending CI | typed `ScanOutcome`; string-heuristic outcomes removed from scanner path |
+
+Findings in this table move to **closed** only after a passing Windows CI run with mandatory platform fixtures.
 
 
 ## 16. Document maintenance

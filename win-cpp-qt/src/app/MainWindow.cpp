@@ -256,7 +256,14 @@ void MainWindow::rebuildTreemap() {
         m_treemap->clearBlocks();
         return;
     }
-    const auto items = treemap::buildTreemapItems(ctx, m_session.driveTotal, m_cfg);
+    std::vector<model::TreemapItem> items;
+    try {
+        items = treemap::buildTreemapItems(ctx, m_session.driveTotal, m_cfg);
+    } catch (const std::exception&) {
+        unsetTreemap();
+        ui::showError002(this);
+        return;
+    }
     const QRect area = m_treemap->rect();
     const int dpi = static_cast<int>(m_treemap->devicePixelRatioF() * 96.0);
     auto mulDiv = [](int value, int numerator, int denominator) {
@@ -274,11 +281,15 @@ void MainWindow::rebuildTreemap() {
     m_treemap->setBlocks(blocks, m_cfg);
 }
 
-void MainWindow::unsetTreemap() {
-    m_session.resetToInitial();
+void MainWindow::applyResetTreemapUi() {
     m_treemap->clearBlocks();
     refreshVolumeToolbar();
     setStatusText(QStringLiteral("Choose a target folder"));
+}
+
+void MainWindow::unsetTreemap() {
+    m_session.resetToInitial();
+    applyResetTreemapUi();
     updateChrome();
 }
 
@@ -523,6 +534,9 @@ void MainWindow::onScanFinished(scan::ScanResult result) {
             break;
         case ScanFinishUiAction::RebuildTreemap:
             rebuildTreemap();
+            break;
+        case ScanFinishUiAction::ResetTreemapUi:
+            applyResetTreemapUi();
             break;
         case ScanFinishUiAction::StatusForContext:
             setStatusText(statusForContext());

@@ -45,6 +45,7 @@ private:
     void buildMenus();
     void updateChrome();
     void rebuildTreemap();
+    void applyResetTreemapUi();
     void setStatusText(const QString& text);
     void refreshVolumeToolbar();
     void startScan(const QString& scanRoot, ScanKind kind);
