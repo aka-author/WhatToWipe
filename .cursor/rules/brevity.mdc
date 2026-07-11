@@ -7,4 +7,6 @@ alwaysApply: true
 
 When the user asks something, default to **short** answers (yes/no, a single sentence, or a few bullets). Give longer explanations, tutorials, or structured write-ups **only if** they ask for detail, depth, steps, or an explicit full answer.
 
-If the same message also gives a concrete task (Mutabor, fix, review a file), satisfy that task fully; brevity applies to **prose around** the work, not to skipping required edits or checks.
+If the same message contains `Mutabor` and names a concrete task, satisfy that task fully. Brevity applies to **prose around** the work, not to skipping required edits or checks.
+
+Without `Mutabor` in the current message, stay read-only regardless of how concrete the task sounds.

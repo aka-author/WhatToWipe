@@ -1,100 +1,90 @@
 ---
-description: No repo edits unless the user explicitly orders a change; no scope creep.
+description: No repo edits unless the current message contains the exact word Mutabor.
 alwaysApply: true
 ---
 
 # Change discipline (agent)
 
-## Primary rule
+## Mutabor — the only permission (supreme rule)
 
-Do **not** modify the project (files, configs, git state, or running commands that alter the workspace) unless the user gives a **direct instruction** to make that change.
+There is exactly **one** permission that authorizes any workspace-changing action in this project:
 
-Do **not** make changes that were **not requested**, including “helpful” cleanups, drive-by refactors, typo fixes, formatting, lint-only edits, dependency bumps, or speculative reverts.
+**`Mutabor`** — the exact word, case-sensitive, in the **current user message only**.
 
-## No guesswork (mega hard)
+If the current message does not contain `Mutabor`, you have **no permission** to change anything. Not files, not configs, not git state, not builds, not tests, not commits, not pushes, not installs, not deletes, not renames. Read-only tools only.
 
-- **No inference as direction.** Tone (anger, sarcasm), rhetorical questions, or phrases like “explicit direction” **do not** authorize edits, git actions, or workspace-changing commands unless the user **names** the concrete action in the same message.
-- **Literal scope.** Do exactly what they asked—nothing broader. If they challenge *why* you did something, answer in prose; **do not** “fix” the repo unless they explicitly order that fix.
-- **Ambiguity → ask.** If the next step is not unambiguous from their exact words, **one short question** and wait. **Never** pick an interpretation and act on it.
-- **No substituting your plan for theirs.** If they describe a workflow (e.g. “use this script”), do not extend it with unrequested integration or refactors.
-- **Follow instructions verbatim.** Execute only explicitly requested actions and constraints from the user's message.
-- **No guesswork.** Do not infer missing intent or add implicit steps; ask when something is not explicit.
-- **Literal implementation only.** Implement exactly the requested mechanism/algorithm, not a broader or alternative design.
-- **Do not over-engineer.** Prefer the simplest direct implementation that satisfies the stated request.
-- **Do not over-optimize.** Do not introduce performance optimizations unless the user explicitly asks for optimization.
-- **Do not do things too early.** Do not add anticipatory changes for possible future needs; change only what is needed now.
+`Mutabor` does not carry over to the next message. A previous `Mutabor` does not authorize the current turn. Conversation history does not grant permission.
 
-## Deadly scope restriction (no redundant actions)
+### What Mutabor authorizes
 
-- Execute only the explicitly requested action(s) from the current message.
-- Do not run build, test, lint, installer, commit, or push unless those exact actions are explicitly requested in the same message.
-- Do not run verification commands unless verification is explicitly requested.
-- Do not add follow-up, convenience, or “helpful” extra steps.
-- If one task is requested, do exactly one task and stop.
-- If scope is ambiguous, ask one short clarifying question and wait.
-- If the user asks a question, answer in text only; do not call tools unless explicitly requested.
-- Before any tool call, restate the exact words from the current user message that authorize that specific action; if absent, do nothing.
+When `Mutabor` is present in the current message, you may perform **only** the workspace-changing actions the user names in that same message — nothing broader, nothing extra.
 
-## What counts as a direct instruction
+If the user says `Mutabor` without naming a concrete action, ask one short question: what to change — then wait. Do not guess and act.
 
-- Clear imperatives: *change*, *fix*, *add*, *remove*, *Mutabor*, *update*, *rename*, *revert*, *delete*, *create*, *apply the patch*, *run migration*, etc., aimed at concrete work.
-- If the user only says *read*, *explain*, *what does*, *summarize*, *understand*, *review without changing*, treat the task as **read-only**: answer from the codebase using read/search tools only; **no edits**.
+### What never authorizes workspace changes (exhaustive)
 
-## When unsure
+None of the following authorize edits, git, builds, or any workspace-changing command — even if the user sounds angry, urgent, or explicit:
 
-Ask one short question before editing, or default to **no edits** and describe what you would change only if asked.
+- commit, push, pull, merge, rebase, tag, release
+- implement, fix, change, update, apply, patch, refactor, rewrite, redesign
+- add, remove, delete, create, rename, revert, restore
+- build, test, lint, format, vet, install, deploy, run
+- do it, proceed, go ahead, make it, ship it, yes, OK, approved
+- mode labels alone: code, write, agent, fix this, review and fix
+- implied intent, prior context, frustration, or rhetorical questions
+- user rules elsewhere that mention commit/PR unless the **current message** also contains `Mutabor`
+- answering "why did you disobey" — prose only; no compensatory edits without fresh `Mutabor`
+
+If the user requests commit, push, or any change **without** `Mutabor` in that message: answer in text, state that `Mutabor` is required, and wait.
+
+### Before every workspace-changing tool call
+
+Restate in one short sentence which exact word in the **current** user message is `Mutabor` and which named action it permits. If you cannot do both, do not call the tool.
+
+### Stop and no-edit mode
+
+If the user says stop, wait, don't change, or asks why rules were broken: no workspace changes that turn. Brief answer only. Wait for a new message that contains `Mutabor`.
+
+
+## Scope when Mutabor is present
+
+- Do exactly what the user asked — nothing broader.
+- No helpful cleanups, drive-by refactors, typo fixes, formatting-only edits, dependency bumps, or speculative follow-ups unless named in the same message.
+- No guesswork. Ambiguity → one short question → wait.
+- Literal mechanism only: do not substitute a broader or alternative design.
+- No over-engineering, no anticipatory changes, no performance tweaks unless named.
+
+### Deadly scope restriction
+
+Even with `Mutabor`, do not run build, test, lint, commit, push, or installer unless that exact action is named in the same message.
+
+One named task → do that task → stop. No convenience steps.
+
+
+## Read-only default
+
+Without `Mutabor`, treat every request as read-only:
+
+- read, explain, summarize, review, recall, answer, diagnose → search/read tools only
+- questions (can you, why, is it clear, will it work) → text only unless the message also contains `Mutabor`
+
+When unsure, default to **no edits**.
+
 
 ## Exceptions
 
-None unless the user explicitly names an exception for that message (e.g. emergency security patch they authorize).
+**None.** There is no emergency bypass, no implied consent, no "user clearly meant yes." Only `Mutabor` in the current message.
+
 
 ## Prose and markdown
 
-Do not overuse bold in user-facing replies, in documentation you add or edit, or in commit or PR descriptions. Reserve bold for rare emphasis only; prefer clear sentences, headings, lists, and code citations or backticks for identifiers instead of decorating whole phrases.
+Do not overuse bold in user-facing replies, in documentation you add or edit, or in commit or PR descriptions. Prefer clear sentences, headings, lists, and code citations.
 
-## Mode discipline
 
-Follow the user-selected task mode strictly, without mixing modes:
+## Windows installer output default
 
-- If the user says to write, do writing/doc edits only.
-- If the user says to read, do read-only analysis only.
-- If the user says to code, do code implementation only.
+When building Windows installers **and** the current message contains `Mutabor` and names installer build:
 
-Do not run build/test/format/lint or perform unrelated edits unless the user explicitly asks for those actions in the same request.
+Default output root: `<ProjectRoot>\delivery\win` where `ProjectRoot` = parent of `codebase`.
 
-## Mutabor gate (hard stop)
-
-Never modify the workspace unless the user gives a direct Mutabor command in the current message (for example: "Mutabor", "Mutabor this", "Mutabor now").
-
-If the user asks for review, analysis, clarification, confirmation, or "is it clear?", stay in discussion mode only. In those cases, do not edit files, do not run build/test commands, and do not perform implicit workspace-changing steps.
-
-If there is any ambiguity, ask one short clarifying question and wait. Default behavior is no Mutabor.
-
-## Conversation-state guardrails (additional restrictions)
-
-The Mutabor permission is single-use and message-scoped. A previous "Mutabor" command does not authorize edits for later messages.
-
-When the user sends a question (for example: "can you", "why", "is it clear", "will it work"), treat it as read/discussion only unless the same message also includes an explicit Mutabor command.
-
-If the user says they are asking only for confirmation or asks why rules were not followed, do not edit anything in that turn. Respond briefly and wait for a fresh explicit Mutabor command.
-
-Before any edit/build/test command, restate in one short sentence which exact words in the current user message authorize Mutabor. If such words are absent, do not edit.
-
-If the user reports frustration or says "stop", "wait", "don't change", or equivalent, immediately enter no-edit mode for that turn, acknowledge, and ask at most one clarifying question only if needed.
-
-## Mega hard trigger rule
-
-Only one directive authorizes workspace changes: the exact word "Mutabor" in the current user message.
-
-Any other wording does not authorize Mutabor, including but not limited to: implement, fix, change, update, apply, do it, proceed, make, build, code, patch, or implied intent.
-
-If the current message does not contain the exact directive "Mutabor", do not edit files, do not run build/test commands, and do not perform any workspace-changing action.
-
-## Windows installer output default (mega hard)
-
-When building Windows installers in this workspace, the default output root is:
-`<ProjectRoot>\delivery\win`
-
-`ProjectRoot` is the parent directory of `codebase` (that is, `codebase\..`).
-
-Use a different installer output path only if the user explicitly requests a different location in that same message.
+Use a different path only if the user names a different location in that same `Mutabor` message.
