@@ -5,6 +5,7 @@
 #include <QAbstractTableModel>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QDialogButtonBox>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -15,8 +16,6 @@
 #include <QVBoxLayout>
 
 namespace wtw::ui {
-
-namespace {
 
 enum GridColumn { ColName = 0, ColValue = 1, ColSwatch = 2, ColPicker = 3, ColCount = 4 };
 
@@ -71,6 +70,8 @@ public:
 private:
     QVector<SettingsRowState>* m_states = nullptr;
 };
+
+namespace {
 
 QLabel* makeNameLabel(const QString& text, QWidget* parent) {
     auto* label = new QLabel(text, parent);
