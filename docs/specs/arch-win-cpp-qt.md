@@ -7,6 +7,9 @@ Normative stack:
 1. [funcspec.md](./funcspec.md) (FS) defines all product behavior, UI text, and acceptance tests.
 2. [techspec-win-cpp-qt.md](./techspec-win-cpp-qt.md) adds Windows, C++, Qt, PE, DPI, I/O, responsiveness, settings-grid, and build baselines that FS does not spell out.
 3. This file suggests how to structure code and workflows so the first two stay satisfied. If anything here disagrees with FS or the technical specification, fix this file.
+4. [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) records the as-built module; use it to verify that this architecture matches what ships.
+
+Prose in project docs follows [XMSTP](https://github.com/aka-author/xmstp). Agents do not edit FS.
 
 
 ## 1. Scope and migration rationale
@@ -33,47 +36,38 @@ The `win-go/` tree remains as reference until feature parity and FS verification
 Keep a short internal map from FS sections to modules. That is hygiene, not part of this document.
 
 
-## 3. Repository layout (proposed)
+## 3. Repository layout
 
 Implementation root: **`win-cpp-qt/`** (slug matches `techspec-win-cpp-qt.md` per [folder-structure.md](../folder-structure.md)).
 
-Suggested tree:
+The tree below matches the shipping module. See [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §2 for the authoritative file list.
 
 ```
 win-cpp-qt/
   CMakeLists.txt
+  toolchain-qt-mingw.cmake
+  build.ps1
+  deploy-standalone.ps1
+  test-run.ps1
+  versioninfo.json
+  resources/
+    app.rc, app.qrc, toolbar.qrc
   src/
     main.cpp
-    app/
-      Application.{h,cpp}          # QApplication setup, DPI, translators
-      MainWindow.{h,cpp}           # shell, menus, command strip, status bar
-      Session.{h,cpp}              # target path, nav stack, scan state
-    treemap/
-      TreemapWidget.{h,cpp}        # paint, hit-test, tooltips, labels
-      TreemapLayout.{h,cpp}        # squarify / area allocation
-      LabelFit.{h,cpp}             # FS label-fit algorithm
-    scan/
-      ScanWorker.{h,cpp}           # QThread or run() on QThreadPool
-      ArchiveClassifier.{h,cpp}    # zip/rar packing types
-    config/
-      Config.{h,cpp}               # load/save, defaults, legacy path
-      TreemapSettings.{h,cpp}      # typed treemap parameters
-    ui/
-      SettingsDialog.{h,cpp}       # FS settings grid
-      AboutDialog.{h,cpp}
-      ErrorDialogs.{h,cpp}
-    platform/
-      VolumeInfo.{h,cpp}           # GetDiskFreeSpaceExW, drive label
-      ShellOpen.{h,cpp}            # Explorer, file associations
-  resources/
-    app.rc                         # VERSIONINFO, icon
-    icons/                         # links or copies from codebase/assets/icons
-  cmake/
-    QtDeploy.cmake
-  build.ps1                        # version bump, output to bin/win/current
+    app/           Application, MainWindow, Session, Product
+    config/        TreemapConfig, ConfigStore
+    model/         FolderDescriptor
+    scan/          ScanWorker, ArchiveClassifier, SubtreeMerge
+    treemap/       TreemapProjection, TreemapLayout, LabelFit, TreemapWidget
+    platform/      VolumeInfo, ShellOpen, AppVersion
+    ui/            SettingsSchema, SettingsDialog, AboutDialog, AlertDialogs,
+                   MenuLabels, ToolbarIcons
+    util/          Format
 ```
 
-Build outputs follow the existing project rule: **`<ProjectRoot>/bin/win/current/`**, not inside `codebase/`.
+CMake target and executable name: `EraseAndRewrite` → `EraseAndRewrite.exe`.
+
+Build outputs follow the project rule: `<ProjectRoot>/bin/win/current/`, not inside `codebase/`.
 
 
 ## 4. Subsystems
@@ -100,7 +94,7 @@ FS wording "toolbar" means these command affordances, not a specific Win32 or Qt
 
 Owns:
 
-- `targetPath`, `navPath` (stack of folder paths within scanned tree)
+- `targetPath`, `contextPath` (current folder within the scanned tree)
 - `scanning` flag, cancel token
 - `treemapComplete` / unset state per FS
 - `pendingUpdateSnapshot` for techspec UX-01 restore on cancelled Update
@@ -114,7 +108,7 @@ Do not invent alternate meanings for FS treemap states.
 - Cooperative cancellation checked frequently (techspec RS-01).
 - Progress: emit throttled path updates (`scanning.updateInterval` = 0.5 s default; not user-editable per FS table).
 - Classify `.zip` / `.rar` archives when catalog readable; otherwise packed clump.
-- Reparse policy: same as documented `win-go` choice (visited canonical path set, skip on cycle) unless verification note revises it.
+- Reparse policy: directory junctions and symlinks are not traversed; record `reparseSkipped` with a reason (techspec IO-03; see impl §6.2).
 - On completion: emit `FolderTree` snapshot to GUI thread; never paint partial mixed trees.
 
 ### Treemap model
@@ -143,7 +137,7 @@ Pure function: child metrics + pixel rectangle → tile rectangles. Areas follow
   4. Shortening at min font — brief form.
   5. `treemap.labelDummy`.
 
-- Hit testing for dive-in, context menu (Explore / Open).
+- Hit testing for dive-in (left click) and context menu (folder: Explore…; file: Open…).
 - Tooltips when label hidden or shortened.
 - Mouse cursors per FS table.
 - `QAccessible` names optional (techspec A11Y recommendation).
@@ -175,16 +169,20 @@ This is the primary reason for the Qt migration. The design must pass FS Setting
 
 Record in `docs/verification/settings-grid-qt-strategy.md`:
 
-> We use `QTableView` + `QAbstractTableModel` with **permanent** cell widgets attached through `setIndexWidget` for every editable value cell. Parameter names are read-only labels in column 0. Column 1 hosts a row-specific composite widget (text, spin, combo, or color row). Editors are created when the dialog opens and remain visible until it closes. We do not use activation-only delegate editing, `SysListView32` overlays, detached panels, or per-row independent layouts.
+> We use `QTableView` + `QAbstractTableModel` with permanent cell widgets attached through `setIndexWidget` for every cell. Parameter names are read-only labels in column 0. Column 1 hosts the value editor. Color rows split swatch and picker into columns 2 and 3 so all four columns share stable boundaries. Editors are created when the dialog opens and remain visible until it closes. We do not use activation-only delegate editing, `SysListView32` overlays, detached panels, or per-row independent layouts.
 
-### Recommended layout
+### Layout (as built)
+
+The settings grid uses four shared columns.
 
 | Column | Content |
 |--------|---------|
-| 0 | Parameter name (`QLabel` in read-only presentation) |
-| 1 | Value cell — permanent editor widget |
+| 0 | Parameter name (`QLabel`, read-only) |
+| 1 | Value — permanent `QLineEdit` or editable `QComboBox` |
+| 2 | Preview — color swatch or empty placeholder |
+| 3 | Picker — color … button or empty placeholder |
 
-**Row count:** one per user-editable FS treemap parameter (32 rows in current FS table).
+Row count: one per user-editable FS treemap parameter (32 rows in the current FS table). Column widths and resize behavior are documented in impl §8.2.
 
 ### Editor mapping
 
@@ -195,7 +193,7 @@ Record in `docs/verification/settings-grid-qt-strategy.md`:
 | Percentage (`treemap.clumpThreshold`) | `QDoubleSpinBox` storing fraction 0–1 (display as decimal; FS allows `%` in file but editors use numeric fraction internally) |
 | TSize | `QLineEdit` with validator for `pt`/`px`/`mm`/`cm`/`in` suffix |
 | String | `QLineEdit` |
-| Color | `QWidget` row: `QLineEdit` (`#RRGGBB`) + `QLabel` swatch + `QToolButton` "…" → `QColorDialog` |
+| Color | hex in column 1; swatch in column 2; `QPushButton` "…" in column 3 opens `QColorDialog` |
 | `treemap.tileFontName` | editable `QComboBox` filled from `QFontDatabase::families()` |
 
 Color swatch: `QLabel` with `setStyleSheet` or `QPalette` background; update on every valid color change and on Reset.
@@ -207,14 +205,14 @@ Mirror `win-go/internal/ui/validation.go` rules:
 - Field validation on commit (focus loss / Enter).
 - `validateAll` + `validateObject` stub before save.
 - Inline error `QLabel` below grid (red); no `QMessageBox` for field validation (FS-aligned UX).
-- `QMessageBox` only for Cancel-with-dirty confirmation and catastrophic I/O.
+- `QMessageBox` for catastrophic I/O only; field validation stays inline.
 
 Buttons:
 
 - **Reset Treemap Defaults** — reload UI from built-in defaults; no disk write until Apply/OK.
 - **Apply** — validate all → save → apply to live treemap config → keep dialog open.
 - **OK** — Apply then accept.
-- **Cancel** — confirm if dirty.
+- **Cancel** — close without dirty confirmation (matches Go delivery; see impl §8.4).
 
 Atomic save: serialize full treemap section only after all fields pass.
 
@@ -278,10 +276,11 @@ Large tile counts: label fitting is O(tiles × font sizes). Options:
 
 ## 9. Build and release
 
-- **CMake** + **MSVC** + **Qt 6**.
-- `build.ps1`: bump version resource, `cmake --build`, copy to `bin/win/current`, append `docs/history/builds.txt` (same discipline as `win-go/build.ps1`).
+- **CMake** + **Qt 6.10.3 MinGW 13.1.0** (`toolchain-qt-mingw.cmake`); static-link `libstdc++` into the executable.
+- `build.ps1`: bump version resource, commit snapshot, `cmake --build`, copy `EraseAndRewrite.exe` to `bin/win/current`, run `windeployqt`, append `docs/history/builds.txt` (same discipline as `win-go/build.ps1`).
+- `deploy-standalone.ps1` and `test-run.ps1` verify standalone deployment.
 - `windeployqt` in installer pipeline; Inno Setup script can reuse `installer/Erase & Rewrite.iss` with updated `SourceDir`.
-- Icon pipeline: reuse `codebase/assets/icons` SVG → ICO/PNG generation (port `genicons` or use `rasterize` in CMake).
+- Icon pipeline: `win-go/tools/genicons` for `app.ico`; toolbar SVGs from `codebase/assets/icons` via `toolbar.qrc`.
 
 ---
 
@@ -308,7 +307,7 @@ Priority test: **settings grid manual pass** before declaring Go target retired.
 | `internal/layout/squarify.go` | `TreemapLayout` |
 | `internal/config` | `config/` (format 1:1) |
 | `internal/ui/run_windows.go` | `MainWindow` + `TreemapWidget` |
-| `internal/ui/row_schema.go` etc. | `SettingsDialog` model |
+| `internal/ui/row_schema.go` etc. | `SettingsSchema` + `SettingsDialog` |
 | `internal/ui/custom_grid_windows.go` | **Do not port** — replace with Qt permanent cell widgets |
 
 Behavioral parity is the goal; line-by-line port is not required.

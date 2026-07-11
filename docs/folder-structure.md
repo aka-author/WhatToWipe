@@ -35,7 +35,11 @@ Informative architecture notes use the parallel name in the **same** directory:
 
 `docs/specs/arch-<platform>-<stack>.md`
 
-**Supported today:** Windows + Go (`techspec-win-go.md`, `arch-win-go.md`) and Windows + C++ + Qt (`techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`). The Go module remains until the Qt target is verified against FS. Do not add spec files or repo-root implementation siblings for other OSes until those targets are actually supported.
+As-built implementation descriptions (when present) use:
+
+`docs/specs/impl-<platform>-<stack>.md`
+
+**Supported today:** Windows + Go (`techspec-win-go.md`, `arch-win-go.md`) and Windows + C++ + Qt (`techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`, `impl-win-cpp-qt.md`). The Go module remains until the Qt target is verified against FS. Do not add spec files or repo-root implementation siblings for other OSes until those targets are actually supported.
 
 Rules for the slug `<platform>-<stack>` in the filename:
 
@@ -94,6 +98,9 @@ For a given delivery target, interpretation order is:
 1. `docs/specs/funcspec.md`
 2. `docs/specs/techspec-<platform>-<stack>.md` for that target, if present
 3. `docs/specs/arch-<platform>-<stack>.md` for that target, informative only
+4. `docs/specs/impl-<platform>-<stack>.md` for that target, as-built informative only
+
+`funcspec.md` is owner-edited; agents document implementation elsewhere and do not revise FS.
 
 If a target has no techspec yet, only FS applies until one is added.
 

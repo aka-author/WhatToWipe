@@ -6,7 +6,7 @@
 
 If anything here could be read as conflicting with FS, FS wins and this document must be corrected.
 
-Out of scope here: component layout, class names, and algorithms (see [arch-win-cpp-qt.md](./arch-win-cpp-qt.md), which is informative only).
+Out of scope here: component layout, class names, and algorithms (see [arch-win-cpp-qt.md](./arch-win-cpp-qt.md), informative; [impl-win-cpp-qt.md](./impl-win-cpp-qt.md), as-built).
 
 This target supersedes [techspec-win-go.md](./techspec-win-go.md) for new Windows delivery work once the `win-cpp-qt/` module is the active shipping line. The Go target remains in the repository until the Qt build is verified against FS and this techspec.
 
@@ -21,6 +21,7 @@ Words like "must", "must not", and "should" carry their usual English force: "mu
 | ID | Document |
 |----|-----------|
 | FS | [funcspec.md](./funcspec.md) (functional specification) |
+| IMPL | [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) (as-built implementation map) |
 | GO-ARCH | [arch-win-go.md](./arch-win-go.md) (informative; prior target lessons) |
 | GRID-GUIDE | [../guides/win/choosing-a-lib-for-a-grid.md](../guides/win/choosing-a-lib-for-a-grid.md) (informative; Go-era grid evaluation) |
 
@@ -40,7 +41,7 @@ Words like "must", "must not", and "should" carry their usual English force: "mu
 | PL-01 | The shipping artifact must be a 64-bit Windows GUI executable suitable for interactive desktop use (not a console-only program as the only UI). |
 | PL-02 | The program must support Windows 10 and Windows 11 (64-bit x64). It should run on newer Windows releases where the same desktop and shell assumptions still hold. It must not depend on optional Windows features beyond what a typical desktop install provides for file management and choosing folders. |
 | PL-03 | User-visible paths must use normal Windows forms (drive letters, UNC where applicable) wherever FS asks to show a path. |
-| PL-04 | The implementation must be written in C++17 or newer and must use Qt 6 (LTS line). The exact Qt minor version and compiler toolchain (for example MSVC 2022) must be pinned or recorded in the repository (for example in `win-cpp-qt/CMakeLists.txt` and a toolchain note). |
+| PL-04 | The implementation must be written in C++17 or newer and must use Qt 6 (LTS line). The exact Qt minor version and compiler toolchain must be pinned or recorded in the repository. The shipping build uses Qt 6.10.3 `mingw_64` with MinGW 13.1.0 via `win-cpp-qt/toolchain-qt-mingw.cmake` and `win-cpp-qt/CMakeLists.txt`. |
 | PL-05 | The release must not require a separate browser runtime (for example WebView2) or a Node-based frontend build for core product UI. Settings and main shell must be native Qt widgets. |
 | PL-06 | Qt deployment must ship all runtime DLLs and platform plugins required for a clean Windows machine via a documented packaging step (for example `windeployqt` plus installer rules). |
 
@@ -151,7 +152,7 @@ The Go + walk target failed FS Settings Form acceptance: overlay editors on `Sys
 |----|-------------|
 | BD-01 | Build system must be CMake (minimum 3.21) with out-of-source build directories; build products must not be committed inside `codebase/`. |
 | BD-02 | Release binaries must land under `<ProjectRoot>/bin/win/current/` following the same project convention as `win-go/build.ps1`, unless the build script documents a deliberate change. |
-| BD-03 | Qt modules required at minimum: `Qt6::Widgets`, `Qt6::Gui`, `Qt6::Core`. Optional: `Qt6::Concurrent` for scan workers. |
+| BD-03 | Qt modules required at minimum: `Qt6::Widgets`, `Qt6::Gui`, `Qt6::Core`, `Qt6::Svg` (toolbar icons). Optional: `Qt6::Concurrent` for scan workers. |
 | BD-04 | Third-party Qt licensing obligations (LGPL v3 or commercial Qt license) must be documented in the repository with deployment instructions (for example object files offer, license texts, `windeployqt` output layout). |
 | BD-05 | C++ dependencies beyond Qt must be kept minimal and vendored or fetched via CMake with pinned versions recorded in-repo. |
 
@@ -170,4 +171,4 @@ Product acceptance is still defined only by FS and whatever verification you att
 
 PL-01/PL-02 via PE subsystem checks and clean VM smoke; DP-01/DP-02 with golden measurements at 100%, 125%, 150% scale; WR-01/WR-02 by dumping `VERSIONINFO` strings and comparing to About output; IO fixtures for long paths, denied ACLs, cyclic junctions, stalled UNC; RS-01 large-directory manual pass with Stop responsiveness; MEM-01 stress fixture; A11Y manual keyboard and high-contrast passes; UX-01 Update-then-cancel snapshot restore; SG manual pass through full FS Settings definition-of-done checklist; CF round-trip tests against sample configs from `win-go/dist/`.
 
-For reviewers: keep one short note in `docs/verification/` recording shipped choices for IO-01, IO-03, drive-total API, config path migration (CF-03), Qt settings control strategy (SG-09), and logging, so VR-01 evidence is easy to find.
+For reviewers: keep one short note in `docs/verification/` recording shipped choices for IO-01, IO-03, drive-total API, config path migration (CF-03), Qt settings control strategy (SG-09), and logging, so VR-01 evidence is easy to find. The as-built compliance table in [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §15 tracks open gaps (for example IO-02, WR-04).

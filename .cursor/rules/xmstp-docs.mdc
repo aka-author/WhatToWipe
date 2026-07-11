@@ -1,0 +1,51 @@
+---
+description: XMSTP writing standards for docs; funcspec.md is owner-edited only.
+alwaysApply: true
+---
+
+# Documentation standards (XMSTP)
+
+## XMSTP is mandatory
+
+All Markdown under `docs/` must comply with the [Extensible Manual of Style for Technical Publications (XMSTP)](https://github.com/aka-author/xmstp) on branch `dev`, including at minimum:
+
+- `standards/structures/Generic_Requirements_for_a_Technical_Document.md` (GRTD)
+- `standards/structures/General-Purpose_Information_Types.md` (GPIT)
+- `standards/structures/Instructive_Content_Information_Types.md` (ICIT)
+- `standards/langpacks/en/en-words.md` (project vocabulary)
+
+When authoring or revising documentation, apply GRTD rules in practice:
+
+- Introduce every table, figure, and extract in the paragraph directly above it (R.GRTD.0490–R.GRTD.0520).
+- End enumeration introduction phrases with a full stop before parallel tables (R.GRTD.0950).
+- Use one self-contained idea per sentence (R.GRTD.0340).
+- Keep terminology consistent; define terms before use (R.GRTD.0220–R.GRTD.0580).
+- Enumerate subjects before dedicated subsections when a section covers multiple subjects (R.GRTD.1060–R.GRTD.1100).
+- Do not use bold for decoration; use it only where XMSTP or the target document genre requires emphasis.
+
+Prefer *program* over *application* for the desktop executable (en-words: *application* is deprecated for PC users).
+
+If project docs and XMSTP conflict on prose mechanics, XMSTP wins for prose mechanics. Product meaning still follows FS precedence.
+
+
+## funcspec.md is hands-off
+
+`docs/specs/funcspec.md` (FS) is written and owned by the user.
+
+Agents must not edit, rephrase, restructure, or “sync” FS — even when techspec, arch, impl, or code appear inconsistent with FS.
+
+If another document disagrees with FS, fix the other document or record a waiver in the appropriate target doc or `docs/verification/`. Never “correct” FS on the user's behalf.
+
+Allowed for FS: read, cite, link, and explain. Not allowed without an explicit per-file FS edit request that also contains `Mutabor`: any write to `funcspec.md`.
+
+
+## Document stack for win-cpp-qt
+
+Precedence for product meaning:
+
+1. `docs/specs/funcspec.md` (read-only for agents)
+2. `docs/specs/techspec-win-cpp-qt.md`
+3. `docs/specs/arch-win-cpp-qt.md` (informative)
+4. `docs/specs/impl-win-cpp-qt.md` (as-built, informative)
+
+When updating win-cpp-qt docs, keep techspec, arch, and impl mutually consistent. Do not duplicate FS prose into those files.
