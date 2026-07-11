@@ -281,6 +281,13 @@ if (-not (Test-Path -LiteralPath $built)) {
 
 Copy-WithRetry -Source $built -Destination $Exe
 
+$deployScript = Join-Path $ModuleRoot "deploy-standalone.ps1"
+if (-not (Test-Path -LiteralPath $deployScript)) {
+    throw "deploy-standalone.ps1 not found: $deployScript"
+}
+& $deployScript -TargetDir $OutDir -ExePath $Exe -QtPrefix $qtPrefix
+if ($LASTEXITCODE -ne 0) { throw "standalone Qt deploy failed" }
+
 if ($env:ERASE_REWRITE_SIGNTOOL) {
     $signTool = $env:ERASE_REWRITE_SIGNTOOL
     $signArgs = @("sign")
