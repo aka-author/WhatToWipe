@@ -26,6 +26,7 @@ The following dispute sections are authoritative for scope:
 - Developer reply to strict implementation review (2026-07-11).
 - Reviewer reply to developer implementation response (2026-07-11).
 - Second reviewer review of updated fix plan (2026-07-11).
+- Final reviewer issue — unreadable-folder size semantics (2026-07-11).
 
 Cross-reference: [impl-win-cpp-qt.md](./impl-win-cpp-qt.md) §15 lists current compliance gaps.
 
@@ -130,6 +131,7 @@ class DirectoryReadResult {
 public:
     static DirectoryReadResult ok(QVector<DirEntry> entries);
     static DirectoryReadResult failure(DirectoryReadStatus status, DWORD nativeError);
+    // failure() must reject DirectoryReadStatus::Ok and DirectoryReadStatus::Invalid
     DirectoryReadStatus status() const;
     const QVector<DirEntry>& entries() const;
     DWORD nativeError() const;
@@ -162,12 +164,18 @@ private:
 
 `ScanResult::success` must require a moved-in descriptor; `cancelled`, `rootUnavailable`, and `technicalFailure` must reject a descriptor at compile time or runtime. No public default construction.
 
-`DirectoryReadResult` uses the same fail-closed pattern: default construction is `Invalid`; only `ok()` and `failure()` factories produce usable values.
+`DirectoryReadResult::failure()` must reject `DirectoryReadStatus::Ok` and `DirectoryReadStatus::Invalid` at runtime (assert in debug, return `Invalid` result in release).
 
-Folder and file `size` fields in `model/FolderDescriptor` use `quint64`. Aggregate sums use checked unsigned addition (`util/CheckedMath.h` or equivalent). Convert to normalized `double` layout weights only in `TreemapLayout`.
+Folder and file byte counts use `quint64` where known. Represented aggregate size for folder nodes uses `std::optional<quint64> aggregateSize`:
+
+- engaged value: measured or recomputed known size;
+- absent value: size unknown (unreadable enumeration).
+
+Files always set a known `quint64 size` from `DirEntry`. Aggregate sums use checked unsigned addition over engaged values only (`util/CheckedMath.h`). Convert to normalized `double` layout weights only in `TreemapLayout`.
 
 Extend `model/FolderDescriptor.h`:
 
+- add `std::optional<quint64> aggregateSize` on folder nodes;
 - add `TraversalState traversalState` on folder nodes;
 - keep `TreeRole` for FS display semantics only;
 - add `std::optional<QDateTime>` for oldest/newest file fields (phase 5 wires birth time from `DirEntry`);
@@ -200,13 +208,23 @@ Cancellation boundary (document in [../verification/io-01-scan-boundary.md](../v
 
 In `scan/ScanWorker.cpp`:
 
-| Situation | `traversalState` | `treeRole` | Size |
-|-----------|------------------|------------|------|
-| Enumeration succeeded, no children | `Complete` | `EmptyFolder` | 0 aggregate |
-| Enumeration failed | `Unreadable` | `NodeFolder` | unknown; do not assert emptiness |
-| Directory reparse point | `ReparseTargetNotTraversed` | `NodeFolder` | 0 for v1 (linked target excluded) |
+| Situation | `traversalState` | `treeRole` | `aggregateSize` |
+|-----------|------------------|------------|-----------------|
+| Enumeration succeeded, no children | `Complete` | `EmptyFolder` | `0` |
+| Enumeration failed | `Unreadable` | `NodeFolder` | `std::nullopt` |
+| Directory reparse point | `ReparseTargetNotTraversed` | `NodeFolder` | `0` (linked target excluded) |
 
-`TreeRole` follows FS display rules. `TraversalState` records scanner knowledge. `Unreadable` and `ReparseTargetNotTraversed` never use `EmptyFolder` because emptiness was not established. Both use `NodeFolder` so the treemap treats them as folder tiles with dive/explore governed by `traversalState` and FS cursor rules.
+`TreeRole` follows FS display rules. `TraversalState` records scanner knowledge.
+
+**Unreadable size semantics (normative):**
+
+- an unreadable folder does not contribute a numeric size to parent aggregates; `recomputeAggregates()` sums only children with engaged sizes;
+- treemap projection excludes nodes without engaged `aggregateSize` from area/share calculation (step 2 of §4.2);
+- an unreadable folder may still appear as a zero-area or annotation-only tile if FS visibility requires it, but it must not receive positive area from an invented size;
+- status/details text may report “size unknown” via `TraversalState`, not via `0` bytes;
+- `SubtreeMerge` and Update publish preserve `TraversalState` and absent `aggregateSize` across merge.
+
+**Reparse size:** represented `0` is a deliberate policy value, not unknown; `TraversalState::ReparseTargetNotTraversed` distinguishes it from measured empty folders.
 
 Increment `diagnostics.unreadableDirectoryCount` only for failed enumeration. Increment `diagnostics.reparseNotTraversedCount` only for intentional reparse skips. Do not conflate the two.
 
@@ -222,7 +240,8 @@ Remove outcome heuristics:
 In `model/FolderDescriptor.cpp` and `scan/SubtreeMerge.cpp`:
 
 - `recomputeAggregates()` must not downgrade `Unreadable` or `ReparseTargetNotTraversed` to `EmptyFolder`;
-- empty child lists after a failed read must not imply `EmptyFolder`.
+- empty child lists after a failed read must not imply `EmptyFolder`;
+- never assign `aggregateSize = 0` to an `Unreadable` node; keep `aggregateSize` absent.
 
 
 ### 1.6 Result delivery and stale-result guard
@@ -256,7 +275,9 @@ Add `win-cpp-qt/tests/` using Qt Test with fixtures:
 | `cancel_before_first_entry` | cooperative cancel |
 | `cancel_after_several_entries` | cancel mid-enumeration |
 | `cancel_between_entries` | cancel flag stops further enumeration |
-| `native_handle_closed_on_cancel` | RAII closes search handle |
+| `native_handle_closed_on_cancel` | RAII closes search handle on cancel |
+| `native_handle_closed_on_failure` | RAII closes search handle on enumeration failure |
+| `unreadable_folder_no_aggregate_size` | unreadable node has `aggregateSize` absent, not zero |
 
 Supplement with manual denied-ACL fixture on a local volume.
 
@@ -275,7 +296,7 @@ After code lands:
 - findings 23, 24, 25, 39, 40 marked closed in impl §15;
 - all phase 1 tests pass via `ctest`;
 - impl §6 and verification notes updated;
-- code inspection confirms removal of `std::async` read path, string-heuristic outcomes, and `EmptyFolder` misuse;
+- code inspection confirms removal of `std::async` read path, string-heuristic outcomes, `EmptyFolder` misuse, and zero assigned to unreadable folders;
 - evidence links recorded in dispute.md.
 
 
@@ -375,6 +396,7 @@ class CatalogReadResult {
 public:
     static CatalogReadResult readable(QVector<ArchiveCatalogEntry> entries);
     static CatalogReadResult outcome(CatalogReadOutcome outcome, DWORD nativeError = 0);
+    // outcome() must reject CatalogReadOutcome::Readable
 private:
     CatalogReadResult() = default;
     CatalogReadOutcome outcome_ = CatalogReadOutcome::IoFailure;
@@ -399,6 +421,8 @@ Limits enforced before trusting data:
 - no extraction and no filesystem object creation.
 
 Unsafe path components (`..`, absolute roots, drive prefixes, equivalent traversal forms): **ignore the entry for top-level classification**; if no safe effective entries remain, outcome is `Corrupt` or `Readable` with empty safe set → `PackedClump` per contract. Document this rule in `archive-library-decision.md` and test mixed safe/unsafe catalogs.
+
+`CatalogReadResult::outcome()` must reject `CatalogReadOutcome::Readable`; readable catalogs are created only through `readable(entries)`.
 
 
 ### 3.3 Library selection
@@ -457,7 +481,7 @@ Exclude invalid sizes before layout, implement minimum-dimension clumping with t
 Implement nine-step deterministic algorithm from dispute §5:
 
 1. direct children of context folder;
-2. drop zero, negative, and non-finite sizes;
+2. drop entries without engaged `aggregateSize`, and drop zero, negative, and non-finite values;
 3. threshold clump candidates;
 4. sort by descending size, tie-break normalized full path;
 5. decide if clump tile required;
@@ -1017,6 +1041,31 @@ The second review is accepted. Archive cancellation must not map to `PackedClump
 ### Next step
 
 Phase 1 scaffolding may proceed. Phase 3 archive coding must wait until §3.4 cancellation propagation is reflected in `ArchiveClassifier` design.
+
+---
+
+## Fourth plan revision — developer incorporation (2026-07-11)
+
+This section records how the body of this document was updated after **Final reviewer issue — unreadable-folder size semantics (2026-07-11)** above. Prior reviewer appendices are left unchanged.
+
+### Disposition
+
+The final review is accepted. Finding 24 cannot close until unreadable-folder size semantics are implemented and tested.
+
+### Incorporation map
+
+| Reviewer item | Incorporated change |
+|---------------|---------------------|
+| Unreadable size representation | `std::optional<quint64> aggregateSize` on folders; absent when `Unreadable` |
+| Unreadable consequences | §1.4 normative rules for aggregation, projection, UI text, merge |
+| Reparse vs unreadable | reparse uses represented `0`; unreadable uses absent optional |
+| Factory invariants | `failure()` rejects `Ok`/`Invalid`; `outcome()` rejects `Readable` |
+| Handle closure on failure | `native_handle_closed_on_failure` test in §1.7 |
+| Projection | §4.2 step 2 excludes nodes without engaged `aggregateSize` |
+
+### Next step
+
+Implement Phase 1 descriptor model with optional `aggregateSize` before closing finding 24.
 
 ---
 
