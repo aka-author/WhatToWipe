@@ -691,3 +691,358 @@ Revise `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md` to reflect this thread.
 
 **Status:** Accepted. Implemented in `funcspec.md`, `techspec-win-cpp-qt.md`, `arch-win-cpp-qt.md`, and `win-cpp-qt/`.
 
+---
+
+## Strict C++/Qt implementation review (2026-07-11)
+
+### Scope and verdict
+
+This section reviews the implementation currently present under `win-cpp-qt/` on the `dev` branch. Earlier lines in this file are intentionally untouched.
+
+The implementation has a recognizable structure and several good choices: Qt widgets stay on the GUI thread, scan results are handed back as value objects, configuration writes use `QSaveFile`, shell operations return typed outcomes, and the Settings form uses permanent in-cell widgets. However, the current code is not release-ready and is not yet a reliable implementation of the FS. Several defects are release blockers because they produce wrong data, violate explicit use-case behavior, or make cancellation and timeout guarantees illusory.
+
+### Release blockers
+
+#### 22. Update navigation is disabled although the FS explicitly permits it
+
+`MainWindow::onUp()` and `MainWindow::onDive()` both return immediately while `m_session.scanning` is true. `updateChrome()` also disables **Up** during every scan.
+
+This contradicts the FS rule that navigation is allowed while *Updating the Context Folder* is in progress. The architecture discussion correctly required navigation to continue against the old published descriptor until the updated subtree is atomically published, but the implementation blocks it.
+
+**Required correction**
+
+- Distinguish `OpenTarget` from `UpdateContext` in command availability.
+- During `OpenTarget`, navigation remains unavailable because there is no complete published treemap.
+- During `UpdateContext`, keep **Up**, folder-tile Dive, Explore, and other FS-available navigation actions enabled against the old published tree.
+- Continue to disable a second Open or Update operation.
+- After the update is published, resolve the then-current context path against the new tree.
+
+#### 23. The directory-read timeout and cancellation mechanism can still block forever
+
+`ScanWorker::readDirBounded()` launches `QDir::entryInfoList()` through `std::async`. On cancellation or timeout it returns without calling `future.get()`. For a future created by `std::async(std::launch::async, ...)`, destruction of the last future may wait for the asynchronous task to finish.
+
+Therefore the apparent 30-second timeout is not a real bound. The function can still block at return while the directory operation remains stuck. The same problem affects cancellation.
+
+It also creates one new native thread for every directory enumeration. A large tree can create a very large number of short-lived threads, with needless scheduler and stack overhead.
+
+**Required correction**
+
+Do not wrap each `QDir` enumeration in a disposable `std::async` task.
+
+Preferred alternatives:
+
+1. Use native Windows enumeration with `FindFirstFileExW` / `FindNextFileW`, explicit cancellation checks between entries, and a documented policy for operations that the OS itself does not make cancellable.
+2. Use one dedicated scanner thread and accept that an individual local filesystem call is not forcibly cancellable, while keeping network roots excluded. Document the real cancellation boundary honestly.
+3. If a separate I/O worker is retained, it must have controlled lifetime and must never leave an unjoinable or implicitly joining task behind.
+
+Do not claim a bounded wait unless the implementation can actually enforce it.
+
+#### 24. Unreadable directories are silently represented as empty directories
+
+`QDir::entryInfoList()` returns an empty list both for a genuinely empty directory and for several failure cases. `readDirBounded()` returns only a vector plus a timeout flag; it does not return an access/error status. `scanDir()` therefore has no reliable way to distinguish:
+
+- empty directory;
+- access denied;
+- sharing failure;
+- invalid path;
+- transient I/O failure.
+
+Such a node is then recomputed as `TreeRole::EmptyFolder`. This violates the settled rule that an unreadable subtree must not be represented as a known empty subtree.
+
+**Required correction**
+
+Return a typed directory-enumeration result, for example:
+
+```cpp
+struct DirectoryReadResult {
+    QVector<QFileInfo> entries;
+    DirectoryReadStatus status;
+    DWORD nativeError;
+};
+```
+
+The scanner must retain diagnostic metadata for unreadable entries, keep organic completion successful where FS requires it, and avoid asserting `EmptyFolder` when emptiness was not established.
+
+#### 25. Reparse points are explicitly misclassified as empty folders
+
+For a directory reparse point, `ScanWorker` sets:
+
+```cpp
+reparse.reparseSkipped = true;
+reparse.treeRole = TreeRole::EmptyFolder;
+```
+
+Then `recomputeAggregates()` recomputes every child with no collected children/files as `EmptyFolder` anyway. This is exactly the representation that the earlier design discussion rejected. “Target not traversed” does not mean “known empty.”
+
+The value `fi.size()` for a directory reparse point is also not a meaningful recursive folder size and cannot be treated as the size of the linked contents.
+
+**Required correction**
+
+Add an explicit descriptor state for untraversed reparse entries or otherwise model scan completeness separately from `TreeRole`. Do not use `EmptyFolder` as an error/skip sentinel. Ensure `recomputeAggregates()` preserves the selected reparse semantics rather than overwriting them.
+
+#### 26. The ZIP central-directory parser reads the wrong fields
+
+`readZipCentralDirectory()` is not merely incomplete; its field offsets are wrong.
+
+After reading the four-byte central-file-header signature, the code seeks 18 bytes and then reads a two-byte value called `externalAttr`. In the ZIP central-directory structure:
+
+- file-name length is at offset 28 from the header start;
+- extra-field length is at offset 30;
+- comment length is at offset 32;
+- external file attributes are four bytes at offset 38;
+- the local-header offset is at offset 42;
+- file-name bytes begin at offset 46.
+
+The current code reads unrelated bytes as lengths and attributes, then advances to the wrong location before reading the name. Ordinary ZIP files are likely to be rejected or misclassified.
+
+Additional defects include no ZIP64 support, no general-purpose flag/encoding handling, no central-directory bounds checks, no resource limits, and no proof against hostile lengths.
+
+**Required correction**
+
+Delete this handwritten parser unless it is replaced by a fully tested, bounds-checked ZIP parser. Use the previously agreed archive-reader abstraction backed by a pinned library that passes the ZIP/RAR proof matrix.
+
+#### 27. RAR classification is not implemented
+
+Every `.rar` file is returned as `PackedClump` without attempting to read an available catalog. The FS requires the packing type to be detected when the archive catalog is available.
+
+This is a direct functional failure, not a permissible fallback.
+
+**Required correction**
+
+Implement RAR and RAR5 catalog inspection through the selected archive library. `PackedClump` is the fallback only when catalog inspection is unavailable or fails under the defined rules.
+
+#### 28. Minimum tile dimensions are calculated and then ignored
+
+`MainWindow::rebuildTreemap()` computes `minW` and `minH` from configuration and passes them to `squarify()`. `TreemapLayout::squarify()` immediately discards both values with `Q_UNUSED`.
+
+Consequently `treemap.minTileWidth` and `treemap.minTileHeight` have no effect. The required residual/clump behavior for undersized allocations is absent.
+
+**Required correction**
+
+Implement the FS residual-tile cycle:
+
+1. project threshold/max-count clumps;
+2. create a preliminary proportional layout;
+3. detect allocations below the configured external-rectangle minima;
+4. merge those represented values into the single clump;
+5. recompute until stable or until no further legal merge is possible.
+
+Area proportions must be recalculated after every merge. Do not enlarge small rectangles independently, because that destroys quantitative area encoding.
+
+#### 29. Zero-size values are included and assigned positive area
+
+The FS excludes zero, negative, and non-finite values. `TreemapProjection` does not remove zero-size entries. `TreemapLayout` then replaces every size with `max(size, 1)`, so a zero-size object receives positive area.
+
+This is an explicit contradiction of the treemap representation rules.
+
+**Required correction**
+
+Filter non-positive values in the projection stage. The layout engine must not invent positive weights for invalid values.
+
+#### 30. File timestamps do not implement the descriptor semantics
+
+For every file, the scanner assigns `fi.lastModified()` to both `oldestFile` and `newestFile`. The FS requires:
+
+- creation date/time of the oldest file;
+- last-update date/time of the newest file.
+
+The oldest timestamp must be based on file creation/birth time, not modification time. Assigning one modification timestamp to both fields produces incorrect folder aggregates.
+
+**Required correction**
+
+Use the Windows creation timestamp (`QFileInfo::birthTime()` where reliable, or native file information) for the oldest-file calculation and last-modified time for the newest-file calculation. Define fallback behavior when creation time is unavailable.
+
+### Configuration and settings defects
+
+#### 31. File loading supports only a subset of FS TSize syntax
+
+`ConfigStore::parsePt()` accepts only integer `pt` values. The Settings parser accepts `pt` and `mm`, but not `px`, `cm`, or `in`. The FS defines all five suffixes and allows decimal magnitudes.
+
+Examples such as `3.5mm`, `12px`, `1cm`, and `0.5in` are therefore rejected, truncated, or silently replaced by defaults depending on the entry path.
+
+**Required correction**
+
+Create one shared TSize parser used by file loading, Settings validation, serialization, comparison, and rendering. Preserve the unit or convert through one documented high-precision internal representation. Do not maintain separate parsers with different accepted syntax.
+
+#### 32. Zero padding cannot be loaded from the configuration file
+
+FS allows tile padding values `>= 0`. `parsePt()` returns zero for both valid `0pt` and invalid input, and each padding assignment uses `if (int n = parsePt(val); n)`, which ignores zero.
+
+A valid `0pt` setting therefore cannot be loaded.
+
+**Required correction**
+
+Return parse success separately from the parsed numeric value. Never use zero as both a valid value and an error sentinel.
+
+#### 33. Percentage parsing accepts invalid unitless values
+
+The FS says a unitless Percentage must be strictly between zero and one. `parsePercent()` treats a unitless value greater than one as if it were a percentage and divides by 100. Thus `12.5` is accepted as `0.125`, although only `12.5%` or `0.125` are valid FS forms.
+
+**Required correction**
+
+- `%` suffix: parse percentage points and divide by 100.
+- no suffix: require `0 < value < 1` exactly.
+- reject all other forms.
+
+#### 34. Invalid colors overwrite defaults with invalid `QColor` values
+
+`applyTreemapLines()` assigns the result of `parseHex()` directly. When parsing fails, `parseHex()` returns an invalid `QColor`, which replaces the valid default. Other malformed fields are generally ignored instead.
+
+This inconsistency can propagate invalid drawing colors into the treemap.
+
+**Required correction**
+
+Parse into a candidate, validate success, and only then assign. File loading needs the same typed all-field validation discipline as the Settings dialog.
+
+#### 35. Duplicate keys are silently resolved by last-write-wins
+
+The settled configuration design required duplicate known keys to be rejected. `applyTreemapLines()` loops through every line and overwrites the same field repeatedly.
+
+**Required correction**
+
+Track recognized keys while parsing. A second occurrence of a known key must produce a typed configuration error and invoke the documented recovery policy.
+
+#### 36. Unknown configuration keys are destroyed on the next save
+
+The parser ignores unknown keys, and `serializeTreemap()` writes only known keys. Therefore an Apply/OK operation rewrites the file and permanently removes every unknown extension, comment, and unsupported field.
+
+The earlier agreed policy was to preserve unknown keys when safely possible or explicitly document another policy. The current implementation does neither.
+
+**Suggestion**
+
+Keep a parsed document model containing known fields plus passthrough lines, or explicitly adopt and document a destructive canonicalization policy. Silent loss is the worst option.
+
+### Architecture and C++ risks
+
+#### 37. The function called `squarify()` is not a squarified treemap algorithm
+
+The implementation recursively bisects the value vector near half of the total and alternates split orientation according to the current rectangle. That is a binary partition treemap, not the standard squarified algorithm the name and architecture imply.
+
+The algorithm may be acceptable only if measured against the FS quality goals, but the current name is misleading and no evidence is present.
+
+**Required correction**
+
+Either implement an actual squarified treemap or rename the algorithm accurately and provide aspect-ratio, determinism, area, gap, and overlap tests.
+
+#### 38. Integer area arithmetic can overflow
+
+Several totals and products use signed `qint64`, including:
+
+```cpp
+leftSum * 2
+area.width() * aSum
+```
+
+A descriptor can aggregate very large logical sizes. Signed overflow is undefined behavior in C++. Even if current physical volumes rarely reach the limit, corrupted metadata or future storage sizes should not make layout arithmetic undefined.
+
+**Suggestion**
+
+Use checked unsigned arithmetic or normalized floating/long-double weights for layout ratios. Add overflow tests.
+
+#### 39. The update transaction captures identifiers but does not actually validate them in the result callback
+
+`startScan()` captures a local `scanId` only for thread-pointer cleanup. `onScanFinished()` receives no scan ID, no target-session ID, and no base descriptor version. It reads the current mutable session fields instead.
+
+Today Open/Update are disabled during a scan, which reduces exposure, but this does not implement the versioned transaction promised by the architecture and becomes unsafe as soon as Update navigation and richer session behavior are restored.
+
+**Required correction**
+
+Include `scanId`, target-session ID, scan kind, scan root, and base descriptor version in the result object or capture them in a connection-specific lambda. Validate them before applying any result.
+
+#### 40. `rootUnavailable` and `technicalFailure` are inferred from tree shape and English text
+
+The worker determines outcomes using conditions such as:
+
+```cpp
+tree.children.empty() && tree.files.empty() && !tree.skipReason.isEmpty()
+tree.skipReason.contains("timed out")
+```
+
+Domain outcomes must not depend on whether an English diagnostic contains a substring. An unreadable root, an empty root, a cancelled root, and a timed-out root require explicit statuses.
+
+**Required correction**
+
+Return a typed `ScanResult` with an enum and structured diagnostics. Keep presentation text outside the scanner.
+
+#### 41. Sorting is not deterministic for equal-size files and folders
+
+The scanner sorts files and child folders only by descending size. Equal-size objects can appear in implementation-dependent order. Projection later adds a path tie-breaker only for retained candidates, but descriptor ordering and other consumers remain unstable.
+
+The FS allows implementation-defined tie ordering, but deterministic ordering is preferable for repeatable tests and stable UI.
+
+**Suggestion**
+
+Use normalized full path as a secondary key consistently.
+
+#### 42. The Settings grid implementation is heavy and fragile
+
+The form creates four index widgets for every row on a `QTableView` whose model supplies no display data and no editable flags. This can pass the literal permanent-editor requirement, but it pays for a model/view control while bypassing most of the model/view machinery.
+
+Risks include focus traversal surprises, accessibility gaps, editor ownership complexity, repaint cost, and loss of widgets if the model is reset. For the fixed schema, the previously discussed single `QGridLayout` in a `QScrollArea` remains simpler and easier to prove correct.
+
+This is not an automatic rejection if manual acceptance passes, but the implementation needs explicit keyboard, resize, scroll, accessibility, and clean-VM evidence.
+
+#### 43. Hard-coded dialog size caps are likely to fail DPI and localization scenarios
+
+The Settings dialog clamps width to 620 and height to 520 device-independent units. Long translated labels, larger system fonts, accessibility text scaling, and high-DPI environments may require more space. Arbitrary maximums are not derived from the FS.
+
+**Suggestion**
+
+Use layout size hints, available-screen bounds, and persisted geometry constrained to the current screen. Avoid fixed global caps unless usability testing justifies them.
+
+### Build and release risks
+
+#### 44. The CMake target still uses the old internal project/target name without an explicit mapping note
+
+The current FS amendment makes **Erase & Rewrite** the product and `EraseAndRewrite.exe` the required executable, so the target name itself is acceptable. However, the build must prove that PE metadata, About version, installer identity, and artifact naming all derive from one version/product source. CMake currently declares `VERSION 1.0.0`, while the FS About format requires four numeric components.
+
+**Required correction**
+
+Define one four-component version source and generate CMake, `VERSIONINFO`, About output, installer metadata, and artifact metadata from it. Add an automated equality check.
+
+#### 45. Static MinGW runtime flags need deployment and licensing verification
+
+The target statically links libgcc, libstdc++, and winpthread while dynamically linking Qt. This may be a valid deployment choice, but the comment claiming that deployed `libstdc++-6.dll` “only serves Qt6*.dll” is not a substitute for binary dependency inspection.
+
+**Suggestion**
+
+Run `objdump -p`, `ntldd`, or equivalent on the final executable and every Qt DLL. Record the actual dependency set and applicable runtime-license notices. Verify exception propagation and allocator ownership do not cross incompatible runtime boundaries through third-party C++ libraries.
+
+### Test debt
+
+#### 46. No evidence is visible for the required implementation-shaping tests
+
+The code reviewed here needs, at minimum:
+
+- cancellation during deep scan;
+- genuinely stuck or slow enumeration behavior;
+- denied inner directory versus empty directory;
+- directory reparse point descriptor semantics;
+- Update navigation and atomic subtree publication;
+- target deletion during Open and context deletion during Update;
+- zero-size exclusion;
+- maxTiles + threshold + minimum-dimension clumping combinations;
+- area conservation and no overlap/gap tests;
+- ZIP/RAR classification matrix;
+- malformed, duplicate, unknown, and mixed-unit configuration files;
+- cross-monitor DPI movement;
+- permanent Settings editor keyboard traversal;
+- About/PE four-part version equality.
+
+Until those tests or equivalent verification artifacts exist, the implementation should be treated as an early prototype, not a candidate shipping line.
+
+### Priority order
+
+1. Replace the scan I/O/status design: real typed outcomes, honest cancellation behavior, unreadable-directory distinction.
+2. Restore navigation during Update and implement result identity/version checks.
+3. Replace archive parsing with a proven ZIP/RAR catalog reader.
+4. Correct projection/layout: exclude zero values, implement minimum-size clumping, and verify area behavior.
+5. Correct descriptor timestamps and reparse semantics.
+6. Unify and harden configuration parsing for every FS type and transaction rule.
+7. Complete version, deployment, licensing, DPI, and Settings acceptance evidence.
+
+### Final implementation verdict
+
+The repository has progressed beyond a throwaway spike, but it has not yet reached a trustworthy architectural baseline. The most dangerous defects are not cosmetic: the timeout is not bounded, unreadable directories become empty folders, archive classification is broken/incomplete, Update navigation violates FS, minimum tile constraints are ignored, and zero-size entries receive area.
+
+Do not polish the UI around these defects. Fix the scanner, data semantics, archive reader, and treemap projection/layout first. Then run a fresh FS-to-code verification pass before declaring the Qt implementation active.
