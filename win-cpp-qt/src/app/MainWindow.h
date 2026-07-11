@@ -61,6 +61,7 @@ private:
     QPushButton* m_freeBtn = nullptr;
 
     QAction* m_openAct = nullptr;
+    QAction* m_exitAct = nullptr;
     QAction* m_upAct = nullptr;
     QAction* m_exploreAct = nullptr;
     QAction* m_updateAct = nullptr;

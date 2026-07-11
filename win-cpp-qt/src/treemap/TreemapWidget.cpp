@@ -1,10 +1,10 @@
 #include "treemap/TreemapWidget.h"
+#include "ui/MenuLabels.h"
 
 #include "treemap/LabelFit.h"
 #include "util/Format.h"
 
 #include <QContextMenuEvent>
-#include <QFileInfo>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
@@ -134,21 +134,24 @@ void TreemapWidget::showTileMenu(const model::BlockLayout& block, const QPoint& 
     if (block.item.kind == model::TreemapItemKind::Clump) {
         return;
     }
+
     QMenu menu(this);
-    if (block.item.kind == model::TreemapItemKind::Folder) {
-        QAction* dive = menu.addAction(QStringLiteral("Dive"));
-        dive->setEnabled(!block.item.isEmpty);
-        QAction* explore = menu.addAction(QStringLiteral("Explore"));
-        connect(dive, &QAction::triggered, this, [this, block]() { emit diveRequested(block.item.path); });
+    switch (block.item.kind) {
+    case model::TreemapItemKind::Folder: {
+        QAction* explore = menu.addAction(wtw::ui::exploreContextLabel());
         connect(explore, &QAction::triggered, this, [this, block]() { emit exploreRequested(block.item.path); });
-    } else if (block.item.kind == model::TreemapItemKind::File) {
-        QAction* open = menu.addAction(QStringLiteral("Open"));
-        open->setEnabled(!block.item.isExecFile);
-        QAction* explore = menu.addAction(QStringLiteral("Explore"));
-        connect(open, &QAction::triggered, this, [this, block]() { emit openFileRequested(block.item.path); });
-        connect(explore, &QAction::triggered, this,
-                [this, block]() { emit exploreRequested(QFileInfo(block.item.path).absolutePath()); });
+        break;
     }
+    case model::TreemapItemKind::File: {
+        QAction* open = menu.addAction(wtw::ui::openContextLabel());
+        open->setEnabled(!block.item.isExecFile);
+        connect(open, &QAction::triggered, this, [this, block]() { emit openFileRequested(block.item.path); });
+        break;
+    }
+    case model::TreemapItemKind::Clump:
+        return;
+    }
+
     if (!menu.isEmpty()) {
         menu.exec(globalPos);
     }
@@ -218,6 +221,9 @@ void TreemapWidget::mousePressEvent(QMouseEvent* event) {
 }
 
 void TreemapWidget::contextMenuEvent(QContextMenuEvent* event) {
+    if (!hasBlocks()) {
+        return;
+    }
     const model::BlockLayout* b = blockAt(event->pos());
     if (!b) {
         return;

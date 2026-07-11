@@ -13,6 +13,7 @@
 #include "treemap/TreemapWidget.h"
 #include "ui/AboutDialog.h"
 #include "ui/AlertDialogs.h"
+#include "ui/MenuLabels.h"
 #include "ui/SettingsDialog.h"
 #include "ui/ToolbarIcons.h"
 #include "util/Format.h"
@@ -154,24 +155,29 @@ void MainWindow::buildUi() {
 }
 
 void MainWindow::buildMenus() {
-    auto* fileMenu = menuBar()->addMenu(QStringLiteral("File"));
-    m_openAct = fileMenu->addAction(QStringLiteral("Open a Folder"), this, &MainWindow::onOpenFolder);
-    m_openAct->setShortcut(QKeySequence::Open);
+    auto* fileMenu = menuBar()->addMenu(QStringLiteral("&File"));
+    m_openAct = fileMenu->addAction(ui::openFolderMenuLabel(), this, &MainWindow::onOpenFolder);
+    m_openAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
     fileMenu->addSeparator();
-    fileMenu->addAction(QStringLiteral("Exit"), this, &QWidget::close, QKeySequence::Quit);
+    m_exitAct = fileMenu->addAction(QStringLiteral("E&xit"), this, &QWidget::close);
+    m_exitAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_X));
 
-    auto* inspectMenu = menuBar()->addMenu(QStringLiteral("Inspect"));
-    m_upAct = inspectMenu->addAction(QStringLiteral("Up"), this, &MainWindow::onUp);
-    m_exploreAct = inspectMenu->addAction(QStringLiteral("Explore"), this, &MainWindow::onExplore);
+    auto* inspectMenu = menuBar()->addMenu(QStringLiteral("&Inspect"));
+    m_upAct = inspectMenu->addAction(QStringLiteral("&Up"), this, &MainWindow::onUp);
+    m_upAct->setShortcut(QKeySequence(Qt::Key_Backspace));
+    m_exploreAct = inspectMenu->addAction(ui::exploreMenuLabel(), this, &MainWindow::onExplore);
+    m_exploreAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
     inspectMenu->addSeparator();
-    m_updateAct = inspectMenu->addAction(QStringLiteral("Update"), this, &MainWindow::onUpdateOrStop);
-    m_stopAct = inspectMenu->addAction(QStringLiteral("Stop"), this, &MainWindow::onUpdateOrStop);
+    m_updateAct = inspectMenu->addAction(QStringLiteral("&Update"), this, &MainWindow::onUpdateOrStop);
+    m_updateAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
+    m_stopAct = inspectMenu->addAction(QStringLiteral("&Stop"), this, &MainWindow::onUpdateOrStop);
+    m_stopAct->setShortcut(QKeySequence(Qt::Key_Escape));
 
-    auto* toolsMenu = menuBar()->addMenu(QStringLiteral("Tools"));
-    m_settingsAct = toolsMenu->addAction(QStringLiteral("Settings..."), this, &MainWindow::onSettings);
+    auto* toolsMenu = menuBar()->addMenu(QStringLiteral("&Tools"));
+    m_settingsAct = toolsMenu->addAction(ui::settingsMenuLabel(), this, &MainWindow::onSettings);
 
-    auto* helpMenu = menuBar()->addMenu(QStringLiteral("Help"));
-    m_aboutAct = helpMenu->addAction(QStringLiteral("About"), this, &MainWindow::onAbout);
+    auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
+    m_aboutAct = helpMenu->addAction(ui::aboutMenuLabel(), this, &MainWindow::onAbout);
 }
 
 void MainWindow::setStatusText(const QString& text) { statusBar()->showMessage(text); }
@@ -216,6 +222,7 @@ void MainWindow::updateChrome() {
 
     m_openAct->setEnabled(!scanning);
     m_openBtn->setEnabled(!scanning);
+    m_exitAct->setEnabled(!scanning);
     m_upAct->setEnabled(!scanning && m_session.canGoUp());
     m_upBtn->setEnabled(m_upAct->isEnabled());
     m_exploreAct->setEnabled(complete);
