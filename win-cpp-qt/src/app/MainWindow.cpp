@@ -6,6 +6,7 @@
 #include "model/FolderDescriptor.h"
 #include "platform/ShellOpen.h"
 #include "platform/VolumeInfo.h"
+#include "scan/ScanResult.h"
 #include "scan/ScanWorker.h"
 #include "scan/SubtreeMerge.h"
 #include "treemap/TreemapLayout.h"
@@ -60,6 +61,7 @@ QToolButton* makeToolbarButton(QWidget* parent, const QIcon& icon, const QString
 
 MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     : QMainWindow(parent), m_cfg(settings) {
+    qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
     setWindowTitle(productDisplayName());
     resize(1100, 720);
     buildUi();
@@ -217,16 +219,18 @@ void MainWindow::refreshVolumeToolbar() {
 
 void MainWindow::updateChrome() {
     const bool scanning = m_session.scanning;
+    const bool openScanning = scanning && m_session.scanKind == ScanKind::OpenTarget;
+    const bool updateScanning = scanning && m_session.scanKind == ScanKind::UpdateContext;
     const bool hasTarget = !m_session.targetPath.isEmpty();
     const bool complete = m_session.treemapComplete;
 
     m_openAct->setEnabled(!scanning);
     m_openBtn->setEnabled(!scanning);
     m_exitAct->setEnabled(!scanning);
-    m_upAct->setEnabled(!scanning && m_session.canGoUp());
+    m_upAct->setEnabled((!openScanning && m_session.canGoUp()) || (updateScanning && m_session.canGoUp()));
     m_upBtn->setEnabled(m_upAct->isEnabled());
-    m_exploreAct->setEnabled(complete);
-    m_exploreBtn->setEnabled(complete);
+    m_exploreAct->setEnabled(complete && !openScanning);
+    m_exploreBtn->setEnabled(m_exploreAct->isEnabled());
     m_updateAct->setVisible(!scanning);
     m_stopAct->setVisible(scanning);
     m_updateAct->setEnabled(!scanning && hasTarget && complete);
@@ -327,7 +331,7 @@ void MainWindow::onOpenFolder() {
 }
 
 void MainWindow::onUp() {
-    if (m_session.scanning || !m_session.canGoUp()) {
+    if ((m_session.scanKind == ScanKind::OpenTarget && m_session.scanning) || !m_session.canGoUp()) {
         return;
     }
     m_session.goUp();
@@ -429,7 +433,7 @@ void MainWindow::onRefreshFree() {
 }
 
 void MainWindow::onDive(const QString& folderPath) {
-    if (m_session.scanning) {
+    if (m_session.scanKind == ScanKind::OpenTarget && m_session.scanning) {
         return;
     }
     m_session.pushContext(folderPath);
@@ -457,8 +461,9 @@ void MainWindow::startScan(const QString& scanRoot, ScanKind kind) {
         m_treemap->clearBlocks();
     }
 
+    m_activeScanIdentity = {scanId, m_session.sessionId, m_session.descriptorVersion};
     m_scanThread = new QThread(this);
-    m_scanWorker = new scan::ScanWorker(m_session.scanRootPath);
+    m_scanWorker = new scan::ScanWorker(m_session.scanRootPath, m_activeScanIdentity);
     m_scanWorker->moveToThread(m_scanThread);
 
     connect(m_scanThread, &QThread::started, m_scanWorker, &scan::ScanWorker::run);
@@ -487,18 +492,22 @@ void MainWindow::onScanProgress(const QString& path) {
     setStatusText(m_latestProgressPath);
 }
 
-void MainWindow::onScanFinished(model::FolderDescriptor tree, int errorCount, bool cancelled, bool rootUnavailable,
-                                bool technicalFailure) {
-    Q_UNUSED(errorCount);
+void MainWindow::onScanFinished(scan::ScanResult result) {
+    if (result.identity().scanId != m_activeScanIdentity.scanId ||
+        result.identity().targetSessionId != m_activeScanIdentity.targetSessionId ||
+        result.identity().baseDescriptorVersion != m_activeScanIdentity.baseDescriptorVersion) {
+        return;
+    }
+
     const ScanKind kind = m_session.scanKind;
-    const quint64 finishedScanId = m_session.scanId;
     const QString scanRoot = m_session.scanRootPath;
     const QString expectedTarget = m_session.targetPath;
 
     m_session.scanning = false;
     updateChrome();
 
-    if (technicalFailure) {
+    switch (result.outcome()) {
+    case scan::ScanOutcome::TechnicalFailure:
         if (kind == ScanKind::UpdateContext && m_session.pendingUpdateSnapshot) {
             restorePendingUpdate();
         } else {
@@ -507,9 +516,7 @@ void MainWindow::onScanFinished(model::FolderDescriptor tree, int errorCount, bo
         ui::showError002(this);
         m_session.pendingUpdateSnapshot.reset();
         return;
-    }
-
-    if (cancelled) {
+    case scan::ScanOutcome::Cancelled:
         if (kind == ScanKind::UpdateContext && m_session.pendingUpdateSnapshot) {
             restorePendingUpdate();
             ui::showInterruptionAlert(this);
@@ -519,9 +526,7 @@ void MainWindow::onScanFinished(model::FolderDescriptor tree, int errorCount, bo
         }
         m_session.pendingUpdateSnapshot.reset();
         return;
-    }
-
-    if (rootUnavailable) {
+    case scan::ScanOutcome::RootUnavailable:
         if (kind == ScanKind::UpdateContext && m_session.pendingUpdateSnapshot) {
             restorePendingUpdate();
             ui::showError001(this);
@@ -531,13 +536,17 @@ void MainWindow::onScanFinished(model::FolderDescriptor tree, int errorCount, bo
         }
         m_session.pendingUpdateSnapshot.reset();
         return;
+    case scan::ScanOutcome::Success:
+        break;
+    default:
+        return;
     }
 
-    tree.fullPath = scanRoot;
-    tree.name = QFileInfo(scanRoot).fileName();
-    if (tree.name.isEmpty()) {
-        tree.name = scanRoot;
+    if (!result.tree()) {
+        return;
     }
+
+    model::FolderDescriptor tree = *result.tree();
     model::annotateShares(tree, m_session.driveTotal);
 
     if (kind == ScanKind::OpenTarget) {
@@ -552,13 +561,13 @@ void MainWindow::onScanFinished(model::FolderDescriptor tree, int errorCount, bo
         m_session.publishedTree = std::move(tree);
         m_session.contextPath = scanRoot;
         m_session.treemapComplete = true;
+        ++m_session.descriptorVersion;
         m_session.pendingUpdateSnapshot.reset();
         rebuildTreemap();
         setStatusText(statusForContext());
         return;
     }
 
-    // UpdateContext: merge subtree into published target tree.
     if (!m_session.pendingUpdateSnapshot) {
         return;
     }
@@ -581,6 +590,7 @@ void MainWindow::onScanFinished(model::FolderDescriptor tree, int errorCount, bo
     m_session.publishedTree = std::move(*merged);
     m_session.contextPath = m_session.pendingUpdateSnapshot->contextPath;
     m_session.treemapComplete = true;
+    ++m_session.descriptorVersion;
     m_session.pendingUpdateSnapshot.reset();
     rebuildTreemap();
     setStatusText(statusForContext());

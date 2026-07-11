@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Svg)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Svg Test)
 
 set(WTW_SOURCES
     src/main.cpp
@@ -17,6 +17,8 @@ set(WTW_SOURCES
     src/model/FolderDescriptor.cpp
     src/config/TreemapConfig.cpp
     src/config/ConfigStore.cpp
+    src/scan/ScanTypes.cpp
+    src/scan/ScanResult.cpp
     src/scan/ScanWorker.cpp
     src/scan/ArchiveClassifier.cpp
     src/scan/SubtreeMerge.cpp
@@ -27,6 +29,7 @@ set(WTW_SOURCES
     src/platform/AppVersion.cpp
     src/platform/VolumeInfo.cpp
     src/platform/ShellOpen.cpp
+    src/platform/WinDirEnum.cpp
     src/ui/SettingsSchema.cpp
     src/ui/SettingsDialog.cpp
     src/ui/AboutDialog.cpp
@@ -52,7 +55,6 @@ if(WIN32)
     target_link_libraries(EraseAndRewrite PRIVATE shell32 ole32 version)
 endif()
 
-# App links C++ runtime statically so deployed Qt libstdc++-6.dll only serves Qt6*.dll.
 if(MINGW)
     target_link_options(EraseAndRewrite PRIVATE
         -static-libgcc
@@ -64,3 +66,27 @@ if(MINGW)
 endif()
 
 install(TARGETS EraseAndRewrite RUNTIME DESTINATION .)
+
+enable_testing()
+
+set(WTW_TEST_SOURCES
+    tests/test_phase1.cpp
+    src/model/FolderDescriptor.cpp
+    src/config/TreemapConfig.cpp
+    src/scan/ScanTypes.cpp
+    src/scan/ScanResult.cpp
+    src/scan/SubtreeMerge.cpp
+    src/treemap/TreemapProjection.cpp
+    src/platform/WinDirEnum.cpp
+    src/util/Format.cpp
+)
+
+qt_add_executable(phase1_tests ${WTW_TEST_SOURCES})
+target_include_directories(phase1_tests PRIVATE src)
+target_compile_definitions(phase1_tests PRIVATE WTW_UNIT_TEST)
+target_link_libraries(phase1_tests PRIVATE Qt6::Test Qt6::Core Qt6::Gui)
+if(WIN32)
+    target_link_libraries(phase1_tests PRIVATE shell32 ole32 version)
+endif()
+
+add_test(NAME phase1_tests COMMAND phase1_tests)

@@ -4,14 +4,16 @@
 
 namespace wtw::util {
 
-QString formatObjectSize(qint64 n) {
+namespace {
+
+QString formatObjectSizeImpl(quint64 n) {
     if (n == 0) {
         return QStringLiteral("0.0 KB");
     }
-    constexpr qint64 KB = 1024;
-    constexpr qint64 MB = KB * 1024;
-    constexpr qint64 GB = MB * 1024;
-    constexpr qint64 TB = GB * 1024;
+    constexpr quint64 KB = 1024;
+    constexpr quint64 MB = KB * 1024;
+    constexpr quint64 GB = MB * 1024;
+    constexpr quint64 TB = GB * 1024;
 
     double v = 0.0;
     const char* suf = "KB";
@@ -28,6 +30,25 @@ QString formatObjectSize(qint64 n) {
         v = static_cast<double>(n) / static_cast<double>(KB);
     }
     return QString::asprintf("%.1f %s", v, suf);
+}
+
+}  // namespace
+
+QString formatObjectSize(qint64 bytes) {
+    if (bytes < 0) {
+        return formatObjectSizeImpl(0);
+    }
+    return formatObjectSizeImpl(static_cast<quint64>(bytes));
+}
+
+QString formatObjectSize(quint64 bytes) { return formatObjectSizeImpl(bytes); }
+
+QString formatFolderSize(quint64 measuredSize, scan::SizeCompleteness completeness) {
+    const QString formatted = formatObjectSize(measuredSize);
+    if (completeness == scan::SizeCompleteness::Partial) {
+        return QStringLiteral("\u2265 ") + formatted;
+    }
+    return formatted;
 }
 
 QString formatShareLine(double share, bool* showOut) {

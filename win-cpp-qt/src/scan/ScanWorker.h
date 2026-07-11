@@ -1,7 +1,8 @@
 #pragma once
 
 #include "model/FolderDescriptor.h"
-#include <QFileInfo>
+#include "platform/DirEntry.h"
+#include "scan/ScanResult.h"
 #include <QObject>
 #include <QString>
 #include <atomic>
@@ -12,7 +13,7 @@ class ScanWorker : public QObject {
     Q_OBJECT
 
 public:
-    explicit ScanWorker(QString rootPath, QObject* parent = nullptr);
+    ScanWorker(QString rootPath, ScanIdentity identity, QObject* parent = nullptr);
 
     void requestCancel();
 
@@ -21,16 +22,17 @@ public slots:
 
 signals:
     void progress(QString path);
-    void finished(wtw::model::FolderDescriptor tree, int errorCount, bool cancelled, bool rootUnavailable,
-                  bool technicalFailure);
+    void finished(ScanResult result);
 
 private:
-    model::FolderDescriptor scanDir(const QString& path, int* errorCount, bool* cancelled);
-    QVector<QFileInfo> readDirBounded(const QString& path, bool* timedOut) const;
-    bool isDirectoryReparsePoint(const QFileInfo& fi) const;
+    model::FolderDescriptor scanDir(const QString& path, ScanDiagnostics* diagnostics, bool* cancelled,
+                                    bool isRoot, DirectoryReadStatus* rootReadStatus);
+    static bool isDirectoryReparsePoint(const platform::DirEntry& entry);
+    static QDateTime fileTimeFromEntry(const platform::DirEntry& entry, bool creation);
     void maybeEmitProgress(const QString& path);
 
     QString m_rootPath;
+    ScanIdentity m_identity;
     std::atomic<bool> m_cancel{false};
     qint64 m_lastProgressMs = 0;
 };

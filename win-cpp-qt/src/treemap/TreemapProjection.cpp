@@ -1,5 +1,7 @@
 #include "treemap/TreemapProjection.h"
 
+#include "scan/ScanTypes.h"
+
 #include <QFileInfo>
 #include <algorithm>
 
@@ -10,11 +12,12 @@ namespace {
 struct Candidate {
     QString name;
     QString path;
-    qint64 size = 0;
+    quint64 size = 0;
     bool isFolder = false;
     bool isNode = false;
     bool isEmpty = false;
     bool isExecFile = false;
+    bool sizeIsLowerBound = false;
     double share = 0.0;
     bool clump = false;
     model::PackingType packing = model::PackingType::Native;
@@ -79,37 +82,48 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
     }
 
     std::vector<Candidate> cands;
-    for (const auto& k : cur->children) {
+    for (const auto& child : cur->children) {
+        if (child.traversalState == scan::TraversalState::Unreadable) {
+            continue;
+        }
+        if (child.measuredSize == 0) {
+            continue;
+        }
         cands.push_back(Candidate{
-            k.name,
-            k.fullPath,
-            k.size,
+            child.name,
+            child.fullPath,
+            child.measuredSize,
             true,
-            !k.children.empty(),
-            k.children.empty() && k.files.empty(),
+            !child.children.empty(),
+            child.children.empty() && child.files.empty(),
             false,
-            k.volumeShare,
+            child.sizeCompleteness == scan::SizeCompleteness::Partial,
+            child.volumeShare,
             false,
             model::PackingType::Native,
             false,
         });
     }
-    for (const auto& f : cur->files) {
-        double sh = 0.0;
+    for (const auto& file : cur->files) {
+        if (file.size == 0) {
+            continue;
+        }
+        double share = 0.0;
         if (driveTotal > 0) {
-            sh = static_cast<double>(f.size) / static_cast<double>(driveTotal);
+            share = static_cast<double>(file.size) / static_cast<double>(driveTotal);
         }
         cands.push_back(Candidate{
-            f.name,
-            f.fullPath,
-            f.size,
+            file.name,
+            file.fullPath,
+            file.size,
             false,
             false,
             false,
-            isExecutablePath(f.fullPath, cfg),
-            sh,
+            isExecutablePath(file.fullPath, cfg),
             false,
-            f.packing,
+            share,
+            false,
+            file.packing,
             false,
         });
     }
@@ -120,13 +134,13 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
     std::vector<Candidate> forcedClump;
     std::vector<Candidate> kept;
     kept.reserve(cands.size());
-    if (cur->size > 0 && clumpThreshold > 0) {
-        const double limit = static_cast<double>(cur->size) * clumpThreshold;
-        for (const Candidate& c : cands) {
-            if (static_cast<double>(c.size) < limit) {
-                forcedClump.push_back(c);
+    if (cur->measuredSize > 0 && clumpThreshold > 0) {
+        const double limit = static_cast<double>(cur->measuredSize) * clumpThreshold;
+        for (const Candidate& candidate : cands) {
+            if (static_cast<double>(candidate.size) < limit) {
+                forcedClump.push_back(candidate);
             } else {
-                kept.push_back(c);
+                kept.push_back(candidate);
             }
         }
     } else {
@@ -154,13 +168,13 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
         }
         picked.insert(picked.end(), kept.begin(), kept.begin() + head);
 
-        qint64 sum = 0;
+        quint64 sum = 0;
         bool anyNonNative = false;
         std::vector<Candidate> clumpMembers = forcedClump;
         clumpMembers.insert(clumpMembers.end(), kept.begin() + head, kept.end());
-        for (const Candidate& c : clumpMembers) {
-            sum += c.size;
-            if (!c.isFolder && c.packing != model::PackingType::Native) {
+        for (const Candidate& candidate : clumpMembers) {
+            sum += candidate.size;
+            if (!candidate.isFolder && candidate.packing != model::PackingType::Native) {
                 anyNonNative = true;
             }
         }
@@ -176,6 +190,7 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
             false,
             false,
             false,
+            false,
             clShare,
             true,
             model::PackingType::Native,
@@ -185,51 +200,52 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
 
     std::vector<model::TreemapItem> out;
     out.reserve(picked.size());
-    for (const Candidate& c : picked) {
-        model::TreemapItem ti;
-        ti.name = c.name;
-        ti.path = c.path;
-        ti.size = c.size;
-        ti.driveShare = c.share;
-        ti.isNode = c.isNode;
-        ti.isEmpty = c.isEmpty;
-        ti.isExecFile = c.isExecFile;
+    for (const Candidate& candidate : picked) {
+        model::TreemapItem item;
+        item.name = candidate.name;
+        item.path = candidate.path;
+        item.size = candidate.size;
+        item.driveShare = candidate.share;
+        item.isNode = candidate.isNode;
+        item.isEmpty = candidate.isEmpty;
+        item.isExecFile = candidate.isExecFile;
+        item.sizeIsLowerBound = candidate.sizeIsLowerBound;
 
-        if (c.clump) {
-            ti.kind = model::TreemapItemKind::Clump;
-            if (c.clumpNonNative) {
-                ti.bg = cfg.packedClumpBg;
-                ti.text = cfg.packedClumpText;
+        if (candidate.clump) {
+            item.kind = model::TreemapItemKind::Clump;
+            if (candidate.clumpNonNative) {
+                item.bg = cfg.packedClumpBg;
+                item.text = cfg.packedClumpText;
             } else {
-                ti.bg = cfg.nativeClumpBg;
-                ti.text = cfg.nativeClumpText;
+                item.bg = cfg.nativeClumpBg;
+                item.text = cfg.nativeClumpText;
             }
-        } else if (c.isFolder) {
-            ti.kind = model::TreemapItemKind::Folder;
-            ti.bg = cfg.nativeFolderBg;
-            ti.text = cfg.nativeFolderText;
+        } else if (candidate.isFolder) {
+            item.kind = model::TreemapItemKind::Folder;
+            item.bg = cfg.nativeFolderBg;
+            item.text = cfg.nativeFolderText;
         } else {
-            ti.kind = model::TreemapItemKind::File;
-            switch (c.packing) {
+            item.kind = model::TreemapItemKind::File;
+            switch (candidate.packing) {
             case model::PackingType::PackedFile:
-                ti.bg = cfg.packedFileBg;
-                ti.text = cfg.packedFileText;
+                item.bg = cfg.packedFileBg;
+                item.text = cfg.packedFileText;
                 break;
             case model::PackingType::PackedFolder:
-                ti.bg = cfg.packedFolderBg;
-                ti.text = cfg.packedFolderText;
+                item.bg = cfg.packedFolderBg;
+                item.text = cfg.packedFolderText;
                 break;
             case model::PackingType::PackedClump:
-                ti.bg = cfg.packedClumpBg;
-                ti.text = cfg.packedClumpText;
+                item.bg = cfg.packedClumpBg;
+                item.text = cfg.packedClumpText;
                 break;
             default:
-                ti.bg = cfg.nativeFileBg;
-                ti.text = cfg.nativeFileText;
+                item.bg = cfg.nativeFileBg;
+                item.text = cfg.nativeFileText;
                 break;
             }
         }
-        out.push_back(ti);
+        out.push_back(item);
     }
     return out;
 }

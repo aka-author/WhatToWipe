@@ -28,6 +28,8 @@ void Session::resetToInitial() {
     treemapComplete = false;
     scanning = false;
     scanId = 0;
+    ++sessionId;
+    descriptorVersion = 0;
     pendingUpdateSnapshot.reset();
 }
 

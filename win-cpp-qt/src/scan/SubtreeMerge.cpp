@@ -1,5 +1,7 @@
 #include "scan/SubtreeMerge.h"
 
+#include "util/CheckedMath.h"
+
 #include <QDir>
 #include <algorithm>
 #include <functional>
@@ -28,36 +30,51 @@ std::optional<QDateTime> maxTime(std::optional<QDateTime> a, std::optional<QDate
     return (*a > *b) ? a : b;
 }
 
+bool childMakesParentPartial(const model::FolderDescriptor& child) {
+    return child.sizeCompleteness == SizeCompleteness::Partial ||
+           child.traversalState == TraversalState::Unreadable;
+}
+
 }  // namespace
 
 void recomputeAggregates(model::FolderDescriptor& node) {
-    qint64 total = 0;
+    quint64 measured = 0;
+    bool partial = node.traversalState == TraversalState::Unreadable;
     int nestedFolders = 0;
     int nestedFiles = 0;
     std::optional<QDateTime> oldest;
     std::optional<QDateTime> newest;
 
-    for (const auto& f : node.files) {
-        total += f.size;
+    for (const auto& file : node.files) {
+        measured = util::checkedAdd(measured, file.size);
         ++nestedFiles;
-        oldest = minTime(oldest, f.oldestFile);
-        newest = maxTime(newest, f.newestFile);
+        oldest = minTime(oldest, file.oldestFile);
+        newest = maxTime(newest, file.newestFile);
     }
+
     for (auto& child : node.children) {
         recomputeAggregates(child);
-        total += child.size;
+        measured = util::checkedAdd(measured, child.measuredSize);
         nestedFolders += 1 + child.nestedFolderCount;
         nestedFiles += child.nestedFileCount;
         oldest = minTime(oldest, child.oldestFile);
         newest = maxTime(newest, child.newestFile);
+        if (childMakesParentPartial(child)) {
+            partial = true;
+        }
     }
 
-    node.size = total;
+    node.measuredSize = measured;
+    node.sizeCompleteness = partial ? SizeCompleteness::Partial : SizeCompleteness::Complete;
     node.nestedFolderCount = nestedFolders;
     node.nestedFileCount = nestedFiles;
     node.oldestFile = oldest;
     node.newestFile = newest;
-    if (node.children.empty() && node.files.empty()) {
+
+    if (node.traversalState == TraversalState::Unreadable ||
+        node.traversalState == TraversalState::ReparseTargetNotTraversed) {
+        node.treeRole = model::TreeRole::NodeFolder;
+    } else if (node.children.empty() && node.files.empty()) {
         node.treeRole = model::TreeRole::EmptyFolder;
     } else if (node.children.empty()) {
         node.treeRole = model::TreeRole::LeafFolder;

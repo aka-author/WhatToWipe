@@ -1,5 +1,6 @@
 #pragma once
 
+#include "scan/ScanTypes.h"
 #include <QColor>
 #include <QDateTime>
 #include <QRect>
@@ -16,7 +17,7 @@ enum class ObjectType { File, Folder };
 struct FileDescriptor {
     QString name;
     QString fullPath;
-    qint64 size = 0;
+    quint64 size = 0;
     double volumeShare = 0.0;
     ObjectType type = ObjectType::File;
     PackingType packing = PackingType::Native;
@@ -29,7 +30,9 @@ struct FileDescriptor {
 struct FolderDescriptor {
     QString name;
     QString fullPath;
-    qint64 size = 0;
+    quint64 measuredSize = 0;
+    scan::SizeCompleteness sizeCompleteness = scan::SizeCompleteness::Complete;
+    scan::TraversalState traversalState = scan::TraversalState::Complete;
     double volumeShare = 0.0;
     int nestedFolderCount = 0;
     int nestedFileCount = 0;
@@ -38,8 +41,6 @@ struct FolderDescriptor {
     TreeRole treeRole = TreeRole::EmptyFolder;
     std::vector<FolderDescriptor> children;
     std::vector<FileDescriptor> files;
-    bool reparseSkipped = false;
-    QString skipReason;
 };
 
 using FolderTree = FolderDescriptor;
@@ -49,7 +50,7 @@ enum class TreemapItemKind { Folder, File, Clump };
 struct TreemapItem {
     QString name;
     QString path;
-    qint64 size = 0;
+    quint64 size = 0;
     double driveShare = 0.0;
     QColor bg;
     QColor text;
@@ -57,6 +58,7 @@ struct TreemapItem {
     bool isNode = false;
     bool isEmpty = false;
     bool isExecFile = false;
+    bool sizeIsLowerBound = false;
 };
 
 struct BlockLayout {

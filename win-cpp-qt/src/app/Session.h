@@ -27,6 +27,8 @@ public:
 
     bool scanning = false;
     quint64 scanId = 0;
+    quint64 sessionId = 1;
+    quint64 descriptorVersion = 0;
     ScanKind scanKind = ScanKind::OpenTarget;
     QString scanRootPath;
     std::optional<UpdateSnapshot> pendingUpdateSnapshot;

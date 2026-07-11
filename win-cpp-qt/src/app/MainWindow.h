@@ -2,6 +2,7 @@
 
 #include "app/Session.h"
 #include "config/TreemapConfig.h"
+#include "scan/ScanResult.h"
 #include <QMainWindow>
 
 class QToolButton;
@@ -34,8 +35,7 @@ private slots:
     void onAbout();
     void onRefreshFree();
     void onScanProgress(const QString& path);
-    void onScanFinished(wtw::model::FolderDescriptor tree, int errorCount, bool cancelled, bool rootUnavailable,
-                        bool technicalFailure);
+    void onScanFinished(wtw::scan::ScanResult result);
     void onDive(const QString& folderPath);
     void onExploreTile(const QString& path);
     void onOpenFile(const QString& path);
@@ -76,6 +76,7 @@ private:
 
     QThread* m_scanThread = nullptr;
     scan::ScanWorker* m_scanWorker = nullptr;
+    scan::ScanIdentity m_activeScanIdentity{};
     QString m_latestProgressPath;
     qint64 m_lastProgressEmitMs = 0;
 };

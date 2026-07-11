@@ -2,6 +2,7 @@
 #include "ui/MenuLabels.h"
 
 #include "treemap/LabelFit.h"
+#include "scan/ScanTypes.h"
 #include "util/Format.h"
 
 #include <QContextMenuEvent>
@@ -44,7 +45,9 @@ void drawTreemapTileLabel(QPainter& p, const model::BlockLayout& block, const co
     drawLine(heading, lay.nameFont, lay.nameLH);
     if (withDetails) {
         y += lay.gap;
-        drawLine(util::formatObjectSize(block.item.size), lay.metaFont, lay.metaLH);
+        drawLine(block.item.sizeIsLowerBound ? util::formatFolderSize(block.item.size, scan::SizeCompleteness::Partial)
+                                             : util::formatObjectSize(block.item.size),
+                 lay.metaFont, lay.metaLH);
         if (lay.showShare) {
             drawLine(lay.shareText, lay.metaFont, lay.metaLH);
         }
