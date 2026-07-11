@@ -1,17 +1,21 @@
 #pragma once
 
 #include "config/TreemapConfig.h"
-#include <QComboBox>
+#include "ui/SettingsSchema.h"
+
 #include <QDialog>
-#include <QDoubleSpinBox>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QSpinBox>
 #include <QVector>
 #include <functional>
 
+class QTableView;
+class QLabel;
+class QLineEdit;
+class QComboBox;
+class QWidget;
+
 namespace wtw::ui {
+
+class SettingsGridModel;
 
 class SettingsDialog : public QDialog {
     Q_OBJECT
@@ -30,27 +34,35 @@ private slots:
     void onOk();
 
 private:
-    bool validateAndCollect(config::TreemapSettings* out, QString* error);
+    struct RowWidgets {
+        QWidget* nameCell = nullptr;
+        QWidget* valueCell = nullptr;
+        QWidget* swatchCell = nullptr;
+        QWidget* pickerCell = nullptr;
+        QLineEdit* lineEdit = nullptr;
+        QComboBox* combo = nullptr;
+    };
+
+    void buildGrid();
+    void attachRowWidgets(int row);
+    void syncWidgetsToStates();
+    void syncStatesToWidgets();
+    bool collectAndValidate(config::TreemapSettings* out, QString* error, int* errorRow);
     void setError(const QString& text);
     void clearError();
-    void loadIntoEditors(const config::TreemapSettings& s);
     bool isDirty() const;
+    void commitStates();
+    void focusRow(int row);
 
     config::TreemapSettings m_initial;
     config::TreemapSettings m_effective;
-    QLabel* m_errorLabel = nullptr;
+    QVector<SettingsRowState> m_states;
+    QVector<QString> m_committed;
+    QVector<RowWidgets> m_rowWidgets;
 
-    struct RowEditors {
-        QString key;
-        QLineEdit* value = nullptr;
-        QLineEdit* colorEdit = nullptr;
-        QLabel* swatch = nullptr;
-        QPushButton* pick = nullptr;
-        QComboBox* combo = nullptr;
-        QSpinBox* spin = nullptr;
-        QDoubleSpinBox* dspin = nullptr;
-    };
-    QVector<RowEditors> m_rows;
+    SettingsGridModel* m_model = nullptr;
+    QTableView* m_table = nullptr;
+    QLabel* m_errorLabel = nullptr;
 };
 
 void showSettingsDialog(QWidget* parent, const config::TreemapSettings& initial,

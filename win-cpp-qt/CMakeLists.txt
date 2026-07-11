@@ -26,6 +26,7 @@ set(WTW_SOURCES
     src/treemap/LabelFit.cpp
     src/platform/VolumeInfo.cpp
     src/platform/ShellOpen.cpp
+    src/ui/SettingsSchema.cpp
     src/ui/SettingsDialog.cpp
     src/ui/AboutDialog.cpp
     src/ui/AlertDialogs.cpp
