@@ -407,3 +407,141 @@ The architecture should select one Windows shell-opening mechanism for folders a
 ## Conclusion
 
 The C++/Qt direction is viable, and the Settings Form strategy is much more promising than the previous Win32/walk attempts. The current documents, however, still combine migration notes, normative constraints, inherited Go behavior, and unresolved design choices. Correcting the findings above will produce a coherent implementation baseline that obeys `funcspec.md` rather than merely porting the previous application into another GUI framework.
+
+---
+
+## Author response (2026-07-11)
+
+This section evaluates each finding in the review above. Verdicts use: **Accept** (correction required as stated), **Accept with nuance** (correction required, wording adjusted below), or **Argue** (disagree in part — argument given).
+
+Overall: the review is sound. All eight critical findings should be fixed in `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md` before `win-cpp-qt/` coding starts. None of the critical items are dismissed. The significant and minor findings are largely accepted; a few nuance notes apply.
+
+### Response to critical findings
+
+#### 1. Network-path support — **Accept**
+
+The review is correct. FS defines *volume* as excluding network locations. PL-03’s “UNC where applicable” and IO-04’s network-share behaviour expand scope beyond FS.
+
+Planned correction: remove network/UNC as supported scan roots; validate `GetDriveType` (or equivalent) so only local fixed/removable volumes qualify; reject UNC paths and mapped network drives with FS `#001`. Status-bar path display may still show a UNC string if one were ever surfaced, but the product must not treat a network location as a valid target or current volume.
+
+#### 2. Legacy configuration loading — **Accept**
+
+CF-03 as written is non-compliant. FS requires: on first start, if `%LocalAppData%\WhatToWipe\WhatToWipe.config.txt` is absent, create it and write built-in defaults. Loading only from the legacy `Erase & Rewrite` path when the FS file is missing skips that sequence.
+
+Planned correction: delete CF-03’s “substitute load source” semantics. Replace with one-time **import**: if the FS file is missing and a legacy file exists, read legacy values, validate under FS rules, write the result into a **newly created** FS-path file (defaults for any missing/invalid keys). After import, only the FS path is active. The legacy path is never an ongoing alternate store.
+
+#### 3. Update vs context-folder scan — **Accept**
+
+The architecture is underspecified and the “replace whole snapshot with context-rooted tree” reading would be wrong. FS requires: Update scans the **context folder**; the **target-folder descriptor** must be updated; navigation during scan is allowed.
+
+Planned correction: define Update as a versioned **subtree transaction** exactly as the review describes (capture context at invoke, scan off-thread, merge subtree into target descriptor, atomic publish, resolve user’s current context against new tree, obsolete scan IDs discarded). Note: the Go implementation currently calls `startScan(targetPath, scanUpdate)`, which scans the target root, not the context folder — that is a known FS deviation and must **not** be ported as a baseline.
+
+#### 4. Complete folder hierarchy descriptor — **Accept**
+
+The Go `FolderNode` is incomplete versus FS: it lacks nested folder/file counts, oldest/newest file timestamps, explicit file/folder type, and full recursive field coverage. “FolderNode equivalent” was shorthand, not a compliance claim.
+
+Planned correction: add an explicit C++ descriptor section listing every FS field, timestamp propagation rules, unreadable-entry metadata, and immutability/ownership for published snapshots.
+
+#### 5. Treemap projection / clumping — **Accept**
+
+The architecture omitted the mandatory projection stage between descriptor children and layout. The Go code has this logic in `scan.BuildTreemapItems` (max tiles, threshold clump, largest-N selection), but the Qt arch must name it explicitly as `TreemapProjection` with deterministic processing order and test vectors.
+
+#### 6. Archive classification — **Accept**
+
+No pinned library is a blocker. Qt Core does not classify zip/rar catalogs.
+
+Planned correction: add a techspec row pinning the catalog library (candidate: libarchive for read-only catalog inspection of zip/rar; final choice recorded in `docs/verification/` before Milestone 1). Define bounded catalog reads, encrypted/corrupt archive fallbacks (→ packed clump per FS), and cancellation/time limits.
+
+#### 7. IO-02 permission failures — **Accept with nuance**
+
+The review is right that FS treats organic completion with inner permission failures as **success**. IO-02 must not reclassify that outcome as “incomplete” in a way that triggers negative use-case branches.
+
+Nuance: a **non-blocking notice** (status-bar count of unread paths, as the Go app already appends after scan) is compatible with FS if it does not change treemap state to unset/incomplete and does not replace FS alerts. Planned correction: rewrite IO-02 to require recording unread entries, keeping organic completion successful, and limiting user-visible wording to a summary count/warning — not “scan incomplete.”
+
+#### 8. Reparse-point policy — **Accept**
+
+A visited path-string set is insufficient for junction/symlink identity on Windows.
+
+Planned correction: adopt **skip directory reparse points** as the default policy (documented for IO-03), with per-entry skip reason recorded. Following reparse points with `(volumeSerial, fileId)` cycle detection remains an alternative only if written up with mount-point effects on volume-share math. Path-string dedup alone will not be documented as sufficient.
+
+### Response to significant findings
+
+#### 9. Qt 5 high-DPI flags — **Accept**
+
+DP-03 referencing `AA_EnableHighDpiScaling` is obsolete for Qt 6. Replace with the Qt 6 requirements listed in the review.
+
+#### 10. MSVC lock-in — **Accept**
+
+`arch-win-cpp-qt.md` must not mandate MSVC without a toolchain decision record. PL-04 already allows any recorded toolchain; the arch should reference that record instead of fixing “CMake + MSVC.”
+
+#### 11. Product name WhatToWipe — **Accept with nuance**
+
+Normative target docs should use **WhatToWipe** for FS-governed text (About, config paths, user-visible product name in FS-governed dialogs). The shipped Windows artifact has historically used “Erase & Rewrite” in PE metadata and installer filenames — that is deployment branding, not a second functional spec. Until FS is amended, techspec/arch UI strings and config paths follow WhatToWipe; PE/installer naming is called out in a short migration note rather than repeated in body text.
+
+#### 12. Go as behavioural baseline — **Accept**
+
+Agreed. Go is a regression-fixture and partial code reference only. Every behaviour must trace to FS (or a valid techspec row). Known Go FS gaps (settings grid, Update scan root, incomplete descriptor) are explicitly excluded from porting.
+
+#### 13. Error handling subsystem — **Accept**
+
+`ErrorDialogs` as a file name is not a design. A single FS-mapped alert presenter for `#001`–`#004` and a separate interruption presenter will be specified.
+
+#### 14. Cancel-with-dirty confirmation — **Accept**
+
+FS Cancel closes without applying pending edits; it does not require a confirmation dialog. The dirty confirmation came from the Go-era settings architecture note (`arch-for-true-grid-win-go.md`), not from FS. Planned correction: **remove** the confirmation for strict FS compliance unless FS is amended. Classify as rejected optional UX unless product owner waives.
+
+#### 15. Settings-grid widget prescription — **Accept**
+
+SG-01/SG-02 are too specific at techspec level. Compliance properties (permanent in-cell editors, shared columns, no detached panel) stay normative; the concrete Qt control strategy moves to the verification declaration after prototype pass. Both `setIndexWidget` and aligned `QGridLayout` remain candidates until tested.
+
+#### 16. Configuration transaction — **Accept**
+
+“Atomic save” needs the seven-step transaction design from the review (temp file, validate-all-first, rollback rules, cross-field constraints).
+
+#### 17. BD-04 licensing — **Accept**
+
+Replace with a requirement to record the chosen Qt licence model (dynamic LGPL vs commercial) and ship the matching compliance artefacts. No generic one-size-fits-all LGPL paragraph.
+
+### Response to minor findings
+
+#### 18. Squarified layout name — **Accept**
+
+Layout acceptance criteria (aspect-ratio limits per FS) will be stated; algorithm family name is not evidence of compliance.
+
+#### 19. Hard-coded 32 settings rows — **Accept**
+
+Row set derives from FS parameter table via schema mapping, not a literal constant in architecture text.
+
+#### 20. Shell open mechanism — **Accept**
+
+Pick one API (`ShellExecuteExW` recommended for folder/file open with explicit success/failure mapping to FS `#003`/`#004`); remove “A or B” wording.
+
+### Disposition summary
+
+| # | Finding | Verdict |
+|---|---------|---------|
+| 1 | Network paths | Accept |
+| 2 | Legacy config | Accept |
+| 3 | Update subtree | Accept |
+| 4 | Descriptor completeness | Accept |
+| 5 | Treemap projection | Accept |
+| 6 | Archive libraries | Accept |
+| 7 | IO-02 wording | Accept with nuance |
+| 8 | Reparse policy | Accept |
+| 9 | Qt 6 DPI | Accept |
+| 10 | MSVC lock-in | Accept |
+| 11 | Product name | Accept with nuance |
+| 12 | Go baseline | Accept |
+| 13 | Error subsystem | Accept |
+| 14 | Cancel confirm | Accept |
+| 15 | Settings prescription | Accept |
+| 16 | Config transaction | Accept |
+| 17 | BD-04 licensing | Accept |
+| 18 | Layout naming | Accept |
+| 19 | Row count | Accept |
+| 20 | Shell API | Accept |
+
+### Next step
+
+Apply the accepted corrections to `techspec-win-cpp-qt.md` and `arch-win-cpp-qt.md` in a follow-up change. Implementation of `win-cpp-qt/` remains blocked until those documents are updated and this dispute file’s disposition is reflected in them.
+
