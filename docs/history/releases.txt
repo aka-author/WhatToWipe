@@ -1,0 +1,7 @@
+Rules: for each release provide the following data:
+- date time
+- version and build number
+- path to the folder inside the project (not absolute)
+- precise URL of the commit on GitHub
+- what's appended to the product
+- known issues: what's still wrong with the product now
