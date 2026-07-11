@@ -1078,3 +1078,44 @@ Phase 3 must explicitly require the complete archive proof matrix, resource-limi
 ### Final disposition
 
 Accepted with the corrections above. The only remaining implementation-shaping blocker is archive cancellation being classified as `PackedClump`; correct that before coding the archive path. The other points may be incorporated while Phase 1 scaffolding begins.
+
+---
+
+## Final reviewer issue — unreadable-folder size semantics (2026-07-11)
+
+### Substantive issue
+
+The Phase 1 table says that an unreadable folder has an unknown size, but the descriptor model uses a plain `quint64 size`. That type cannot represent “unknown.” Without an explicit rule, implementation will likely assign zero and make an unreadable folder quantitatively indistinguishable from a measured empty folder.
+
+Resolve this in the descriptor model before Phase 1 closes. Choose and document one of these approaches:
+
+- `std::optional<quint64> size`, with absence propagated through aggregation and projection;
+- a separate size-validity or `SizeKnowledge` field alongside `quint64`;
+- a normative zero-representation rule where unreadable folders use zero represented size while `TraversalState::Unreadable` explicitly states that zero is not a measured size.
+
+If the zero-representation approach is selected, define all resulting behavior:
+
+- whether the unreadable entry contributes zero to parent aggregate size;
+- whether it receives a treemap tile despite zero represented size;
+- how projection avoids confusing it with a zero-byte or empty entry;
+- what size is shown in details and diagnostics;
+- how Update merge and aggregate recomputation preserve the unknown-size meaning.
+
+The third approach is simplest, but it is not complete until those consequences are specified and tested.
+
+### Factory invariants
+
+Tighten the result factories:
+
+- `DirectoryReadResult::failure()` must reject `DirectoryReadStatus::Ok` and `DirectoryReadStatus::Invalid`;
+- `CatalogReadResult::outcome()` must reject `CatalogReadOutcome::Readable`; readable results must be created only through `readable(entries)`.
+
+Otherwise factory-only construction still permits contradictory result objects.
+
+### Missing test
+
+Add a Phase 1 test proving that the native search handle is closed on ordinary enumeration failure, not only on cancellation.
+
+### Disposition
+
+The plan remains accepted and Phase 1 may start. The unreadable-size representation must be settled while implementing the descriptor model and before finding 24 is closed.
