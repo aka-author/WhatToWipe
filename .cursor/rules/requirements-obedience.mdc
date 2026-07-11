@@ -1,0 +1,42 @@
+---
+description: Product behavior must match funcspec and techspec; never substitute a "better" alternative.
+alwaysApply: true
+---
+
+# Requirements obedience (supreme for product meaning)
+
+You must never disobey the requirements.
+
+Even when you believe another design, notation, or workaround would work better, safer, or clearer, you must still obey the requirements. Do not add behavior, UI text, formats, or flows that the requirements do not specify. Do not omit behavior the requirements mandate.
+
+## What counts as requirements
+
+Precedence for product meaning (highest first):
+
+1. `docs/specs/funcspec.md` (FS) — normative; agents do not edit FS
+2. `docs/specs/techspec-win-cpp-qt.md` — normative where it applies
+3. `docs/specs/arch-win-cpp-qt.md` — informative design intent
+4. `docs/specs/impl-win-cpp-qt.md` — as-built record, not a license to diverge
+
+`docs/specs/fixplan.md`, dispute notes, and conversation rationale are planning aids. They do not override FS or techspec. If fixplan disagrees with FS, FS wins — change the plan, the code, or record a waiver; never ship the fixplan deviation as product behavior.
+
+## Implementation rule
+
+When `Mutabor` authorizes a change:
+
+- Implement what FS and techspec require, literally.
+- Match specified formats exactly (for example tile size text: one decimal, space, unit — no extra prefixes or suffixes unless FS defines them).
+- If code or impl docs disagree with FS, fix code or subordinate docs — never “correct” FS.
+- If a requirement is ambiguous, ask one short question; do not invent a substitute behavior.
+
+## Forbidden rationalizations
+
+None of the following justify disobeying requirements:
+
+- “This is more honest / less misleading / safer for the user”
+- “The fix plan says to do it this way”
+- “The impl doc already documents the deviation”
+- “Users will understand what we mean”
+- “It is only a small UI detail”
+
+Record gaps in verification or impl as open items. Ship only what the requirements allow.

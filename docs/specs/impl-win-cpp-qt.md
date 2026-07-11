@@ -177,7 +177,9 @@ Volume indicators sit after the buttons with a separator: a static Total at X la
 
 ### 4.4 Status bar
 
-The status bar shows the context path while the treemap is complete, a throttled scan path during scanning, and the initial prompt Choose a target folder.
+The status bar shows Choose a target folder when the treemap is unset, the context path when the treemap is complete, and the folder currently being scanned during a scan (throttled per `scanning.updateInterval` via `ScanDelivery::applyScanProgressIfCurrent`).
+
+Path text for the status bar is formatted in `util/Format.cpp` by `formatPathForStatusBar()`. On Windows this uses `QDir::toNativeSeparators` after `QDir::cleanPath`, so displayed paths use backslash separators (for example `C:\Users\...\Projects`) per FS Status Bar rules. `MainWindow::statusForContext()` and scan progress delivery pass paths through this helper before `QStatusBar::showMessage`.
 
 
 ## 5. Session state
@@ -285,6 +287,8 @@ The treemap pipeline has four stages: projection, layout, label fit, and view.
 
 `treemap/LabelFit.cpp` ports Go `resolveTileLabel` with binary search and shortening. The five-step FS priority runs from detailed form through brief form to `treemap.labelDummy`. Shortened headings get a tooltip.
 
+In the details block, the size line is rendered by `TreemapWidget` using `util::formatObjectSize()` only. The FS size format is one fractional digit, a space, and a unit suffix (`TB`, `GB`, `MB`, or `KB`). Partial folder `measuredSize` values still use that format; there is no lower-bound prefix on tile labels.
+
 
 ### 7.4 View
 
@@ -383,6 +387,17 @@ The file uses key=value lines and `#` comments. Keys are case-insensitive on rea
 `platform/AppVersion.cpp` reads PE `FileVersion` via `version.dll`, falls back to adjacent `versioninfo.json`, and supplies About and `QApplication::setApplicationVersion`.
 
 
+### 10.4 Display formatting
+
+`util/Format.cpp` centralizes user-visible numeric and path formatting:
+
+| Function | Use |
+|----------|-----|
+| `formatObjectSize` | Tile size lines and other byte counts; FS one-decimal unit suffix |
+| `formatPathForStatusBar` | Status bar paths; native separators on Windows |
+| `formatShareLine` | Volume share percentage lines in tile labels |
+
+
 ## 11. Dialogs and alerts
 
 The table below maps dialogs to source files.
@@ -410,7 +425,7 @@ Toolbar icons render at 24×24 inside 32×32 hit targets. Qt scales for HiDPI.
 
 ### 13.1 CMake and linking
 
-CMake target name: `EraseAndRewrite`. MinGW builds statically link `libstdc++`, `libgcc`, and `winpthread` to avoid ABI mismatch with deployed Qt DLLs. Windows libraries: `shell32`, `ole32`, `version`.
+CMake target name: `EraseAndRewrite`. The main executable is built with the `WIN32` option in `qt_add_executable`, linking the Windows GUI subsystem (`SUBSYSTEM:WINDOWS`) so the process starts without a console window (techspec PL-07). MinGW builds statically link `libstdc++`, `libgcc`, and `winpthread` to avoid ABI mismatch with deployed Qt DLLs. Windows libraries: `shell32`, `ole32`, `version`.
 
 
 ### 13.2 build.ps1
@@ -454,6 +469,7 @@ The table below records techspec row status as of the current tree. Update it wh
 |-----|--------|-------|
 | TS-01 / TS-02 | implemented | settings real grid shipped |
 | PL-01–PL-06 | implemented | see §1, §13 |
+| PL-07 | implemented | `WIN32` GUI subsystem; no startup console; direct `EraseAndRewrite.exe` launch |
 | WR-01–WR-03 | implemented | `app.rc` + `AppVersion` |
 | WR-04 | open | Authenticode not in build script |
 | WR-05 | implemented | `Copy-WithRetry` in `build.ps1` |
