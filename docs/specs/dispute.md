@@ -1046,3 +1046,205 @@ Until those tests or equivalent verification artifacts exist, the implementation
 The repository has progressed beyond a throwaway spike, but it has not yet reached a trustworthy architectural baseline. The most dangerous defects are not cosmetic: the timeout is not bounded, unreadable directories become empty folders, archive classification is broken/incomplete, Update navigation violates FS, minimum tile constraints are ignored, and zero-size entries receive area.
 
 Do not polish the UI around these defects. Fix the scanner, data semantics, archive reader, and treemap projection/layout first. Then run a fresh FS-to-code verification pass before declaring the Qt implementation active.
+
+---
+
+## Developer reply to strict implementation review (2026-07-11)
+
+This section responds to **Strict C++/Qt implementation review (2026-07-11)** above. Prior sections of this file are left unchanged.
+
+### General reply
+
+The implementation review is accepted. Code inspection on `dev` confirms the release blockers and most configuration defects. The Qt line remains an early prototype, not a candidate shipping line, until the priority order at the end of the review is executed and verified.
+
+Since the review was written, `impl-win-cpp-qt.md` landed and `arch-win-cpp-qt.md` / `techspec-win-cpp-qt.md` were aligned with the as-built tree. Those documents record several open gaps (for example IO-02, WR-04) but do not correct the code defects listed in findings 22–46. Documentation sync is not a substitute for the corrections below.
+
+The developer agrees with the reviewer's final verdict and priority order without reordering.
+
+### Reply by finding
+
+#### 22. Update navigation disabled — **Accept**
+
+`MainWindow::updateChrome()`, `onUp()`, and `onDive()` block all navigation while `m_session.scanning` is true. This contradicts FS Update behavior and the architecture transaction described in the earlier thread.
+
+**Correction:** gate navigation by `scanKind`. During `UpdateContext`, keep Up, Dive, and Explore enabled against the published tree; disable only Open, a second Update, and Settings. During `OpenTarget`, keep the current stricter gate.
+
+#### 23. Directory-read timeout not bounded — **Accept**
+
+`readDirBounded()` uses `std::async(std::launch::async, …)` and returns on timeout without joining the task. Destruction of the future can block indefinitely; per-directory thread creation is also unacceptable at scale.
+
+**Correction:** replace with native `FindFirstFileExW` / `FindNextFileW` enumeration with cancellation checks between entries, or one dedicated scanner thread with an honestly documented non-cancellable syscall boundary. Remove the false 30 s claim from any verification note until a real bound exists.
+
+#### 24. Unreadable directories shown as empty — **Accept**
+
+`QDir::entryInfoList()` failure cases are indistinguishable from an empty directory. The scanner then assigns `TreeRole::EmptyFolder`.
+
+**Correction:** introduce `DirectoryReadResult` with `DirectoryReadStatus` and native error code; never assign `EmptyFolder` when emptiness was not established.
+
+#### 25. Reparse points misclassified as empty folders — **Accept**
+
+`reparseSkipped` entries are created with `treeRole = EmptyFolder`, and `recomputeAggregates()` can reinforce that role. `fi.size()` on a directory reparse point is not a recursive folder size.
+
+**Correction:** add an explicit descriptor state for untraversed reparse entries (separate from `EmptyFolder`); preserve it through `recomputeAggregates()`; document size semantics in techspec IO-03 evidence.
+
+#### 26. ZIP central-directory parser wrong — **Accept**
+
+`readZipCentralDirectory()` uses incorrect field offsets and lacks ZIP64, bounds checks, and resource limits. The handwritten parser will be removed.
+
+**Correction:** implement `IArchiveCatalogReader` behind a pinned library that passes the agreed ZIP/RAR proof matrix.
+
+#### 27. RAR classification not implemented — **Accept**
+
+`.rar` always returns `PackedClump` without catalog inspection. This is a functional failure.
+
+**Correction:** RAR and RAR5 catalog inspection through the selected archive library; `PackedClump` only on defined fallback paths.
+
+#### 28. Minimum tile dimensions ignored — **Accept**
+
+`TreemapLayout::squarify()` discards `minTileW` and `minTileH` with `Q_UNUSED`. The residual/clump cycle is absent.
+
+**Correction:** implement the five-step merge cycle described in the review after threshold/max-count projection.
+
+#### 29. Zero-size values receive positive area — **Accept**
+
+`TreemapLayout` uses `max64(it.size, 1)`. Zero-size entries are not filtered in projection.
+
+**Correction:** filter non-positive values in `TreemapProjection`; layout must not invent positive weights.
+
+#### 30. File timestamps wrong — **Accept**
+
+Both `oldestFile` and `newestFile` are set from `lastModified()`.
+
+**Correction:** use creation/birth time for oldest and last-modified for newest, with documented fallback when birth time is unavailable.
+
+#### 31. TSize parser subset — **Accept**
+
+`ConfigStore::parsePt()` accepts integer `pt` only. Settings accepts `pt` and `mm`. `px`, `cm`, `in`, and decimals are not handled uniformly.
+
+**Correction:** one shared TSize parser for file load, Settings validation, serialization, and rendering.
+
+#### 32. Zero padding cannot load — **Accept**
+
+`if (int n = parsePt(val); n)` treats valid `0pt` as absent.
+
+**Correction:** separate parse success from numeric value.
+
+#### 33. Percentage parsing too permissive — **Accept**
+
+Unitless values greater than one are divided by 100.
+
+**Correction:** `%` suffix → divide by 100; no suffix → require `0 < value < 1`; reject other forms.
+
+#### 34. Invalid colors overwrite defaults — **Accept**
+
+Failed `parseHex()` yields invalid `QColor` assigned into settings.
+
+**Correction:** validate-then-assign for all fields in file load, matching Settings dialog discipline.
+
+#### 35. Duplicate keys last-write-wins — **Accept**
+
+**Correction:** reject duplicate known keys with typed configuration error and documented recovery.
+
+#### 36. Unknown keys destroyed on save — **Accept**
+
+Serialize writes only known keys; unknown lines are lost silently.
+
+**Correction:** adopt passthrough document model or document destructive canonicalization explicitly. Passthrough is preferred per the earlier thread.
+
+#### 37. `squarify()` is not squarified — **Accept**
+
+The current routine is binary partition, not Bruls–Huizing–van Wijk squarify.
+
+**Correction:** either implement true squarified layout with tests, or rename accurately and prove FS layout quality goals with measurement fixtures.
+
+#### 38. Integer overflow risk — **Accept suggestion**
+
+**Correction:** checked arithmetic or normalized floating weights; add overflow tests.
+
+#### 39. Scan result identity not validated — **Accept**
+
+`onScanFinished()` does not receive or validate `scanId`, scan kind, scan root, or base descriptor version from the worker result.
+
+**Correction:** typed `ScanResult` struct validated before any session mutation; required before Update navigation is restored.
+
+#### 40. Outcomes inferred from English substrings — **Accept**
+
+`skipReason.contains("timed out")` and similar heuristics are not acceptable.
+
+**Correction:** typed `ScanResult` enum with structured diagnostics; presentation strings stay in the GUI layer.
+
+#### 41. Non-deterministic equal-size ordering — **Accept suggestion**
+
+**Correction:** secondary sort key normalized full path in scanner and projection.
+
+#### 42. Settings grid heavy and fragile — **Accept risk note; retain current control pending evidence**
+
+The pre-coding declaration in `docs/verification/settings-grid-qt-strategy.md` chose `QTableView` + `setIndexWidget` for SG compliance. The form shipped with that strategy.
+
+The reviewer's `QGridLayout` concern remains valid for maintainability and accessibility. The developer will not rewrite the grid before scanner and treemap defects are fixed. Before declaring SG acceptance, the current grid must pass explicit keyboard, resize, scroll, accessibility, and clean-VM evidence, or fail back to `QGridLayout`.
+
+#### 43. Hard-coded dialog size caps — **Accept suggestion**
+
+**Correction:** replace fixed 620×520 caps with layout hints and screen-bounded persisted geometry.
+
+#### 44. Version source fragmentation — **Accept partially resolved**
+
+`versioninfo.json` already drives `app.rc` `FileVersion` / `ProductVersion` (four components, for example `1.0.0.0014`) and About via `AppVersion.cpp`. `CMakeLists.txt` still declares `VERSION 1.0.0` separately.
+
+**Correction:** single generator for CMake project version, `VERSIONINFO`, About, installer metadata, and deploy artifacts; add automated equality check in `test-run.ps1` or a small verifier script.
+
+#### 45. Static MinGW runtime verification — **Accept suggestion**
+
+**Correction:** record `objdump -p` / `ntldd` output for the executable and each shipped Qt DLL in `docs/verification/`; verify runtime licence notices.
+
+#### 46. Test debt — **Accept**
+
+No implementation-shaping tests are present yet. The list in the review is adopted as the minimum verification backlog.
+
+### Documentation note (post-review, not a code fix)
+
+| Item | Status |
+|------|--------|
+| `impl-win-cpp-qt.md` | Landed; maps modules and records open techspec gaps |
+| `arch-win-cpp-qt.md` / `techspec-win-cpp-qt.md` | Synced to MinGW/Qt 6.10.3, four-column settings grid, `EraseAndRewrite.exe` |
+| XMSTP + funcspec hands-off agent rule | Landed in `.cursor/rules/xmstp-docs.mdc` |
+| Code defects 22–46 | Open |
+
+### Developer disposition
+
+| # | Topic | Disposition |
+|---|-------|-------------|
+| 22 | Update navigation | Accept; fix by `scanKind` |
+| 23 | Bounded directory read | Accept; remove `std::async` wrapper |
+| 24 | Unreadable vs empty | Accept; typed directory read |
+| 25 | Reparse semantics | Accept; new descriptor state |
+| 26 | ZIP parser | Accept; delete; use library |
+| 27 | RAR | Accept; implement catalog read |
+| 28 | Min tile dimensions | Accept; residual/clump cycle |
+| 29 | Zero-size exclusion | Accept |
+| 30 | Timestamps | Accept |
+| 31–36 | Configuration | Accept all |
+| 37 | Layout algorithm | Accept |
+| 38 | Overflow | Accept suggestion |
+| 39–40 | Typed scan result | Accept |
+| 41 | Sort tie-break | Accept suggestion |
+| 42 | Settings grid | Accept risk; evidence gate before SG sign-off |
+| 43 | Dialog caps | Accept suggestion |
+| 44 | Version unity | Accept; partial progress noted |
+| 45 | Runtime deps audit | Accept suggestion |
+| 46 | Tests | Accept backlog |
+
+### Next step (developer)
+
+Execute the reviewer's priority order on `win-cpp-qt/`:
+
+1. Scanner I/O and typed outcomes (findings 23, 24, 25, 39, 40).
+2. Update navigation and result validation (findings 22, 39).
+3. Archive reader replacement (findings 26, 27).
+4. Projection and layout correctness (findings 28, 29, 37, 38).
+5. Descriptor timestamps (finding 30).
+6. Configuration hardening (findings 31–36).
+7. Version, deployment, licensing, DPI, and Settings evidence (findings 43–46).
+
+Do not declare the Qt implementation the active Windows delivery line until a fresh FS-to-code verification pass completes after those corrections.
+
