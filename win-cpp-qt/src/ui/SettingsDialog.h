@@ -53,6 +53,8 @@ private:
     bool isDirty() const;
     void commitStates();
     void focusRow(int row);
+    void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
     config::TreemapSettings m_initial;
     config::TreemapSettings m_effective;

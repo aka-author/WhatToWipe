@@ -12,6 +12,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QResizeEvent>
+#include <QShowEvent>
 #include <QSizePolicy>
 #include <QTableView>
 #include <QVBoxLayout>
@@ -74,18 +76,19 @@ private:
 
 namespace {
 
-constexpr int kDefaultDialogW = 500;
+constexpr int kDefaultDialogW = 540;
 constexpr int kDefaultDialogH = 440;
-constexpr int kMaxDialogW = 560;
+constexpr int kMaxDialogW = 620;
 constexpr int kMaxDialogH = 520;
-constexpr int kMinDialogW = 400;
+constexpr int kMinDialogW = 450;
 constexpr int kMinDialogH = 280;
 constexpr int kGridRowHeight = 24;
-constexpr int kParamColWidth = 168;
-constexpr int kPreviewColWidth = 40;
-constexpr int kPickerColWidth = 28;
-constexpr int kSwatchWidth = 30;
+constexpr int kParamColWidth = 170;
+constexpr int kPreviewColWidth = 58;
+constexpr int kPickerColWidth = 34;
+constexpr int kSwatchWidth = 32;
 constexpr int kSwatchHeight = 18;
+constexpr int kMinValueColWidth = 110;
 
 int clampDialogDimension(int value, int fallback, int minV, int maxV) {
     if (value <= 0 || value > maxV) {
@@ -163,18 +166,23 @@ void applyGridColumnWidths(QTableView* table) {
     }
     auto* header = table->horizontalHeader();
     header->setStretchLastSection(false);
-    header->setMinimumSectionSize(24);
-    header->setMaximumSectionSize(220);
+    header->setSectionsMovable(false);
+    header->setMinimumSectionSize(20);
     header->setSectionResizeMode(ColName, QHeaderView::Fixed);
     header->setSectionResizeMode(ColValue, QHeaderView::Stretch);
     header->setSectionResizeMode(ColSwatch, QHeaderView::Fixed);
     header->setSectionResizeMode(ColPicker, QHeaderView::Fixed);
-    table->setColumnWidth(ColName, kParamColWidth);
-    table->setColumnWidth(ColSwatch, kPreviewColWidth);
-    table->setColumnWidth(ColPicker, kPickerColWidth);
-    header->setSectionResizeMode(ColValue, QHeaderView::Stretch);
+    header->resizeSection(ColName, kParamColWidth);
     header->resizeSection(ColSwatch, kPreviewColWidth);
     header->resizeSection(ColPicker, kPickerColWidth);
+
+    const int viewportW = table->viewport()->width();
+    const int fixedW = kParamColWidth + kPreviewColWidth + kPickerColWidth;
+    int valueW = viewportW - fixedW;
+    if (valueW < kMinValueColWidth) {
+        valueW = kMinValueColWidth;
+    }
+    header->resizeSection(ColValue, valueW);
 }
 
 }  // namespace
@@ -290,7 +298,7 @@ void SettingsDialog::attachRowWidgets(int row) {
         m_table->setIndexWidget(m_model->index(row, ColSwatch), widgets.swatchCell);
 
         auto* pick = new QPushButton(QStringLiteral("…"), m_table);
-        pick->setFixedSize(kPickerColWidth - 4, kGridRowHeight - 6);
+        pick->setFixedSize(26, kGridRowHeight - 6);
         widgets.pickerCell = makePickerCell(m_table, pick);
         m_table->setIndexWidget(m_model->index(row, ColPicker), widgets.pickerCell);
         connect(pick, &QPushButton::clicked, this, [this, row]() {
@@ -373,6 +381,16 @@ void SettingsDialog::focusRow(int row) {
         w.combo->setFocus();
     }
     m_table->scrollTo(m_model->index(row, ColValue));
+}
+
+void SettingsDialog::resizeEvent(QResizeEvent* event) {
+    QDialog::resizeEvent(event);
+    applyGridColumnWidths(m_table);
+}
+
+void SettingsDialog::showEvent(QShowEvent* event) {
+    QDialog::showEvent(event);
+    applyGridColumnWidths(m_table);
 }
 
 bool SettingsDialog::collectAndValidate(config::TreemapSettings* out, QString* error, int* errorRow) {
