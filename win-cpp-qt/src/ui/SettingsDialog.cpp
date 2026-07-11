@@ -12,6 +12,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QTableView>
 #include <QVBoxLayout>
 
@@ -73,13 +74,16 @@ private:
 
 namespace {
 
-constexpr int kDefaultDialogW = 540;
+constexpr int kDefaultDialogW = 580;
 constexpr int kDefaultDialogH = 440;
-constexpr int kMaxDialogW = 640;
+constexpr int kMaxDialogW = 720;
 constexpr int kMaxDialogH = 520;
-constexpr int kMinDialogW = 380;
+constexpr int kMinDialogW = 420;
 constexpr int kMinDialogH = 280;
 constexpr int kGridRowHeight = 24;
+constexpr int kParamColWidth = 180;
+constexpr int kPreviewColWidth = 72;
+constexpr int kPickerColWidth = 36;
 
 int clampDialogDimension(int value, int fallback, int minV, int maxV) {
     if (value <= 0 || value > maxV) {
@@ -98,7 +102,7 @@ QLabel* makeNameLabel(const QString& text, QWidget* parent) {
 
 QLabel* makeSwatch(QWidget* parent) {
     auto* swatch = new QLabel(parent);
-    swatch->setFixedSize(24, 16);
+    swatch->setFixedSize(36, 20);
     swatch->setFrameStyle(QFrame::Box | QFrame::Plain);
     swatch->setLineWidth(1);
     return swatch;
@@ -118,8 +122,25 @@ void paintSwatch(QLabel* swatch, const QString& value) {
 
 QWidget* makeEmptyCell(QWidget* parent) {
     auto* cell = new QWidget(parent);
-    cell->setMinimumHeight(kGridRowHeight);
+    cell->setFixedHeight(kGridRowHeight);
     return cell;
+}
+
+void applyGridColumnWidths(QTableView* table) {
+    if (!table || !table->horizontalHeader()) {
+        return;
+    }
+    auto* header = table->horizontalHeader();
+    header->setStretchLastSection(false);
+    header->setMinimumSectionSize(28);
+    header->setSectionResizeMode(ColName, QHeaderView::Fixed);
+    header->setSectionResizeMode(ColValue, QHeaderView::Stretch);
+    header->setSectionResizeMode(ColSwatch, QHeaderView::Fixed);
+    header->setSectionResizeMode(ColPicker, QHeaderView::Fixed);
+    table->setColumnWidth(ColName, kParamColWidth);
+    table->setColumnWidth(ColSwatch, kPreviewColWidth);
+    table->setColumnWidth(ColPicker, kPickerColWidth);
+    table->horizontalHeader()->setSectionResizeMode(ColValue, QHeaderView::Stretch);
 }
 
 }  // namespace
@@ -150,17 +171,14 @@ SettingsDialog::SettingsDialog(const config::TreemapSettings& initial, QWidget* 
     m_table->setAlternatingRowColors(true);
     m_table->verticalHeader()->setVisible(false);
     m_table->horizontalHeader()->setStretchLastSection(false);
-    m_table->horizontalHeader()->setSectionResizeMode(ColName, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(ColValue, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(ColSwatch, QHeaderView::Fixed);
-    m_table->horizontalHeader()->setSectionResizeMode(ColPicker, QHeaderView::Fixed);
-    m_table->setColumnWidth(ColSwatch, 36);
-    m_table->setColumnWidth(ColPicker, 32);
+    m_table->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_table->verticalHeader()->setDefaultSectionSize(kGridRowHeight);
     m_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_table->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     root->addWidget(m_table, 1);
 
     buildGrid();
+    applyGridColumnWidths(m_table);
 
     m_errorLabel = new QLabel(this);
     m_errorLabel->setStyleSheet(QStringLiteral("color:#b00020"));
@@ -205,6 +223,7 @@ void SettingsDialog::attachRowWidgets(int row) {
     if (schema->kind == SettingsEditorKind::Dropdown) {
         widgets.combo = new QComboBox(m_table);
         widgets.combo->setEditable(true);
+        widgets.combo->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         widgets.combo->addItems(schema->options);
         widgets.combo->setCurrentText(state.pendingValue);
         widgets.valueCell = widgets.combo;
@@ -216,6 +235,7 @@ void SettingsDialog::attachRowWidgets(int row) {
         });
     } else {
         widgets.lineEdit = new QLineEdit(state.pendingValue, m_table);
+        widgets.lineEdit->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         widgets.valueCell = widgets.lineEdit;
         connect(widgets.lineEdit, &QLineEdit::textChanged, this, [this, row, schema](const QString& text) {
             if (row >= 0 && row < m_states.size()) {
@@ -235,7 +255,7 @@ void SettingsDialog::attachRowWidgets(int row) {
         m_table->setIndexWidget(m_model->index(row, ColSwatch), widgets.swatchCell);
 
         auto* pick = new QPushButton(QStringLiteral("…"), m_table);
-        pick->setFixedSize(28, kGridRowHeight - 4);
+        pick->setFixedSize(kPickerColWidth - 4, kGridRowHeight - 4);
         widgets.pickerCell = pick;
         m_table->setIndexWidget(m_model->index(row, ColPicker), pick);
         connect(pick, &QPushButton::clicked, this, [this, row]() {
