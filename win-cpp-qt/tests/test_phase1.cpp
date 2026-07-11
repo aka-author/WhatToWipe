@@ -486,9 +486,19 @@ private slots:
         QVERIFY(items.empty());
     }
 
-    void partial_folder_tile_lower_bound_label() {
-        const QString label = util::formatFolderSize(1024, scan::SizeCompleteness::Partial);
-        QVERIFY(label.startsWith(QStringLiteral("\u2265 ")));
+    void partial_folder_tile_uses_fs_size_format() {
+        const QString label = util::formatObjectSize(static_cast<quint64>(1024));
+        QCOMPARE(label, QStringLiteral("1.0 KB"));
+        QVERIFY(!label.contains(QStringLiteral("\u2265")));
+    }
+
+    void status_path_uses_backslashes_on_windows() {
+#ifdef _WIN32
+        QCOMPARE(util::formatPathForStatusBar(QStringLiteral("C:/Users/test")),
+                 QStringLiteral("C:\\Users\\test"));
+#else
+        QSKIP("Windows-only");
+#endif
     }
 
     void empty_dir_enumeration() {

@@ -3,6 +3,8 @@
 #include "app/ScanSessionGate.h"
 #include "app/UpdatePublish.h"
 
+#include "util/Format.h"
+
 #include <QDir>
 #include <QFileInfo>
 
@@ -50,7 +52,7 @@ ScanProgressApply applyScanProgressIfCurrent(Session& session, ScanProgressState
         return out;
     }
     progress.lastProgressEmitMs = nowMs;
-    out.statusText = path;
+    out.statusText = util::formatPathForStatusBar(path);
     return out;
 }
 

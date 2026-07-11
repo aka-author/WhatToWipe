@@ -48,7 +48,7 @@ if(WIN32)
     list(APPEND WTW_SOURCES resources/app.rc)
 endif()
 
-qt_add_executable(EraseAndRewrite ${WTW_SOURCES})
+qt_add_executable(EraseAndRewrite WIN32 ${WTW_SOURCES})
 
 target_include_directories(EraseAndRewrite PRIVATE src)
 

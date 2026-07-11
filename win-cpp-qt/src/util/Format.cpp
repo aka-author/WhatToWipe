@@ -1,5 +1,7 @@
 #include "util/Format.h"
 
+#include <QDir>
+
 #include <cmath>
 
 namespace wtw::util {
@@ -43,12 +45,15 @@ QString formatObjectSize(qint64 bytes) {
 
 QString formatObjectSize(quint64 bytes) { return formatObjectSizeImpl(bytes); }
 
-QString formatFolderSize(quint64 measuredSize, scan::SizeCompleteness completeness) {
-    const QString formatted = formatObjectSize(measuredSize);
-    if (completeness == scan::SizeCompleteness::Partial) {
-        return QStringLiteral("\u2265 ") + formatted;
+QString formatPathForStatusBar(const QString& path) {
+    if (path.isEmpty()) {
+        return path;
     }
-    return formatted;
+#ifdef _WIN32
+    return QDir::toNativeSeparators(QDir::cleanPath(path));
+#else
+    return QDir::cleanPath(path);
+#endif
 }
 
 QString formatShareLine(double share, bool* showOut) {

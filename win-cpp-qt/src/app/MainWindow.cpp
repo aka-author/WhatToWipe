@@ -191,7 +191,8 @@ QString MainWindow::statusForContext() const {
     if (!m_session.treemapComplete) {
         return QStringLiteral("Choose a target folder");
     }
-    return m_session.contextPath.isEmpty() ? m_session.targetPath : m_session.contextPath;
+    const QString path = m_session.contextPath.isEmpty() ? m_session.targetPath : m_session.contextPath;
+    return util::formatPathForStatusBar(path);
 }
 
 void MainWindow::refreshVolumeToolbar() {
