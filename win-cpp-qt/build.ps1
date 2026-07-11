@@ -72,6 +72,31 @@ function Read-ProductVersionInfo {
     }
 }
 
+function Generate-AboutArt {
+    param(
+        [Parameter(Mandatory = $true)][string]$CodebaseRoot,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+    $src = Join-Path $CodebaseRoot "assets\art\about-bunny.png"
+    $goRoot = Join-Path $CodebaseRoot "win-go"
+    New-Item -ItemType Directory -Force -Path (Split-Path $Destination) | Out-Null
+    if (Test-Path -LiteralPath $src) {
+        Copy-Item -LiteralPath $src -Destination $Destination -Force
+        return
+    }
+    $go = Get-Command go -ErrorAction SilentlyContinue
+    if (-not $go) {
+        throw "about-bunny.png missing and go not found to generate placeholder"
+    }
+    & $go.Source -C $goRoot run ./tools/genaboutpng
+    if ($LASTEXITCODE -ne 0) { throw "genaboutpng failed" }
+    $generated = Join-Path $goRoot "assets\art\about-bunny.png"
+    if (-not (Test-Path -LiteralPath $generated)) {
+        throw "genaboutpng did not produce assets/art/about-bunny.png"
+    }
+    Copy-Item -LiteralPath $generated -Destination $Destination -Force
+}
+
 function Generate-AppIcon {
     param(
         [Parameter(Mandatory = $true)][string]$CodebaseRoot,
@@ -261,7 +286,9 @@ if (-not $GitRoot) {
 Relocate-ModuleRootExeArtifacts -ModuleRoot $ModuleRoot -ToolsRoot $ToolsRoot
 Increment-VersionBuildNumber -Path $VersionInfoPath
 $AppIconPath = Join-Path $ModuleRoot "resources\app.ico"
+$AboutArtPath = Join-Path $ModuleRoot "resources\about-bunny.png"
 Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath
+Generate-AboutArt -CodebaseRoot $CodebaseRoot -Destination $AboutArtPath
 Update-AppResourceFromVersionInfo -VersionInfoPath $VersionInfoPath -AppRcPath $AppRcPath
 
 $verInfo = Read-ProductVersionInfo -Path $VersionInfoPath

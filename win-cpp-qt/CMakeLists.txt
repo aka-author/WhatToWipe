@@ -24,6 +24,7 @@ set(WTW_SOURCES
     src/treemap/TreemapLayout.cpp
     src/treemap/TreemapWidget.cpp
     src/treemap/LabelFit.cpp
+    src/platform/AppVersion.cpp
     src/platform/VolumeInfo.cpp
     src/platform/ShellOpen.cpp
     src/ui/SettingsSchema.cpp
@@ -48,7 +49,7 @@ target_include_directories(EraseAndRewrite PRIVATE src)
 target_link_libraries(EraseAndRewrite PRIVATE Qt6::Widgets Qt6::Svg)
 
 if(WIN32)
-    target_link_libraries(EraseAndRewrite PRIVATE shell32 ole32)
+    target_link_libraries(EraseAndRewrite PRIVATE shell32 ole32 version)
 endif()
 
 # App links C++ runtime statically so deployed Qt libstdc++-6.dll only serves Qt6*.dll.

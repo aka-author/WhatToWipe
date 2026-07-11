@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/app">
         <file>app.ico</file>
+        <file>about-bunny.png</file>
     </qresource>
 </RCC>

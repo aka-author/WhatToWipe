@@ -3,6 +3,7 @@
 #include "app/MainWindow.h"
 #include "app/Product.h"
 #include "config/ConfigStore.h"
+#include "platform/AppVersion.h"
 
 #include <QApplication>
 #include <QIcon>
@@ -13,7 +14,7 @@ void WtwApplication::configure(QApplication& app) {
     QApplication::setApplicationName(productDisplayName());
     QApplication::setApplicationDisplayName(productDisplayName());
     QApplication::setOrganizationName(productDisplayName());
-    QApplication::setApplicationVersion(QStringLiteral("1.0.0.0000"));
+    QApplication::setApplicationVersion(platform::fileVersionDotted());
     app.setStyle(QStringLiteral("Fusion"));
     const QIcon windowIcon(QStringLiteral(":/app/app.ico"));
     if (!windowIcon.isNull()) {
