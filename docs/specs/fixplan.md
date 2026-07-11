@@ -210,7 +210,7 @@ Add `platform/WinDirEnum.{h,cpp}` and `platform/DirEntry.h`:
 - populate immutable `DirEntry` from `WIN32_FIND_DATAW` (attributes, reparse tag, 64-bit size, creation and last-write times);
 - check `m_cancelled` between entries;
 - close handles through RAII on all paths;
-- return `DirectoryReadResult` with `DirectoryReadStatus` and `GetLastError()` on failure.
+- return `DirectoryReadResult` via `ok()` or the explicit failure factories from §1.2; map `GetLastError()` to `accessDenied()`, `sharingViolation()`, `notFound()`, or `otherError()` as appropriate;
 
 Do not reconstruct `QFileInfo` per entry. Use `QFileInfo` only where a later operation genuinely requires it.
 
