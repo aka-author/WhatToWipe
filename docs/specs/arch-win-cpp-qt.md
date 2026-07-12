@@ -322,6 +322,25 @@ CMake option `WTW_STATIC_QT` (ON for shipping):
 
 Dynamic linking remains available for development (`WTW_STATIC_QT=OFF`): same CMake project, shared prefix, `deploy-standalone.ps1` + `windeployqt`, and `build/` instead of `build-static/`.
 
+### Shipping executable size and debug overlay stripping
+
+A static Qt Widgets link naturally produces a large PE image (~29 MB of code and read-only data: Qt Widgets → Gui → Core, platform plugin, HarfBuzz/FreeType, embedded plugins, and the application). That size is expected for a monolithic Qt6 GUI binary even when the program uses only a subset of Qt APIs.
+
+MinGW static linking has a second, **avoidable** cost: the linker can append a **debug overlay** (~20 MB) after the last PE section. The overlay is DWARF debug data pulled from static `.a` archives; it is not required to run the program and is not visible as normal PE sections in the loaded image. Observed sizes on this line:
+
+| Stage | Typical size | Notes |
+|-------|--------------|--------|
+| Link output (`build-static/EraseAndRewrite.exe`) | ~47 MB | PE image ~29 MB + debug overlay ~20 MB |
+| After `strip --strip-all` (shipping) | ~28 MB | Overlay removed; `.text` / `.rdata` unchanged |
+
+**Shipping policy:** `build.ps1 -StaticQt` calls `Strip-MingwStaticExe` immediately after copying the exe to `bin/win/current/`. The step runs the MinGW `strip.exe` from the same toolchain as the link (`QT_MINGW_ROOT`) with **`--strip-all`**, which removes the out-of-image debug tail.
+
+**WR-03 compatibility:** techspec WR-03 forbids stripping that removes standard PE metadata. This step targets the MinGW debug overlay only. The `.rsrc` section (Windows `VERSIONINFO`, icon) and normal executable metadata remain. `test-run.ps1 -StaticQt` smoke-launches the stripped binary after every build.
+
+**Not used:** `strip --strip-debug` alone — it removes only in-section debug tables (~100 KB) and leaves the large overlay intact.
+
+Further size reduction (optional, not part of shipping today): Qt feature pruning when building `mingw_64_static`, link-time optimization (LTO), dropping unused image plugins, or rasterizing toolbar SVGs to remove `Qt6::Svg`. Those are separate from the overlay strip.
+
 ### Runtime dependencies after static link
 
 The process still loads Windows system DLLs (`KERNEL32`, `USER32`, `GDI32`, `SHELL32`, `dwmapi`, etc.). It does **not** load `Qt6Core.dll`, `Qt6Gui.dll`, `Qt6Widgets.dll`, `Qt6Svg.dll`, or plugin DLLs from a deploy folder.

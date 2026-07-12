@@ -5,7 +5,8 @@ This document describes how the Erase & Rewrite Windows binary is produced, how 
 ## Repository layout (paths the scripts assume)
 
 - **`codebase/`** РІР‚вЂќ Git repository root (contains `win-go/`, `scripts/`, `installer/`, `docs/`).
-- **`win-go/`** РІР‚вЂќ Go module; `build.ps1` lives here.
+- **`win-go/`** — Go module; legacy `build.ps1` lives here.
+- **`win-cpp-qt/`** — C++ Qt module; **shipping** `build.ps1 -StaticQt` lives here.
 - **Project root** РІР‚вЂќ parent of `codebase/` (the script calls it `$ShitwiperRoot`; equivalent to `codebase\..`). Build output goes under **`<ProjectRoot>\bin\win\`**, not under `codebase\` only.
 - **`<ProjectRoot>\tools\`** РІР‚вЂќ location for helper tool executables. Tool `.exe` files must not stay in `win-go\`.
 
@@ -62,6 +63,59 @@ Or `cd` into `win-go` and run `.\build.ps1`.
 |----------|---------|
 | `ERASE_REWRITE_SIGNTOOL` | If set, full path to **`signtool.exe`**; after `go build`, the script runs signing on `Erase & Rewrite.exe`. |
 | `ERASE_REWRITE_SIGN_ARGS` | Optional; split on whitespace and passed to `signtool` between `sign` and the exe path. |
+
+---
+
+## 1b. Exe build: `win-cpp-qt/build.ps1` (shipping static Qt)
+
+The active Windows C++ Qt implementation uses **`win-cpp-qt/build.ps1`**. Shipping builds pass **`-StaticQt`**.
+
+### How you run it
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "path\to\codebase\win-cpp-qt\build.ps1" -StaticQt
+```
+
+### Parameters
+
+| Switch | Meaning |
+|--------|---------|
+| `-StaticQt` | Link Qt and required plugins statically; output one `EraseAndRewrite.exe` (no `windeployqt`). **Required for release.** |
+
+Without `-StaticQt`, the same script builds against the shared Qt kit and runs `deploy-standalone.ps1` for development.
+
+### Output layout
+
+Same as Go: **`<ProjectRoot>\bin\win\current\EraseAndRewrite.exe`** plus `versioninfo.json`, `build-meta.json`, and a `.date` marker. Static mode ships **no** `Qt6*.dll` or plugin folders beside the exe.
+
+### High-level steps (static / `-StaticQt`)
+
+Same git and folder discipline as `win-go/build.ps1` (version bump, snapshot commit, archive prior `current` via `.date`, history commit). Additionally:
+
+1. **`Wipe-BinQtDeployArtifacts`** — remove legacy Qt DLL/plugin trees from all `bin/win/*` folders.
+2. CMake configure/build in **`build-static/`** with `-DWTW_STATIC_QT=ON` against `mingw_64_static`.
+3. Copy **`EraseAndRewrite.exe`** to `bin/win/current/`.
+4. **`Strip-MingwStaticExe`** — `strip --strip-all` via the Qt MinGW toolchain (see below).
+5. **`test-run.ps1 -StaticQt`** — import-table checks and smoke launch.
+
+Full detail: [specs/arch-win-cpp-qt.md](specs/arch-win-cpp-qt.md) §9, [specs/impl-win-cpp-qt.md](specs/impl-win-cpp-qt.md) §13.
+
+### Static executable size and debug overlay stripping
+
+Static MinGW links produce a **~47 MB** file immediately after link, but only **~29 MB** is the functional PE image. The remaining **~20 MB** is a **debug overlay** (DWARF data from static `.a` archives) appended after the last PE section. It is not needed to run the program.
+
+**Shipping policy:** step 4 above runs **`strip --strip-all`** on the copied exe. Typical result: **~28 MB** shipping binary (build **1.0.0.001A** onward).
+
+| Stage | Typical size |
+|-------|----------------|
+| Link output | ~47 MB |
+| After `strip --strip-all` | ~28 MB |
+
+This satisfies techspec **WR-03**: standard PE metadata and `VERSIONINFO` (`.rsrc`) are preserved; only debug overlay is removed. `strip --strip-debug` alone is **not** sufficient — it leaves the large tail intact.
+
+Environment overrides: `CMAKE_PREFIX_PATH` (shared kit hint), `QT_STATIC_PREFIX` (explicit static prefix).
+
+Optional signing: same `ERASE_REWRITE_SIGNTOOL` / `ERASE_REWRITE_SIGN_ARGS` variables as the Go build (applied after tests).
 
 ---
 
@@ -134,7 +188,14 @@ This file is **not** run directly; **`ISCC.exe`** compiles it. The batch always 
 
 ## 4. End-to-end example (typical machine)
 
-After adjusting paths to your project root:
+**Qt shipping build (current Windows line):**
+
+```powershell
+Set-Location ...\codebase\win-cpp-qt
+.\build.ps1 -StaticQt
+```
+
+**Go build (legacy reference line):**
 
 ```powershell
 Set-Location ...\codebase\win-go

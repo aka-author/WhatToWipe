@@ -517,6 +517,34 @@ Uses the MinGW compiler from `Qt/Tools/mingw1310_64` (same as app builds). First
 Launches the exe from `bin/win/current` (or `-BinDir`).
 
 
+### 13.6 Static executable size and MinGW debug overlay stripping
+
+Static linking embeds Qt and plugins into one PE file. Two size components must be distinguished.
+
+**Functional image (~29 MB).** Dominated by `.text` (~19.5 MB) and `.rdata` (~7.5 MB): static Qt6 Widgets/Gui/Core, Windows platform integration plugin, text rendering stack (HarfBuzz, FreeType), bundled codecs, embedded `toolbar.qrc` / `app.qrc`, and first-party code. The program links only `Qt6::Widgets` and `Qt6::Svg`, but the Widgets stack pulls a large dependency closure. This is the practical floor for the current feature set unless the static Qt kit or assets are redesigned.
+
+**Debug overlay (~20 MB, removed before ship).** MinGW leaves DWARF debug data from static archive objects in a tail **after** the last PE section. `objdump -h` shows a loaded image of ~29 MB while the file on disk is ~47 MB. The overlay does not affect runtime behavior; it inflates installer payload and confuses size review.
+
+**Implementation (`build.ps1`).** Function `Strip-MingwStaticExe` runs after `Copy-WithRetry` when `-StaticQt` is set:
+
+```powershell
+& $mingwRoot\bin\strip.exe --strip-all $ExePath
+```
+
+The script logs before/after byte counts. Build **1.0.0.001A** established the shipping line at ~27.8 MB after strip (link output ~49.3 MB).
+
+| Check | Expectation |
+|-------|-------------|
+| WR-03 | `.rsrc` / `VERSIONINFO` preserved; no aggressive removal of standard PE metadata |
+| WR-01–WR-03 | `app.rc` strings unchanged by strip; About and PE version still match `versioninfo.json` |
+| Static imports | Still no `Qt6*.dll`, `libstdc++-6.dll`, or `libgcc_s_seh-1.dll` in import table |
+| Smoke test | `test-run.ps1 -StaticQt` runs on the stripped exe in `bin/win/current` |
+
+**Manual strip (emergency only).** To strip an already-built static exe without a full rebuild, run the same command from the Qt MinGW toolchain against `bin/win/current/EraseAndRewrite.exe`. Prefer rebuilding through `build.ps1 -StaticQt` so version metadata and history stay consistent.
+
+**Future size work (documented, not shipping requirements):** prune unused qtbase features in `build-qt-static.ps1`, enable LTO, remove `QGifPlugin` / `QJpegPlugin` if assets stay PNG/SVG-only, exclude `QModernWindowsStylePlugin` (app uses Fusion), or rasterize toolbar SVGs and drop `Qt6::Svg`.
+
+
 ## 14. Go reference map
 
 The table below maps Go packages to Qt sources.
@@ -594,6 +622,7 @@ The following FS-aligned changes shipped before the static-Qt build line; they r
 | Settings grid rows | Windows shows 31 rows — `treemap.win.exeFiles` only; Linux/macOS exe rows hidden | `SettingsSchema.cpp` |
 | Console on launch | `WIN32` flag on `qt_add_executable` (PL-07) | `CMakeLists.txt` |
 | Bin layout (static) | `bin/win/current` holds monolithic exe + metadata; legacy Qt DLL/plugin trees wiped from archives | `build.ps1 -StaticQt`, `Wipe-BinQtDeployArtifacts` |
+| Static exe size | Link ~47 MB; shipping ~28 MB after `strip --strip-all` removes MinGW debug overlay | `Strip-MingwStaticExe` in `build.ps1`; impl §13.6 |
 
 
 ## 17. Document maintenance
