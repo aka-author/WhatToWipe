@@ -31,6 +31,7 @@ static const Layer kLayers[] = {
     {256, "broombunny.png"},
     {64, "broombunny-small.png"},
     {48, "broombunny-small.png"},
+    {40, "broombunny-small.png"},
     {32, "broombunny-small.png"},
     {24, "broombunny-small.png"},
     {20, "broombunny-small.png"},
