@@ -22,6 +22,7 @@ Required baseline files today:
 | File | Role |
 |------|------|
 | `funcspec.md` | Functional specification (FS). One document for the product. Platform-neutral where possible; platform-specific UI may still be described here when it is part of the product definition. |
+| `legalspec.md` | Legal and licensing specification. GPLv3 cornerstone, third-party (Qt) obligations, repository rules, installer notices. |
 
 Nothing under `docs/specs/` should fork the functional spec per delivery target. If an implementation cannot meet FS, that is a waiver or product change in FS, not a second funcspec.
 
@@ -96,9 +97,10 @@ Vendor or forked dependencies stay under the module that owns them, clearly sepa
 For a given delivery target, interpretation order is:
 
 1. `docs/specs/funcspec.md`
-2. `docs/specs/techspec-<platform>-<stack>.md` for that target, if present
-3. `docs/specs/arch-<platform>-<stack>.md` for that target, informative only
-4. `docs/specs/impl-<platform>-<stack>.md` for that target, as-built informative only
+2. `docs/specs/legalspec.md` for licensing and distribution obligations
+3. `docs/specs/techspec-<platform>-<stack>.md` for that target, if present
+4. `docs/specs/arch-<platform>-<stack>.md` for that target, informative only
+5. `docs/specs/impl-<platform>-<stack>.md` for that target, as-built informative only
 
 `funcspec.md` is owner-edited; agents document implementation elsewhere and do not revise FS.
 

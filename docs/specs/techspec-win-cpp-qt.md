@@ -43,7 +43,7 @@ Words like "must", "must not", and "should" carry their usual English force: "mu
 | PL-03 | User-visible paths must use normal Windows forms (drive letters, UNC where applicable) wherever FS asks to show a path. |
 | PL-04 | The implementation must be written in C++17 or newer and must use Qt 6 (LTS line). The exact Qt minor version and compiler toolchain must be pinned or recorded in the repository. The shipping build uses Qt 6.10.3 `mingw_64` with MinGW 13.1.0 via `win-cpp-qt/toolchain-qt-mingw.cmake` and `win-cpp-qt/CMakeLists.txt`. |
 | PL-05 | The release must not require a separate browser runtime (for example WebView2) or a Node-based frontend build for core product UI. Settings and main shell must be native Qt widgets. |
-| PL-06 | Qt deployment must ship all runtime DLLs and platform plugins required for a clean Windows machine via a documented packaging step (for example `windeployqt` plus installer rules). |
+| PL-06 | Qt deployment must match the link model recorded in [legalspec.md](./legalspec.md) and `docs/verification/licensing-decision-record.md`. The shipping static build embeds Qt in `EraseAndRewrite.exe` with no separate Qt DLL deploy folder; a dynamic build must still ship all runtime DLLs and platform plugins required on a clean Windows machine via `windeployqt` and installer rules. |
 | PL-07 | Launcher command-line windows are strictly forbidden in every case. The program must start natively as a Windows GUI process: the shipping executable must be linked for the Windows GUI subsystem (`SUBSYSTEM:WINDOWS`), must not allocate or show a console window on startup, and must not be launched via a wrapper batch file, script, or other intermediate console host. Shortcuts, the installer, and Explorer must start `EraseAndRewrite.exe` directly. |
 
 
@@ -154,7 +154,7 @@ The Go + walk target failed FS Settings Form acceptance: overlay editors on `Sys
 | BD-01 | Build system must be CMake (minimum 3.21) with out-of-source build directories; build products must not be committed inside `codebase/`. |
 | BD-02 | Release binaries must land under `<ProjectRoot>/bin/win/current/` following the same project convention as `win-go/build.ps1`, unless the build script documents a deliberate change. |
 | BD-03 | Qt modules required at minimum: `Qt6::Widgets`, `Qt6::Gui`, `Qt6::Core`, `Qt6::Svg` (toolbar icons). Optional: `Qt6::Concurrent` for scan workers. |
-| BD-04 | Third-party Qt licensing obligations (LGPL v3 or commercial Qt license) must be documented in the repository with deployment instructions (for example object files offer, license texts, `windeployqt` output layout). |
+| BD-04 | Third-party Qt licensing obligations must be documented per [legalspec.md](./legalspec.md) §3 and the license decision record in `docs/verification/`. Deployment must match the recorded link model (static monolithic exe or documented dynamic layout). |
 | BD-05 | C++ dependencies beyond Qt must be kept minimal and vendored or fetched via CMake with pinned versions recorded in-repo. |
 
 

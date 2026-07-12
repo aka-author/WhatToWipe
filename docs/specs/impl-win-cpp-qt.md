@@ -27,7 +27,8 @@ Developers, reviewers, and agents working on the Windows Qt delivery line.
 Product meaning follows this order:
 
 1. [funcspec.md](./funcspec.md) (FS) — normative; not edited by agents.
-2. [techspec-win-cpp-qt.md](./techspec-win-cpp-qt.md) — normative platform add-ons.
+2. [legalspec.md](./legalspec.md) — normative licensing and distribution obligations.
+3. [techspec-win-cpp-qt.md](./techspec-win-cpp-qt.md) — normative platform add-ons.
 3. [arch-win-cpp-qt.md](./arch-win-cpp-qt.md) — informative design intent.
 4. This file — factual as-built map.
 
@@ -60,16 +61,19 @@ The module ships one Windows GUI program. Its technical parameters are listed be
 
 | Parameter | Value |
 |-----------|-------|
-| Executable | `EraseAndRewrite.exe` |
-| Deploy folder | `<ProjectRoot>/bin/win/current/` |
+| Executable | `EraseAndRewrite.exe` (~47 MB static build) |
+| Deploy folder | `<ProjectRoot>/bin/win/current/` — exe plus `versioninfo.json`, `build-meta.json`, `.date` marker only (no Qt DLLs or plugin folders) |
 | Product name (UI, PE strings) | Erase & Rewrite |
 | Config path (new installs) | `%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt` |
-| Qt modules linked | `Qt6::Core`, `Qt6::Gui`, `Qt6::Widgets`, `Qt6::Svg` |
+| Qt modules linked | `Qt6::Core`, `Qt6::Gui`, `Qt6::Widgets`, `Qt6::Svg` (static archives when `WTW_STATIC_QT=ON`) |
 | C++ standard | C++17 |
-| Toolchain | Qt 6.10.3 `mingw_64` + MinGW 13.1.0 via `toolchain-qt-mingw.cmake` |
+| Toolchain | Qt 6.10.3 MinGW 13.1.0 via `toolchain-qt-mingw.cmake` |
+| Qt kit (shipping) | `C:\cpp\qt\6.10.3\mingw_64_static` (built locally; not in repo) |
 | Version resource | `resources/app.rc` from `versioninfo.json`; About reads `FileVersion` in `platform/AppVersion.cpp` |
 
-`build.ps1` bumps the build counter, commits a snapshot, runs CMake/ninja, copies the program to `bin/win/current`, runs standalone Qt deploy (`deploy-standalone.ps1`), writes `build-meta.json` and a `.date` marker, appends `docs/history/builds.txt`, and runs `test-run.ps1`. Unit tests `phase1_tests` and `phase2_tests` run via `ctest` in `win-cpp-qt/build`.
+**Shipping build:** `build.ps1 -StaticQt` links Qt and required plugins into one executable (`WTW_STATIC_QT` in CMake). See §13.
+
+**Legacy dynamic build:** `build.ps1` without `-StaticQt` still supports shared Qt + `windeployqt` for development.
 
 
 ## 2. Source layout
@@ -81,6 +85,7 @@ win-cpp-qt/
   CMakeLists.txt
   toolchain-qt-mingw.cmake
   build.ps1
+  build-qt-static.ps1
   deploy-standalone.ps1
   test-run.ps1
   versioninfo.json
@@ -107,6 +112,8 @@ win-cpp-qt/
 ```
 
 Build products never live inside `codebase/`; they land under `<ProjectRoot>/bin/win/current/` per [folder-structure.md](../folder-structure.md).
+
+Qt **source** trees and the compiled static Qt prefix live on the build machine outside the repository (`build-qt-static.ps1`; see §13.3).
 
 
 ## 3. Runtime structure
@@ -298,9 +305,14 @@ In the details block, the size line is rendered by `TreemapWidget` using `util::
 
 ### 7.4 View
 
-`treemap/TreemapWidget.cpp` paints tiles, hit-tests, and handles input. The widget uses `QSizePolicy::Expanding` and occupies the stretch slot below the command strip in `MainWindow::buildUi`.
+`treemap/TreemapWidget.cpp` paints tiles, hit-tests, and handles input.
 
-`MainWindow::rebuildTreemap()` projects context children, runs `squarify()` over the widget’s full `rect()`, and passes blocks to `setBlocks()`. On widget resize, `layoutAreaChanged` triggers another `rebuildTreemap()` so the diagram rescales to the new treemap region (FS treemap size rules).
+**Stretch and relayout (FS treemap size / techspec DP-02).**
+
+- `QSizePolicy::Expanding` on both axes; the widget is the stretch child below the command strip in `MainWindow::buildUi`.
+- `MainWindow::rebuildTreemap()` projects context children and runs `squarify()` over the widget’s full `rect()` — no inner margin or clip inset.
+- `TreemapWidget::resizeEvent` emits `layoutAreaChanged`; `MainWindow` is connected to call `rebuildTreemap()` again so tiles rescale when the window is resized or maximized.
+- Layout §7.2 edge extension prevents gaps inside that rectangle after integer rounding.
 
 A left click on a folder tile dives in. A right click opens a context menu: Explore… on folder tiles, Open… on file tiles (disabled for executables). Dive is not duplicated on the context menu.
 
@@ -429,26 +441,80 @@ The table below maps dialogs to source files.
 Toolbar icons render at 24×24 inside 32×32 hit targets. Qt scales for HiDPI.
 
 
-## 13. Build and deployment
+## 13. Build, Qt linking, and deployment
 
 ### 13.1 CMake and linking
 
-CMake target name: `EraseAndRewrite`. The main executable is built with the `WIN32` option in `qt_add_executable`, linking the Windows GUI subsystem (`SUBSYSTEM:WINDOWS`) so the process starts without a console window (techspec PL-07). MinGW builds statically link `libstdc++`, `libgcc`, and `winpthread` to avoid ABI mismatch with deployed Qt DLLs. Windows libraries: `shell32`, `ole32`, `version`.
+CMake target name: `EraseAndRewrite`.
+
+| Setting | Shipping (`-StaticQt`) | Dynamic (dev) |
+|---------|------------------------|---------------|
+| CMake option | `WTW_STATIC_QT=ON` | `WTW_STATIC_QT=OFF` (default) |
+| Build directory | `build-static/` | `build/` |
+| Qt prefix | `mingw_64_static` | `mingw_64` (shared kit) |
+| Qt link mode | Static `.a` archives | Shared `.dll` + import libs |
+| Plugin delivery | `qt_import_plugins` embeds platform and image plugins | `windeployqt` copies `platforms/`, etc. |
+| MinGW runtime | `-static -static-libgcc -static-libstdc++` | `-static-libgcc -static-libstdc++` + dynamic `winpthread` via Qt DLLs |
+| Deploy folder contents | `EraseAndRewrite.exe` only (+ metadata written after build) | exe + `Qt6*.dll` + plugin folders + MinGW runtime DLLs |
+
+Common to both modes:
+
+- `qt_add_executable(..., WIN32)` — GUI subsystem, no startup console (techspec PL-07).
+- Linked Qt components: `Qt6::Widgets`, `Qt6::Svg`.
+- Windows libraries: `shell32`, `ole32`, `version`.
+- Embedded plugins when static (from `CMakeLists.txt`):
+  - `QWindowsIntegrationPlugin`
+  - `QSvgPlugin`, `QICOPlugin`, `QJpegPlugin`, `QGifPlugin`
+
+Unit tests `phase1_tests` and `phase2_tests` are built by the same CMake project; run via `ctest` from the active build directory.
 
 
-### 13.2 build.ps1
+### 13.2 build.ps1 (shipping: `-StaticQt`)
 
-The script mirrors `win-go/build.ps1`: version bump, git commit snapshot, `Prepare-CurrentBuildFolder`, deploy to `bin/win/current`, history append.
+The script mirrors `win-go/build.ps1` discipline:
+
+1. Bump `versioninfo.json` build counter; regenerate `app.rc` / icons.
+2. Git commit snapshot (`build: version …`) when `.git` is present.
+3. `Prepare-CurrentBuildFolder` — archive prior `bin/win/current` using the `.date` marker stem.
+4. **`Wipe-BinQtDeployArtifacts`** — remove obsolete `Qt6*.dll`, MinGW runtime DLLs, and plugin directories (`platforms/`, `styles/`, `imageformats/`, etc.) from every folder under `bin/win/`, including archived builds. Keeps exe and metadata files.
+5. Resolve static Qt prefix (`mingw_64_static` beside shared kit). If missing, invoke `build-qt-static.ps1`.
+6. CMake configure/build `EraseAndRewrite` into `build-static/`.
+7. Copy exe to `bin/win/current/`. Strip any non-exe files from `current` (static mode).
+8. `test-run.ps1 -StaticQt` — smoke launch; `objdump` verifies no `Qt6*.dll` or `libstdc++-6.dll` imports.
+9. Write `versioninfo.json`, `build-meta.json`, `.date` marker; append `docs/history/builds.txt`; second git commit for history.
+
+Environment overrides: `CMAKE_PREFIX_PATH` (shared kit hint), `QT_STATIC_PREFIX` (explicit static prefix).
 
 
-### 13.3 Deployment
+### 13.3 build-qt-static.ps1 (one-time Qt kit)
 
-`deploy-standalone.ps1` and `windeployqt` copy Qt runtime DLLs and plugins. `scripts/deploy-win-cpp-qt.ps1` redeploys without a full rebuild.
+Not run on every app build once `mingw_64_static` exists.
+
+| Step | Action |
+|------|--------|
+| Download | `python -m aqt install-src windows 6.10.3` — archives `qtbase`, `qtsvg` into `SourceRoot` (default `C:\cpp\qt-src`) |
+| Build qtbase | CMake/Ninja, `BUILD_SHARED_LIBS=OFF`, install to `mingw_64_static` |
+| Build qtsvg | Same, with `CMAKE_PREFIX_PATH` pointing at installed qtbase |
+| Verify | `Qt6::Core` is `STATIC IMPORTED` in `Qt6CoreTargets.cmake` |
+
+Uses the MinGW compiler from `Qt/Tools/mingw1310_64` (same as app builds). First run is long; subsequent app builds reuse the installed prefix.
+
+**Repository policy:** Qt source and static libraries are **not** vendored in Git. Only scripts and CMake options are in `codebase/`.
 
 
-### 13.4 test-run.ps1
+### 13.4 deploy-standalone.ps1 (dynamic mode only)
 
-The script launches the program, checks that the main window appears, verifies required DLLs, and confirms the executable does not dynamically import `libstdc++-6.dll`.
+`windeployqt --release --compiler-runtime` copies Qt DLLs and `platforms/qwindows.dll` into a target folder, then overwrites MinGW runtime DLLs from the Qt toolchain. Used when `build.ps1` runs **without** `-StaticQt`. `scripts/deploy-win-cpp-qt.ps1` redeploys into an existing `bin/win/current` without rebuilding.
+
+
+### 13.5 test-run.ps1
+
+| Mode | Checks |
+|------|--------|
+| Static (`-StaticQt` or no `Qt6Core.dll` beside exe) | `EraseAndRewrite.exe` exists; no `Qt6*.dll` in import table; no `libstdc++-6.dll` / `libgcc_s_seh-1.dll` imports; main window appears within timeout |
+| Dynamic | Above plus required DLLs and `platforms/qwindows.dll` present on disk |
+
+Launches the exe from `bin/win/current` (or `-BinDir`).
 
 
 ## 14. Go reference map
@@ -476,7 +542,7 @@ The table below records techspec row status as of the current tree. Update it wh
 | Row | Status | Notes |
 |-----|--------|-------|
 | TS-01 / TS-02 | implemented | settings real grid shipped |
-| PL-01–PL-06 | implemented | see §1, §13 |
+| PL-01–PL-06 | implemented | static Qt shipping build; see §13 |
 | PL-07 | implemented | `WIN32` GUI subsystem; no startup console; direct `EraseAndRewrite.exe` launch |
 | WR-01–WR-03 | implemented | `app.rc` + `AppVersion` |
 | WR-04 | open | Authenticode not in build script |
@@ -514,7 +580,23 @@ Findings in this table move to **closed** only after a passing Windows CI run wi
 Finding 22 moves to **closed** after `phase2_tests` pass in CI.
 
 
-## 16. Document maintenance
+## 16. Recent UI and treemap compliance (builds 0015–0019)
+
+The following FS-aligned changes shipped before the static-Qt build line; they remain part of the current tree.
+
+| Area | Change | Where |
+|------|--------|-------|
+| Treemap stretch | Widget expands to fill main-window client area below the command strip; relayout on resize | `TreemapWidget`, `MainWindow::buildUi`, `layoutAreaChanged` → `rebuildTreemap` |
+| Treemap full fill | Squarify extends trailing tile to layout edge; no unfilled bands from rounding | `TreemapLayout.cpp`; test `squarify_fills_layout_area` |
+| Tile size labels | `formatObjectSize()` only (one decimal + unit); no `≥` lower-bound prefix on partial folders | `Format.cpp`, `TreemapWidget` / `LabelFit` |
+| Status bar paths | Backslash separators on Windows via `formatPathForStatusBar()` | `Format.cpp`, `MainWindow`, `ScanDelivery` |
+| Volume strip after Update | Re-query volume on successful Update; refresh Total/Free labels | `ScanDelivery`, `ScanFinishUiAction::RefreshVolumeIndicators` |
+| Settings grid rows | Windows shows 31 rows — `treemap.win.exeFiles` only; Linux/macOS exe rows hidden | `SettingsSchema.cpp` |
+| Console on launch | `WIN32` flag on `qt_add_executable` (PL-07) | `CMakeLists.txt` |
+| Bin layout (static) | `bin/win/current` holds monolithic exe + metadata; legacy Qt DLL/plugin trees wiped from archives | `build.ps1 -StaticQt`, `Wipe-BinQtDeployArtifacts` |
+
+
+## 17. Document maintenance
 
 When `win-cpp-qt/` behavior changes:
 
