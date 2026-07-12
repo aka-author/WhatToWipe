@@ -9,7 +9,6 @@
 #include "model/FolderDescriptor.h"
 #include "platform/ShellOpen.h"
 #include "platform/VolumeInfo.h"
-#include "platform/WinWindowIcon.h"
 #include "scan/ScanResult.h"
 #include "scan/ScanWorker.h"
 #include "treemap/TreemapLayout.h"
@@ -34,9 +33,7 @@
 #include <QMenuBar>
 #include <QPushButton>
 #include <QStatusBar>
-#include <QShowEvent>
 #include <QThread>
-#include <QTimer>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -71,22 +68,13 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
     qRegisterMetaType<scan::ScanIdentity>("wtw::scan::ScanIdentity");
     setWindowTitle(productDisplayName());
-#ifndef Q_OS_WIN
     setWindowIcon(ui::appWindowIcon());
-#endif
     resize(1100, 720);
     buildUi();
     buildMenus();
     m_session.resetToInitial();
     setStatusText(QStringLiteral("Choose a target folder"));
     updateChrome();
-}
-
-void MainWindow::showEvent(QShowEvent* event) {
-    QMainWindow::showEvent(event);
-#ifdef Q_OS_WIN
-    QTimer::singleShot(0, this, [this]() { platform::applyWin32WindowIcons(this); });
-#endif
 }
 
 void MainWindow::buildUi() {

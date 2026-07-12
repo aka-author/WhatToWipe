@@ -40,7 +40,6 @@ set(WTW_SOURCES
     src/platform/VolumeInfo.cpp
     src/platform/ShellOpen.cpp
     src/platform/WinDirEnum.cpp
-    src/platform/WinWindowIcon.cpp
     src/ui/SettingsSchema.cpp
     src/ui/SettingsDialog.cpp
     src/ui/AboutDialog.cpp

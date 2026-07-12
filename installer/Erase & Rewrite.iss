@@ -39,8 +39,8 @@ Source: "LICENSE-NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD-PARTY-NOTICES"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"
-Name: "{autodesktop}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; AppUserModelID: "MikhailOstrogorskiy.EraseAndRewrite"
+Name: "{autodesktop}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; Tasks: desktopicon; AppUserModelID: "MikhailOstrogorskiy.EraseAndRewrite"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"

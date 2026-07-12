@@ -2,7 +2,6 @@
 
 #include "app/Product.h"
 #include "platform/AppVersion.h"
-#include "ui/AppIcon.h"
 
 #include <QFont>
 #include <QFrame>
@@ -105,7 +104,6 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
     const QString product = wtw::app::productDisplayName();
 
     setWindowTitle(QStringLiteral("About %1").arg(product));
-    setWindowIcon(appWindowIcon());
 
     QPixmap art(QStringLiteral(":/app/about-bunny.png"));
     const QSize cell = aboutImageCellSize(art);

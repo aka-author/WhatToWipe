@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "platform/WinShell.h"
 
 #ifdef Q_OS_WIN
 #include <shobjidl.h>
@@ -6,8 +7,7 @@
 
 int main(int argc, char* argv[]) {
 #ifdef Q_OS_WIN
-    // Distinct AppUserModelID so the shell uses this process icon, not a generic bucket.
-    SetCurrentProcessExplicitAppUserModelID(L"EraseAndRewrite.Application.1");
+    SetCurrentProcessExplicitAppUserModelID(wtw::platform::kAppUserModelId);
 #endif
     return wtw::app::WtwApplication::run(argc, argv);
 }

@@ -149,7 +149,7 @@ The application shell covers window chrome, menus, the command strip, and the st
 
 The main window title comes from `productDisplayName()` in `app/Product.h` and reads Erase & Rewrite.
 
-The main window icon is broombunny art rasterized into multi-size `app.ico` (16/20/24/32/40/48/64/256). On Windows, `applyWin32WindowIcons` loads the embedded ICO with `LoadImage` at **24×DPI/96** for `ICON_BIG` (taskbar; not `SM_CXICON`/32) and `GetSystemMetricsForDpi(SM_CXSMICON)` for the title bar, after Qt creates the native window. `SetCurrentProcessExplicitAppUserModelID` runs before `QApplication`.
+The main window icon is broombunny art rasterized into multi-size `app.ico` (16/20/24/30/32/36/40/48/64/256) with optical fill tuning for small layers. Qt owns the icon via `QApplication::setWindowIcon()` and `MainWindow::setWindowIcon()` using per-size PNGs from `:/app/icons/`. The PE `.ico` uses BMP+DIB entries for sizes ≤64 and PNG for 256. `SetCurrentProcessExplicitAppUserModelID` (`MikhailOstrogorskiy.EraseAndRewrite`) runs before `QApplication` and matches installer shortcut `AppUserModelID`.
 
 
 ### 4.2 Menu bar
