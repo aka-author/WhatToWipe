@@ -3,6 +3,8 @@
 #include "app/Session.h"
 #include "config/TreemapConfig.h"
 #include "scan/ScanResult.h"
+#include <QByteArray>
+#include <QEvent>
 #include <QMainWindow>
 
 class QToolButton;
@@ -25,6 +27,11 @@ class MainWindow : public QMainWindow {
 
 public:
     explicit MainWindow(const config::TreemapSettings& settings, QWidget* parent = nullptr);
+    ~MainWindow() override;
+
+protected:
+    bool event(QEvent* event) override;
+    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
 private slots:
     void onOpenFolder();

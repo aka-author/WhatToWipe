@@ -9,6 +9,7 @@
 #include "model/FolderDescriptor.h"
 #include "platform/ShellOpen.h"
 #include "platform/VolumeInfo.h"
+#include "platform/WinWindowIcon.h"
 #include "scan/ScanResult.h"
 #include "scan/ScanWorker.h"
 #include "treemap/TreemapLayout.h"
@@ -37,6 +38,11 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#ifdef Q_OS_WIN
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 namespace wtw::app {
 
@@ -68,13 +74,51 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
     qRegisterMetaType<scan::ScanIdentity>("wtw::scan::ScanIdentity");
     setWindowTitle(productDisplayName());
+#ifndef Q_OS_WIN
     setWindowIcon(ui::appWindowIcon());
+#endif
     resize(1100, 720);
     buildUi();
     buildMenus();
     m_session.resetToInitial();
     setStatusText(QStringLiteral("Choose a target folder"));
     updateChrome();
+}
+
+MainWindow::~MainWindow() {
+#ifdef Q_OS_WIN
+    platform::releaseWindowIcons(this);
+#endif
+}
+
+bool MainWindow::event(QEvent* event) {
+#ifdef Q_OS_WIN
+    switch (event->type()) {
+    case QEvent::WinIdChange:
+    case QEvent::Show:
+        platform::applyWindowIcons(this);
+        break;
+    default:
+        break;
+    }
+#endif
+    return QMainWindow::event(event);
+}
+
+bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr* result) {
+#ifdef Q_OS_WIN
+    if (eventType == "windows_generic_MSG") {
+        const MSG* msg = static_cast<const MSG*>(message);
+        if (msg && msg->message == WM_DPICHANGED) {
+            platform::applyWindowIcons(this);
+        }
+    }
+#else
+    Q_UNUSED(eventType)
+    Q_UNUSED(message)
+    Q_UNUSED(result)
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 
 void MainWindow::buildUi() {

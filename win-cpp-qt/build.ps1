@@ -124,28 +124,31 @@ function Generate-AppIcon {
         [Parameter(Mandatory = $true)][string]$MingwRoot
     )
     $artDir = Join-Path $CodebaseRoot "assets\art"
+    $mastersDir = Join-Path $CodebaseRoot "assets\icons"
     $toolsDir = Join-Path $ModuleRoot "tools"
     $iconPngDir = Join-Path $ModuleRoot "resources\icons"
-    $cpp = Join-Path $toolsDir "build_app_ico.cpp"
-    $toolExe = Join-Path $toolsDir "build_app_ico.exe"
+    $generateCpp = Join-Path $toolsDir "generate_icon_masters.cpp"
+    $packCpp = Join-Path $toolsDir "build_app_ico.cpp"
+    $generateExe = Join-Path $toolsDir "generate_icon_masters.exe"
+    $packExe = Join-Path $toolsDir "build_app_ico.exe"
     $gxx = Join-Path $MingwRoot "bin\g++.exe"
     if (-not (Test-Path -LiteralPath $gxx)) {
         throw "MinGW g++ not found: $gxx"
     }
-    if (-not (Test-Path -LiteralPath $cpp)) {
-        throw "Icon builder source not found: $cpp"
-    }
-    foreach ($name in @("broombunny.png", "broombunny-small.png")) {
-        if (-not (Test-Path -LiteralPath (Join-Path $artDir $name))) {
-            throw "Missing bunny icon art: $(Join-Path $artDir $name)"
-        }
+    if (-not (Test-Path -LiteralPath (Join-Path $artDir "broombunny.png"))) {
+        throw "Missing bunny icon art: $(Join-Path $artDir 'broombunny.png')"
     }
     Push-Location $toolsDir
     try {
+        New-Item -ItemType Directory -Force -Path $mastersDir | Out-Null
         New-Item -ItemType Directory -Force -Path $iconPngDir | Out-Null
-        & $gxx -std=c++17 -O2 -o $toolExe build_app_ico.cpp
+        & $gxx -std=c++17 -O2 -o $generateExe generate_icon_masters.cpp
+        if ($LASTEXITCODE -ne 0) { throw "generate_icon_masters compile failed" }
+        & $generateExe $artDir $mastersDir
+        if ($LASTEXITCODE -ne 0) { throw "generate_icon_masters failed" }
+        & $gxx -std=c++17 -O2 -o $packExe build_app_ico.cpp
         if ($LASTEXITCODE -ne 0) { throw "build_app_ico compile failed" }
-        & $toolExe $artDir $IconDestination $iconPngDir
+        & $packExe $mastersDir $IconDestination $iconPngDir
         if ($LASTEXITCODE -ne 0) { throw "build_app_ico failed" }
     } finally {
         Pop-Location

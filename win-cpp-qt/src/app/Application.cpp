@@ -16,10 +16,12 @@ void WtwApplication::configure(QApplication& app) {
     QApplication::setOrganizationName(productDisplayName());
     QApplication::setApplicationVersion(platform::fileVersionDotted());
     app.setStyle(QStringLiteral("Fusion"));
+#ifndef Q_OS_WIN
     const QIcon windowIcon = ui::appWindowIcon();
     if (!windowIcon.isNull()) {
         app.setWindowIcon(windowIcon);
     }
+#endif
 }
 
 int WtwApplication::run(int argc, char* argv[]) {
