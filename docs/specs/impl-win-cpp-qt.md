@@ -149,7 +149,7 @@ The application shell covers window chrome, menus, the command strip, and the st
 
 The main window title comes from `productDisplayName()` in `app/Product.h` and reads Erase & Rewrite.
 
-The main window icon is `assets/icons/app.svg` per `assets/icons/FS-TOOLBAR-MAP.txt` (FS unique main-window icon). `build.ps1` rasterizes it to `app.ico` and per-size PNGs via `tools/build_app_icon_qt.cpp`; runtime uses `:/app/app.svg` with raster fallbacks. `broombunny*.png` is About-dialog art only.
+The main window icon is the broombunny art: `assets/art/broombunny*.png` rasterized to `app.ico` and per-size PNGs by `tools/build_app_ico.cpp` during `build.ps1`. Runtime uses multi-size PNGs from `:/app/icons/` with PE `app.ico` fallback; `applyWin32WindowIcons` sets title-bar sizes from the embedded ICO.
 
 
 ### 4.2 Menu bar
@@ -434,7 +434,7 @@ The table below maps dialogs to source files.
 
 | Asset | Source |
 |-------|--------|
-| `app.ico` | `assets/icons/app.svg` via `win-cpp-qt/tools/build_app_icon_qt.cpp` during `build.ps1` |
+| `app.ico` | `assets/art/broombunny*.png` via `win-cpp-qt/tools/build_app_ico.cpp` during `build.ps1` |
 | Toolbar SVGs | `codebase/assets/icons/toolbar-*.svg` in `toolbar.qrc` |
 | About PNG | `assets/art/about-bunny.png` or `broombunny.png` at build time |
 

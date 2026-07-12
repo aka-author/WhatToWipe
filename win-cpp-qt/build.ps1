@@ -121,14 +121,13 @@ function Generate-AppIcon {
         [Parameter(Mandatory = $true)][string]$CodebaseRoot,
         [Parameter(Mandatory = $true)][string]$IconDestination,
         [Parameter(Mandatory = $true)][string]$ModuleRoot,
-        [Parameter(Mandatory = $true)][string]$MingwRoot,
-        [Parameter(Mandatory = $true)][string]$QtPrefix
+        [Parameter(Mandatory = $true)][string]$MingwRoot
     )
-    $svgSource = Join-Path $CodebaseRoot "assets\icons\app.svg"
+    $artDir = Join-Path $CodebaseRoot "assets\art"
     $toolsDir = Join-Path $ModuleRoot "tools"
     $iconPngDir = Join-Path $ModuleRoot "resources\icons"
-    $cpp = Join-Path $toolsDir "build_app_icon_qt.cpp"
-    $toolExe = Join-Path $toolsDir "build_app_icon.exe"
+    $cpp = Join-Path $toolsDir "build_app_ico.cpp"
+    $toolExe = Join-Path $toolsDir "build_app_ico.exe"
     $gxx = Join-Path $MingwRoot "bin\g++.exe"
     if (-not (Test-Path -LiteralPath $gxx)) {
         throw "MinGW g++ not found: $gxx"
@@ -136,25 +135,18 @@ function Generate-AppIcon {
     if (-not (Test-Path -LiteralPath $cpp)) {
         throw "Icon builder source not found: $cpp"
     }
-    if (-not (Test-Path -LiteralPath $svgSource)) {
-        throw "Main window icon source missing (FS-TOOLBAR-MAP): $svgSource"
+    foreach ($name in @("broombunny.png", "broombunny-small.png")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $artDir $name))) {
+            throw "Missing bunny icon art: $(Join-Path $artDir $name)"
+        }
     }
-    $qtInclude = Join-Path $QtPrefix "include"
-    $qtLib = Join-Path $QtPrefix "lib"
-    $qtBin = Join-Path $QtPrefix "bin"
     Push-Location $toolsDir
     try {
         New-Item -ItemType Directory -Force -Path $iconPngDir | Out-Null
-        $prevPath = $env:PATH
-        $env:PATH = "$qtBin;$prevPath"
-        & $gxx -std=c++17 -O2 -o $toolExe $cpp `
-            -I"$qtInclude/QtCore" -I"$qtInclude/QtGui" -I"$qtInclude/QtSvg" -I"$qtInclude" `
-            -L"$qtLib" -lQt6Svg -lQt6Gui -lQt6Core -lQt6EntryPoint `
-            "-Wl,-subsystem,console"
-        if ($LASTEXITCODE -ne 0) { throw "build_app_icon_qt compile failed" }
-        & $toolExe $svgSource $IconDestination $iconPngDir
-        if ($LASTEXITCODE -ne 0) { throw "build_app_icon_qt failed" }
-        $env:PATH = $prevPath
+        & $gxx -std=c++17 -O2 -o $toolExe build_app_ico.cpp
+        if ($LASTEXITCODE -ne 0) { throw "build_app_ico compile failed" }
+        & $toolExe $artDir $IconDestination $iconPngDir
+        if ($LASTEXITCODE -ne 0) { throw "build_app_ico failed" }
     } finally {
         Pop-Location
     }
@@ -551,7 +543,7 @@ if ($StaticQt) {
 }
 $mingwRoot = Resolve-QtMingwRoot -QtPrefix $sharedQtPrefix
 Sync-ArtAssets -ShitwiperRoot $ShitwiperRoot -CodebaseRoot $CodebaseRoot
-Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath -ModuleRoot $ModuleRoot -MingwRoot $mingwRoot -QtPrefix $sharedQtPrefix
+Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath -ModuleRoot $ModuleRoot -MingwRoot $mingwRoot
 Generate-AboutArt -CodebaseRoot $CodebaseRoot -Destination $AboutArtPath
 Update-AppResourceFromVersionInfo -VersionInfoPath $VersionInfoPath -AppRcPath $AppRcPath
 

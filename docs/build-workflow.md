@@ -94,7 +94,7 @@ Same git and folder discipline as `win-go/build.ps1` (version bump, snapshot com
 
 1. **`Wipe-BinQtDeployArtifacts`** — remove legacy Qt DLL/plugin trees from all `bin/win/*` folders.
 2. **`Sync-ArtAssets`** — copy `art/broombunny*.png` from project root into `codebase/assets/art/` (About dialog art).
-3. **`tools/build_app_icon_qt.cpp`** rasterizes `assets/icons/app.svg` to `app.ico` and per-size PNGs; **`app.rc`** embeds the icon.
+3. **`tools/build_app_ico.cpp`** builds `app.ico` and per-size PNGs from `assets/art/broombunny*.png`; **`app.rc`** embeds the icon.
 4. CMake configure/build in **`build-static/`** with `-DWTW_STATIC_QT=ON` against `mingw_64_static`.
 5. Copy **`EraseAndRewrite.exe`** to `bin/win/current/`.
 6. **`Strip-MingwStaticExe`** — `strip --strip-all` via the Qt MinGW toolchain (see below).
