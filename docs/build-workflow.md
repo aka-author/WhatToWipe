@@ -177,6 +177,7 @@ This file is **not** run directly; **`ISCC.exe`** compiles it. The batch always 
 |--------|----------|--------------------|---------|
 | `SourceDir` | **Yes** (script `#error`s if missing) | РІР‚вЂќ | Directory tree packaged into `{app}`; must contain `Erase & Rewrite.exe`. |
 | `OutputDir` | No | Falls back to `SourceDir` in the `.iss` | Where the generated **setup .exe** is written. The batch always sets it to `OutputRootDir\yyyy-MM-dd_HH-mm`. |
+| `SetupIcon` | No | `..\win-cpp-qt\resources\app.ico` | Broombunny `.ico` for the setup executable (`SetupIconFile`). The batch always passes the built `app.ico` path. |
 
 ### Version string
 
@@ -189,6 +190,7 @@ This file is **not** run directly; **`ISCC.exe`** compiles it. The batch always 
   - `COPYING`, `LICENSE-NOTICE`, and `THIRD-PARTY-NOTICES` from `installer/` (LEGALSPEC LS-50)
 - Build metadata (`versioninfo.json`, `build-meta.json`, `*.date`) stays in `bin/win/current` for engineering traceability and is **not** shipped to `{app}`.
 - **Legal notice page**: `[Setup]` uses `InfoBeforeFile=INSTALL-LICENSE.txt`, so the installer shows GPL and third-party license notices before file installation with **Next** only — no acceptance gate (GPLv3 section 9; LEGALSPEC LS-120).
+- **Icons**: `SetupIconFile` uses broombunny `app.ico` (same asset embedded in `EraseAndRewrite.exe`). Start Menu and desktop shortcuts set `IconFilename` to the installed exe and `AppUserModelID` to `MikhailOstrogorskiy.EraseAndRewrite`.
 
 ---
 

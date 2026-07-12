@@ -44,6 +44,13 @@ if not exist "%SOURCE_DIR%\EraseAndRewrite.exe" (
   exit /b 4
 )
 
+for %%I in ("%SCRIPT_DIR%..\win-cpp-qt\resources\app.ico") do set "SETUP_ICON=%%~fI"
+if not exist "%SETUP_ICON%" (
+  echo Required icon is missing: "%SETUP_ICON%"
+  echo Build the application first so win-cpp-qt\resources\app.ico exists.
+  exit /b 13
+)
+
 rem SourceDir may also hold versioninfo.json, build-meta.json, and *.date for engineering trace.
 rem The Inno [Files] section installs only EraseAndRewrite.exe from SourceDir — never those metadata files.
 
@@ -80,11 +87,13 @@ if "%ISCC_EXE%"=="" (
 echo Using SourceDir: "%SOURCE_DIR%"
 echo Using OutputRootDir: "%OUTPUT_ROOT_DIR%"
 echo Using OutputDir: "%OUTPUT_DIR%"
+echo Using SetupIcon: "%SETUP_ICON%"
 echo Using ISCC: "%ISCC_EXE%"
 
 "%ISCC_EXE%" ^
   "/DSourceDir=%SOURCE_DIR%" ^
   "/DOutputDir=%OUTPUT_DIR%" ^
+  "/DSetupIcon=%SETUP_ICON%" ^
   "%ISS_FILE%"
 if errorlevel 1 exit /b %errorlevel%
 

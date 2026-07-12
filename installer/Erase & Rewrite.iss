@@ -6,6 +6,10 @@
   #define OutputDir SourceDir
 #endif
 
+#ifndef SetupIcon
+  #define SetupIcon "..\win-cpp-qt\resources\app.ico"
+#endif
+
 #define ProductVersion GetStringFileInfo(SourceDir + "\EraseAndRewrite.exe", "ProductVersion")
 #if ProductVersion == ""
   #define ProductVersion "0.0.0.0"
@@ -22,6 +26,7 @@ DefaultGroupName=Erase & Rewrite
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
 OutputBaseFilename=EraseAndRewrite-Setup-{#ProductVersion}
+SetupIconFile={#SetupIcon}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -39,8 +44,8 @@ Source: "LICENSE-NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD-PARTY-NOTICES"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; AppUserModelID: "MikhailOstrogorskiy.EraseAndRewrite"
-Name: "{autodesktop}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; Tasks: desktopicon; AppUserModelID: "MikhailOstrogorskiy.EraseAndRewrite"
+Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; IconFilename: "{app}\EraseAndRewrite.exe"; AppUserModelID: "MikhailOstrogorskiy.EraseAndRewrite"
+Name: "{autodesktop}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"; IconFilename: "{app}\EraseAndRewrite.exe"; Tasks: desktopicon; AppUserModelID: "MikhailOstrogorskiy.EraseAndRewrite"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
