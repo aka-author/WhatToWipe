@@ -1,5 +1,5 @@
-// genicons writes icons/app.ico (PE / Explorer) and the same bytes to internal/ui/icons/app.ico
-// from codebase/assets/art/broombunny.png.
+// genicons writes icons/app.ico (PE / Explorer) and internal/ui/icons/app.ico
+// from size-specific art in codebase/assets/art/broombunny*.png.
 package main
 
 import (
@@ -14,6 +14,21 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
+type iconLayer struct {
+	size   int
+	file   string
+	smooth bool
+}
+
+// Each ICO size uses the art file drawn for that display role (not a single downscale).
+var iconLayers = []iconLayer{
+	{256, "broombunny.png", true},
+	{64, "broombunny-small.png", true},
+	{48, "broombunny-small.png", true},
+	{32, "broombunny-32x32.png", false},
+	{16, "broombunny-16x16.png", false},
+}
+
 func main() {
 	appDir := filepath.Join("icons")
 	winDir := filepath.Join("internal", "ui", "icons")
@@ -23,7 +38,7 @@ func main() {
 	if err := os.MkdirAll(winDir, 0o755); err != nil {
 		panic(err)
 	}
-	data := mustEncodeICO(iconFromSource)
+	data := mustEncodeICO()
 	if err := os.WriteFile(filepath.Join(appDir, "app.ico"), data, 0o644); err != nil {
 		panic(err)
 	}
@@ -49,16 +64,16 @@ func moduleRoot() string {
 	}
 }
 
-func sourceIconPath() string {
+func artDir() string {
 	root := moduleRoot()
 	if root == "" {
 		panic("go.mod not found; run from win-go or a subdirectory")
 	}
-	return filepath.Join(root, "..", "assets", "art", "broombunny.png")
+	return filepath.Join(root, "..", "assets", "art")
 }
 
-func loadSourceIcon() image.Image {
-	path := sourceIconPath()
+func loadImage(name string) image.Image {
+	path := filepath.Join(artDir(), name)
 	f, err := os.Open(path)
 	if err != nil {
 		panic(err)
@@ -71,22 +86,27 @@ func loadSourceIcon() image.Image {
 	return img
 }
 
-func iconFromSource(size int) image.Image {
-	src := loadSourceIcon()
-	dst := image.NewRGBA(image.Rect(0, 0, size, size))
-	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Over, nil)
+func renderLayer(layer iconLayer) image.Image {
+	src := loadImage(layer.file)
+	dst := image.NewRGBA(image.Rect(0, 0, layer.size, layer.size))
+	scaler := xdraw.NearestNeighbor
+	if layer.smooth {
+		scaler = xdraw.CatmullRom
+	}
+	scaler.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Over, nil)
 	return dst
 }
 
-func mustEncodeICO(drawFn func(int) image.Image) []byte {
-	sizes := []int{256, 64, 48, 32, 16}
-	var pngs [][]byte
-	for _, sz := range sizes {
+func mustEncodeICO() []byte {
+	sizes := make([]int, len(iconLayers))
+	pngs := make([][]byte, len(iconLayers))
+	for i, layer := range iconLayers {
+		sizes[i] = layer.size
 		var buf bytes.Buffer
-		if err := png.Encode(&buf, drawFn(sz)); err != nil {
+		if err := png.Encode(&buf, renderLayer(layer)); err != nil {
 			panic(err)
 		}
-		pngs = append(pngs, buf.Bytes())
+		pngs[i] = buf.Bytes()
 	}
 	data, err := encodePNGBasedICO(pngs, sizes)
 	if err != nil {

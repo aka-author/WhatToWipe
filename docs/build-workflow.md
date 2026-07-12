@@ -93,10 +93,12 @@ Same as Go: **`<ProjectRoot>\bin\win\current\EraseAndRewrite.exe`** plus `versio
 Same git and folder discipline as `win-go/build.ps1` (version bump, snapshot commit, archive prior `current` via `.date`, history commit). Additionally:
 
 1. **`Wipe-BinQtDeployArtifacts`** — remove legacy Qt DLL/plugin trees from all `bin/win/*` folders.
-2. CMake configure/build in **`build-static/`** with `-DWTW_STATIC_QT=ON` against `mingw_64_static`.
-3. Copy **`EraseAndRewrite.exe`** to `bin/win/current/`.
-4. **`Strip-MingwStaticExe`** — `strip --strip-all` via the Qt MinGW toolchain (see below).
-5. **`test-run.ps1 -StaticQt`** — import-table checks and smoke launch.
+2. **`Sync-ArtAssets`** — copy `art/broombunny*.png` from project root into `codebase/assets/art/`.
+3. **`tools/build_app_ico.cpp`** (MinGW, same toolchain as the app) builds `app.ico`; **`app.rc`** picks up version info and embeds the icon.
+4. CMake configure/build in **`build-static/`** with `-DWTW_STATIC_QT=ON` against `mingw_64_static`.
+5. Copy **`EraseAndRewrite.exe`** to `bin/win/current/`.
+6. **`Strip-MingwStaticExe`** — `strip --strip-all` via the Qt MinGW toolchain (see below).
+7. **`test-run.ps1 -StaticQt`** — import-table checks and smoke launch (optional verification).
 
 Full detail: [specs/arch-win-cpp-qt.md](specs/arch-win-cpp-qt.md) §9, [specs/impl-win-cpp-qt.md](specs/impl-win-cpp-qt.md) §13.
 
@@ -104,7 +106,7 @@ Full detail: [specs/arch-win-cpp-qt.md](specs/arch-win-cpp-qt.md) §9, [specs/im
 
 Static MinGW links produce a **~47 MB** file immediately after link, but only **~29 MB** is the functional PE image. The remaining **~20 MB** is a **debug overlay** (DWARF data from static `.a` archives) appended after the last PE section. It is not needed to run the program.
 
-**Shipping policy:** step 4 above runs **`strip --strip-all`** on the copied exe. Typical result: **~28 MB** shipping binary (build **1.0.0.001A** onward).
+**Shipping policy:** step 6 above runs **`strip --strip-all`** on the copied exe. Typical result: **~28 MB** shipping binary (build **1.0.0.001A** onward).
 
 | Stage | Typical size |
 |-------|----------------|

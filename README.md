@@ -2,7 +2,7 @@
 
 Git repo = **`codebase`**. Full rules: [docs/folder-structure.md](docs/folder-structure.md).
 
-The active Windows Go module is **`win-go/`** in this repository. The Windows C++ Qt implementation is **`win-cpp-qt/`** (see **`docs/specs/techspec-win-cpp-qt.md`** and **`docs/specs/arch-win-cpp-qt.md`**).
+The active Windows implementation is **`win-cpp-qt/`** (C++ + Qt). See **`docs/specs/techspec-win-cpp-qt.md`** and **`docs/specs/arch-win-cpp-qt.md`**. The legacy **`win-go/`** tree remains in the repository for reference only; it is not used to build the shipping binary.
 
 Build flow: see [docs/build-workflow.md](docs/build-workflow.md).
 

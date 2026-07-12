@@ -80,53 +80,77 @@ function Read-ProductVersionInfo {
     }
 }
 
+function Sync-ArtAssets {
+    param(
+        [Parameter(Mandatory = $true)][string]$ShitwiperRoot,
+        [Parameter(Mandatory = $true)][string]$CodebaseRoot
+    )
+    $srcDir = Join-Path $ShitwiperRoot "art"
+    $dstDir = Join-Path $CodebaseRoot "assets\art"
+    New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+    if (Test-Path -LiteralPath $srcDir) {
+        Get-ChildItem -LiteralPath $srcDir -Filter "broombunny*.png" -File | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dstDir $_.Name) -Force
+        }
+        $aboutSrc = Join-Path $srcDir "about-bunny.png"
+        if (Test-Path -LiteralPath $aboutSrc) {
+            Copy-Item -LiteralPath $aboutSrc -Destination (Join-Path $dstDir "about-bunny.png") -Force
+        }
+    }
+}
+
 function Generate-AboutArt {
     param(
         [Parameter(Mandatory = $true)][string]$CodebaseRoot,
         [Parameter(Mandatory = $true)][string]$Destination
     )
-    $src = Join-Path $CodebaseRoot "assets\art\about-bunny.png"
-    $goRoot = Join-Path $CodebaseRoot "win-go"
     New-Item -ItemType Directory -Force -Path (Split-Path $Destination) | Out-Null
-    if (Test-Path -LiteralPath $src) {
-        Copy-Item -LiteralPath $src -Destination $Destination -Force
-        return
+    $artDir = Join-Path $CodebaseRoot "assets\art"
+    foreach ($name in @("about-bunny.png", "broombunny.png")) {
+        $src = Join-Path $artDir $name
+        if (Test-Path -LiteralPath $src) {
+            Copy-Item -LiteralPath $src -Destination $Destination -Force
+            return
+        }
     }
-    $go = Get-Command go -ErrorAction SilentlyContinue
-    if (-not $go) {
-        throw "about-bunny.png missing and go not found to generate placeholder"
-    }
-    & $go.Source -C $goRoot run ./tools/genaboutpng
-    if ($LASTEXITCODE -ne 0) { throw "genaboutpng failed" }
-    $generated = Join-Path $goRoot "assets\art\about-bunny.png"
-    if (-not (Test-Path -LiteralPath $generated)) {
-        throw "genaboutpng did not produce assets/art/about-bunny.png"
-    }
-    Copy-Item -LiteralPath $generated -Destination $Destination -Force
+    throw "No about art found under $artDir (expected about-bunny.png or broombunny.png)."
 }
 
 function Generate-AppIcon {
     param(
         [Parameter(Mandatory = $true)][string]$CodebaseRoot,
-        [Parameter(Mandatory = $true)][string]$IconDestination
+        [Parameter(Mandatory = $true)][string]$IconDestination,
+        [Parameter(Mandatory = $true)][string]$ModuleRoot,
+        [Parameter(Mandatory = $true)][string]$MingwRoot
     )
-    $goRoot = Join-Path $CodebaseRoot "win-go"
-    $genicons = Join-Path $goRoot "tools\genicons"
-    if (-not (Test-Path -LiteralPath $genicons)) {
-        throw "genicons tool not found: $genicons"
+    $artDir = Join-Path $CodebaseRoot "assets\art"
+    $toolsDir = Join-Path $ModuleRoot "tools"
+    $cpp = Join-Path $toolsDir "build_app_ico.cpp"
+    $toolExe = Join-Path $toolsDir "build_app_ico.exe"
+    $gxx = Join-Path $MingwRoot "bin\g++.exe"
+    if (-not (Test-Path -LiteralPath $gxx)) {
+        throw "MinGW g++ not found: $gxx"
     }
-    $go = Get-Command go -ErrorAction SilentlyContinue
-    if (-not $go) {
-        throw "go not found in PATH (required to generate app.ico)"
+    if (-not (Test-Path -LiteralPath $cpp)) {
+        throw "Icon builder source not found: $cpp"
     }
-    & $go.Source -C $goRoot run ./tools/genicons
-    if ($LASTEXITCODE -ne 0) { throw "genicons failed" }
-    $srcIco = Join-Path $goRoot "icons\app.ico"
-    if (-not (Test-Path -LiteralPath $srcIco)) {
-        throw "genicons did not produce icons/app.ico"
+    foreach ($name in @("broombunny.png", "broombunny-small.png", "broombunny-32x32.png", "broombunny-16x16.png")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $artDir $name))) {
+            throw "Missing icon art: $(Join-Path $artDir $name)"
+        }
     }
-    New-Item -ItemType Directory -Force -Path (Split-Path $IconDestination) | Out-Null
-    Copy-Item -LiteralPath $srcIco -Destination $IconDestination -Force
+    Push-Location $toolsDir
+    try {
+        & $gxx -std=c++17 -O2 -o $toolExe build_app_ico.cpp
+        if ($LASTEXITCODE -ne 0) { throw "build_app_ico compile failed" }
+        & $toolExe $artDir $IconDestination
+        if ($LASTEXITCODE -ne 0) { throw "build_app_ico failed" }
+    } finally {
+        Pop-Location
+    }
+    if (-not (Test-Path -LiteralPath $IconDestination)) {
+        throw "Icon builder did not produce $IconDestination"
+    }
 }
 
 function Update-AppResourceFromVersionInfo {
@@ -355,9 +379,6 @@ Relocate-ModuleRootExeArtifacts -ModuleRoot $ModuleRoot -ToolsRoot $ToolsRoot
 Increment-VersionBuildNumber -Path $VersionInfoPath
 $AppIconPath = Join-Path $ModuleRoot "resources\app.ico"
 $AboutArtPath = Join-Path $ModuleRoot "resources\about-bunny.png"
-Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath
-Generate-AboutArt -CodebaseRoot $CodebaseRoot -Destination $AboutArtPath
-Update-AppResourceFromVersionInfo -VersionInfoPath $VersionInfoPath -AppRcPath $AppRcPath
 
 $verInfo = Read-ProductVersionInfo -Path $VersionInfoPath
 $productVer = $verInfo.ProductVersion
@@ -367,16 +388,6 @@ $buildPadded = $verInfo.BuildPadded
 $branch = "unknown"
 $commit = "unknown"
 $commitShort = "unknown"
-
-if ($GitRoot) {
-    Commit-BuildSnapshot -GitRoot $GitRoot -Message "build: version $productVer"
-    $commit = (git -C $GitRoot rev-parse HEAD).Trim()
-    if ($LASTEXITCODE -ne 0) { throw "git rev-parse HEAD failed" }
-    $branch = (git -C $GitRoot rev-parse --abbrev-ref HEAD).Trim()
-    if ($LASTEXITCODE -ne 0) { throw "git rev-parse --abbrev-ref HEAD failed" }
-    $commitShort = (git -C $GitRoot rev-parse --short=7 HEAD).Trim()
-    if ($LASTEXITCODE -ne 0) { throw "git rev-parse --short HEAD failed" }
-}
 
 Prepare-CurrentBuildFolder -WinBinRoot $WinBinRoot -CurrentDir $OutDir
 if ($StaticQt) {
@@ -436,6 +447,21 @@ if ($StaticQt) {
     $qtPrefix = $sharedQtPrefix
 }
 $mingwRoot = Resolve-QtMingwRoot -QtPrefix $sharedQtPrefix
+Sync-ArtAssets -ShitwiperRoot $ShitwiperRoot -CodebaseRoot $CodebaseRoot
+Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath -ModuleRoot $ModuleRoot -MingwRoot $mingwRoot
+Generate-AboutArt -CodebaseRoot $CodebaseRoot -Destination $AboutArtPath
+Update-AppResourceFromVersionInfo -VersionInfoPath $VersionInfoPath -AppRcPath $AppRcPath
+
+if ($GitRoot) {
+    Commit-BuildSnapshot -GitRoot $GitRoot -Message "build: version $productVer"
+    $commit = (git -C $GitRoot rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse HEAD failed" }
+    $branch = (git -C $GitRoot rev-parse --abbrev-ref HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse --abbrev-ref HEAD failed" }
+    $commitShort = (git -C $GitRoot rev-parse --short=7 HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse --short HEAD failed" }
+}
+
 $toolchainFile = Join-Path $ModuleRoot "toolchain-qt-mingw.cmake"
 $compilerMarker = Join-Path $BuildDir ".qt_mingw_compiler"
 if (Test-Path -LiteralPath $compilerMarker) {

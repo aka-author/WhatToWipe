@@ -149,7 +149,7 @@ The application shell covers window chrome, menus, the command strip, and the st
 
 The main window title comes from `productDisplayName()` in `app/Product.h` and reads Erase & Rewrite.
 
-The window icon is `:/app/app.ico`, generated from `assets/art/broombunny.png` by `win-go/tools/genicons` during `build.ps1`.
+The window icon is `:/app/app.ico`, generated from size-specific `assets/art/broombunny*.png` by `tools/build_app_ico.cpp` (same MinGW toolchain) during `build.ps1`.
 
 
 ### 4.2 Menu bar
@@ -434,7 +434,7 @@ The table below maps dialogs to source files.
 
 | Asset | Source |
 |-------|--------|
-| `app.ico` | `assets/art/broombunny.png` via `win-go/tools/genicons` during `build.ps1` |
+| `app.ico` | `assets/art/broombunny*.png` via `win-cpp-qt/tools/build_app_ico.cpp` (MinGW) during `build.ps1` |
 | Toolbar SVGs | `codebase/assets/icons/toolbar-*.svg` in `toolbar.qrc` |
 | About PNG | `genaboutpng` or `assets/art/about-bunny.png` at build time |
 
