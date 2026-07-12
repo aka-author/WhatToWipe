@@ -59,7 +59,7 @@ Required only if any Qt row uses LGPLv3 + static linking as the **recorded licen
 |-------|-------|
 | Script | `codebase/installer/Erase & Rewrite.iss` |
 | Legal notice file | `INSTALL-LICENSE.txt` (`InfoBeforeFile` — no acceptance gate) |
-| Installed `{app}` license files | **TBD** — `COPYING`, `LICENSE-NOTICE`, `THIRD-PARTY-NOTICES` minimum per LS-50 |
+| Installed `{app}` license files | `COPYING`, `LICENSE-NOTICE`, `THIRD-PARTY-NOTICES` from `installer/` (LS-50); no build metadata JSON |
 | Excluded | `*.date` build markers |
 
 

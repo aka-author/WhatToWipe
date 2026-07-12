@@ -12,10 +12,24 @@ if "%~2"=="" (
 
 rem Script dir always ends with \ ; paths below do not depend on caller cwd.
 set "SCRIPT_DIR=%~dp0"
-for %%I in ("%SCRIPT_DIR%..\installer\Erase & Rewrite.iss") do set "ISS_FILE=%%~fI"
+for %%I in ("%SCRIPT_DIR%..\installer") do set "INSTALLER_DIR=%%~fI"
+for %%I in ("%INSTALLER_DIR%\Erase & Rewrite.iss") do set "ISS_FILE=%%~fI"
 if not exist "%ISS_FILE%" (
   echo Inno script not found: "%ISS_FILE%"
   exit /b 9
+)
+
+if not exist "%INSTALLER_DIR%\COPYING" (
+  echo Required file is missing: "%INSTALLER_DIR%\COPYING"
+  exit /b 10
+)
+if not exist "%INSTALLER_DIR%\LICENSE-NOTICE" (
+  echo Required file is missing: "%INSTALLER_DIR%\LICENSE-NOTICE"
+  exit /b 11
+)
+if not exist "%INSTALLER_DIR%\THIRD-PARTY-NOTICES" (
+  echo Required file is missing: "%INSTALLER_DIR%\THIRD-PARTY-NOTICES"
+  exit /b 12
 )
 
 set "SOURCE_DIR=%~f1"

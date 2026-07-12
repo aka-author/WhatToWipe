@@ -181,7 +181,10 @@ This file is **not** run directly; **`ISCC.exe`** compiles it. The batch always 
 
 ### Packaging rules (summary)
 
-- **`[Files]`**: `Source: "{#SourceDir}\*"` into `{app}`, recursive; **`Excludes: "*.date"`** so marker files are not shipped.
+- **`[Files]`** installs only:
+  - `EraseAndRewrite.exe` from `SourceDir` (the build output folder)
+  - `COPYING`, `LICENSE-NOTICE`, and `THIRD-PARTY-NOTICES` from `installer/` (LEGALSPEC LS-50)
+- Build metadata (`versioninfo.json`, `build-meta.json`, `*.date`) stays in `bin/win/current` for engineering traceability and is **not** shipped to `{app}`.
 - **Legal notice page**: `[Setup]` uses `InfoBeforeFile=INSTALL-LICENSE.txt`, so the installer shows GPL and third-party license notices before file installation with **Next** only — no acceptance gate (GPLv3 section 9; LEGALSPEC LS-120).
 
 ---

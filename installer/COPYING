@@ -1,45 +1,4 @@
-﻿Erase & Rewrite — License and Notice (Installer)
-
-Copyright (C) Mikhail Ostrogorskiy
-
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option)
-any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE. See the GNU General Public License below.
-
-Under GPLv3 section 9, you are not required to accept this License merely to
-receive or run a copy of the Program. This installer notice is shown on an
-information page (Inno Setup InfoBeforeFile) before installation. You may
-continue with Next without accepting GPLv3 as a contract. Propagating or
-modifying the Program is permitted only under GPLv3.
-
-Corresponding Source for the Program is offered per GPLv3 section 6d as described in the release
-materials (stable public source URL beside the binary, immutable tag or commit, and complete
-build scripts). See legalspec.md LS-04 in the source repository.
-
-After installation, the Program license texts are also available in your installation folder
-as COPYING (full GPLv3 text), LICENSE-NOTICE (Program copyright and license statement), and
-THIRD-PARTY-NOTICES (linked component list).
-
-
-Qt (third-party component)
-
-This program is built with Qt (https://www.qt.io), copyright The Qt Company
-Ltd. and other contributors.
-
-Qt is not licensed under the GPL that covers Erase & Rewrite. Qt is provided
-only under the license terms that apply to the Qt libraries distributed with
-this installer, as required by The Qt Company. Those terms are separate from
-the GPL above. Comply with the Qt license conditions for the Qt libraries you
-receive.
-
-
-================================================================================
-                    GNU GENERAL PUBLIC LICENSE
+﻿                    GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
  Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>

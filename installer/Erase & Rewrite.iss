@@ -30,7 +30,12 @@ ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\EraseAndRewrite.exe
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.date"
+; Program binary from the build output folder (no build metadata JSON).
+Source: "{#SourceDir}\EraseAndRewrite.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Legal texts from installer/ (paths relative to this .iss file).
+Source: "COPYING"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSE-NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "THIRD-PARTY-NOTICES"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Erase & Rewrite"; Filename: "{app}\EraseAndRewrite.exe"

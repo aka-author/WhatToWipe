@@ -1,0 +1,18 @@
+Erase & Rewrite — Third-Party Component Notices
+
+This file lists components linked into the distributed EraseAndRewrite.exe.
+Exact versions and the chosen license basis per component are recorded in
+docs/verification/licensing-decision-record.md in the source repository.
+
+Component                          Link    License basis (per release record)
+---------------------------------  ------  ----------------------------------
+Qt 6 (Core, Gui, Widgets, Svg)     static  TBD — see license decision record
+Qt platform integration plugin       static  TBD
+Qt image format plugins (SVG, ICO,   static  TBD
+  JPEG, GIF)
+MinGW runtime (libgcc, libstdc++)  static  GCC Runtime Library Exception
+                                          (where applicable)
+
+Qt is copyright The Qt Company Ltd. and other contributors (https://www.qt.io).
+Qt is not licensed under the GPLv3 that covers Erase & Rewrite alone. Comply
+with the Qt license terms for the basis recorded for your release.
