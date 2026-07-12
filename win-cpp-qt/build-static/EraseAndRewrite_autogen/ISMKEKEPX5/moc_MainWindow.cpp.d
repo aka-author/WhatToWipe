@@ -1,6 +1,8 @@
 C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autogen/ISMKEKEPX5/moc_MainWindow.cpp: C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/app/MainWindow.h \
   C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autogen/moc_predefs.h \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QByteArray \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QDateTime \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QEvent \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QRect \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QString \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QVector \
@@ -12,6 +14,7 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q20utility.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q23type_traits.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q23utility.h \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qabstracteventdispatcher.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qalgorithms.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qalloc.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qanystringview.h \
@@ -22,6 +25,7 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qatomic.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qatomic_cxx11.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbasicatomic.h \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbasictimer.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbindingstorage.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbytearray.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbytearrayalgorithms.h \
@@ -40,11 +44,14 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcontainerinfo.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcontainertools_impl.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcontiguouscache.h \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcoreevent.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdarwinhelpers.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdatastream.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdatetime.h \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdeadlinetimer.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdebug.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qendian.h \
+  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qeventloop.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qexceptionhandling.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qflags.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qfloat16.h \
