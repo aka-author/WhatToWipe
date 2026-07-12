@@ -3,8 +3,8 @@
 1 ICON "app.ico"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,27
- PRODUCTVERSION 1,0,0,27
+ FILEVERSION 1,0,0,28
+ PRODUCTVERSION 1,0,0,28
  FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
  FILEFLAGS 0x0L
  FILEOS VOS__WINDOWS32
@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Erase & Rewrite"
             VALUE "FileDescription", "Erase & Rewrite folder size treemap"
-            VALUE "FileVersion", "1.0.0.001B"
+            VALUE "FileVersion", "1.0.0.001C"
             VALUE "InternalName", "eraserewrite"
             VALUE "LegalCopyright", "See repository license"
             VALUE "OriginalFilename", "EraseAndRewrite.exe"
             VALUE "ProductName", "Erase & Rewrite"
-            VALUE "ProductVersion", "1.0.0.001B"
+            VALUE "ProductVersion", "1.0.0.001C"
         END
     END
     BLOCK "VarFileInfo"
