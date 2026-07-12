@@ -22,6 +22,7 @@ class SettingsDialog : public QDialog {
 
 public:
     explicit SettingsDialog(const config::TreemapSettings& initial, QWidget* parent = nullptr);
+    ~SettingsDialog() override;
 
     config::TreemapSettings effectiveSettings() const { return m_effective; }
 

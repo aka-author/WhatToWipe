@@ -1,6 +1,11 @@
 #include "ui/SettingsDialog.h"
 
 #include "config/ConfigStore.h"
+#include "ui/AppIcon.h"
+
+#ifdef Q_OS_WIN
+#include "platform/WinWindowIcon.h"
+#endif
 
 #include <QAbstractTableModel>
 #include <QColorDialog>
@@ -190,6 +195,7 @@ void applyGridColumnWidths(QTableView* table) {
 SettingsDialog::SettingsDialog(const config::TreemapSettings& initial, QWidget* parent)
     : QDialog(parent), m_initial(initial), m_effective(initial) {
     setWindowTitle(QStringLiteral("Settings"));
+    setWindowIcon(appWindowIcon());
     const int dialogW =
         clampDialogDimension(m_initial.settingsDialogW, kDefaultDialogW, kMinDialogW, kMaxDialogW);
     const int dialogH =
@@ -239,6 +245,12 @@ SettingsDialog::SettingsDialog(const config::TreemapSettings& initial, QWidget* 
     connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked, this, &SettingsDialog::onApply);
     connect(buttons->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &SettingsDialog::onOk);
     connect(buttons->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &QDialog::reject);
+}
+
+SettingsDialog::~SettingsDialog() {
+#ifdef Q_OS_WIN
+    platform::releaseWindowIcons(this);
+#endif
 }
 
 void SettingsDialog::buildGrid() {
@@ -390,6 +402,9 @@ void SettingsDialog::resizeEvent(QResizeEvent* event) {
 
 void SettingsDialog::showEvent(QShowEvent* event) {
     QDialog::showEvent(event);
+#ifdef Q_OS_WIN
+    platform::applyWindowIcons(this);
+#endif
     applyGridColumnWidths(m_table);
 }
 
