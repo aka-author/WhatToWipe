@@ -1,5 +1,6 @@
 #include "ui/AppIcon.h"
 
+#include <QPixmap>
 #include <QSize>
 
 namespace wtw::ui {
@@ -19,9 +20,15 @@ QIcon appWindowIcon() {
         {":/app/icons/app-256.png", 256},
     };
     for (const auto& layer : kLayers) {
-        icon.addFile(QString::fromLatin1(layer.resource), QSize(layer.size, layer.size));
+        const QPixmap pixmap(QString::fromLatin1(layer.resource));
+        if (!pixmap.isNull()) {
+            icon.addPixmap(pixmap);
+        }
     }
-    return icon;
+    if (!icon.isNull()) {
+        return icon;
+    }
+    return QIcon(QStringLiteral(":/app/app.ico"));
 }
 
 }  // namespace wtw::ui

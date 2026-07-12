@@ -16,6 +16,7 @@
 #include "treemap/TreemapWidget.h"
 #include "ui/AboutDialog.h"
 #include "ui/AlertDialogs.h"
+#include "ui/AppIcon.h"
 #include "ui/MenuLabels.h"
 #include "ui/SettingsDialog.h"
 #include "ui/ToolbarIcons.h"
@@ -67,6 +68,7 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
     qRegisterMetaType<scan::ScanIdentity>("wtw::scan::ScanIdentity");
     setWindowTitle(productDisplayName());
+    setWindowIcon(ui::appWindowIcon());
     resize(1100, 720);
     buildUi();
     buildMenus();
