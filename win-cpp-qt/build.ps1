@@ -194,6 +194,44 @@ function Clear-DirectoryContents {
     }
 }
 
+function Wipe-BinQtDeployArtifacts {
+    param([Parameter(Mandatory = $true)][string]$WinBinRoot)
+    if (-not (Test-Path -LiteralPath $WinBinRoot)) { return }
+
+    $pluginDirs = @(
+        "platforms", "styles", "imageformats", "iconengines", "generic",
+        "networkinformation", "tls", "translations", "bearer"
+    )
+    $dllPatterns = @(
+        "Qt6*.dll", "libstdc++-6.dll", "libgcc_s_seh-1.dll", "libwinpthread-1.dll",
+        "D3Dcompiler_47.dll", "opengl32sw.dll"
+    )
+
+    $removedFiles = 0
+    $removedDirs = 0
+    $folders = @(Get-ChildItem -LiteralPath $WinBinRoot -Directory -Force -ErrorAction SilentlyContinue)
+    foreach ($folder in $folders) {
+        foreach ($dirName in $pluginDirs) {
+            $pluginPath = Join-Path $folder.FullName $dirName
+            if (Test-Path -LiteralPath $pluginPath) {
+                Remove-Item -LiteralPath $pluginPath -Recurse -Force
+                $removedDirs++
+            }
+        }
+        foreach ($pattern in $dllPatterns) {
+            $matches = @(Get-ChildItem -LiteralPath $folder.FullName -Filter $pattern -File -ErrorAction SilentlyContinue)
+            foreach ($file in $matches) {
+                Remove-Item -LiteralPath $file.FullName -Force
+                $removedFiles++
+            }
+        }
+    }
+
+    if ($removedFiles -gt 0 -or $removedDirs -gt 0) {
+        Write-Host "Wiped redundant Qt deploy artifacts under $WinBinRoot ($removedFiles files, $removedDirs plugin dirs)."
+    }
+}
+
 function Relocate-ModuleRootExeArtifacts {
     param(
         [Parameter(Mandatory = $true)][string]$ModuleRoot,
@@ -319,6 +357,9 @@ if ($GitRoot) {
 }
 
 Prepare-CurrentBuildFolder -WinBinRoot $WinBinRoot -CurrentDir $OutDir
+if ($StaticQt) {
+    Wipe-BinQtDeployArtifacts -WinBinRoot $WinBinRoot
+}
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 
