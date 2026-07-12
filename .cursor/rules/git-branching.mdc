@@ -1,0 +1,35 @@
+---
+description: Never commit or edit on master; use dev by default or a topic branch.
+alwaysApply: true
+---
+
+# Git branching (agent)
+
+## Never modify master
+
+Do not make modifications on `master`.
+
+- Do not commit on `master`.
+- Do not edit files for project work while checked out on `master`.
+- Do not push direct commits to `master` unless the user explicitly names a merge-to-master or release action in a `Mutabor` message.
+
+`master` is for integrated, release-ready history — not day-to-day edits.
+
+## Where to work
+
+| Situation | Branch |
+|-----------|--------|
+| Default | `dev` |
+| Focused feature, fix, or review isolation | topic branch from `dev` (or from another base the user names) |
+| Release integration | merge into `master` only when the user explicitly requests it with `Mutabor` |
+
+Before the first workspace-changing action in a task, confirm the current branch is not `master`. If it is `master`, check out `dev` (or the user-named branch) first — but only when `Mutabor` authorizes the task.
+
+## Workflow
+
+1. `git checkout dev` (or create/checkout a topic branch) before edits.
+2. Commit on `dev` or the topic branch.
+3. Push `dev` (or the topic branch) unless the user names otherwise.
+4. Merge to `master` only on explicit user request (for example release, installer publish).
+
+Build scripts that auto-commit (for example `win-cpp-qt/build.ps1`) still run on whichever branch is checked out. Do not run a build that commits on `master` unless the user explicitly names a release build on `master` in the same `Mutabor` message.

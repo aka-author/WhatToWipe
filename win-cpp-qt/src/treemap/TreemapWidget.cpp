@@ -2,7 +2,6 @@
 #include "ui/MenuLabels.h"
 
 #include "treemap/LabelFit.h"
-#include "scan/ScanTypes.h"
 #include "util/Format.h"
 
 #include <QContextMenuEvent>
@@ -45,9 +44,7 @@ void drawTreemapTileLabel(QPainter& p, const model::BlockLayout& block, const co
     drawLine(heading, lay.nameFont, lay.nameLH);
     if (withDetails) {
         y += lay.gap;
-        drawLine(block.item.sizeIsLowerBound ? util::formatFolderSize(block.item.size, scan::SizeCompleteness::Partial)
-                                             : util::formatObjectSize(block.item.size),
-                 lay.metaFont, lay.metaLH);
+        drawLine(util::formatObjectSize(block.item.size), lay.metaFont, lay.metaLH);
         if (lay.showShare) {
             drawLine(lay.shareText, lay.metaFont, lay.metaLH);
         }
@@ -180,17 +177,9 @@ void TreemapWidget::paintEvent(QPaintEvent* event) {
 
 void TreemapWidget::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    if (m_blocks.empty()) {
-        return;
+    if (!m_blocks.empty()) {
+        emit layoutAreaChanged();
     }
-    const int dpi = widgetDpi(this);
-    const QRect chartRect = rect();
-    m_labels.clear();
-    m_labels.reserve(m_blocks.size());
-    for (const auto& b : m_blocks) {
-        m_labels.push_back(resolveTileLabel(externalTileRect(b, chartRect), m_cfg, dpi));
-    }
-    update();
 }
 
 void TreemapWidget::mouseMoveEvent(QMouseEvent* event) {

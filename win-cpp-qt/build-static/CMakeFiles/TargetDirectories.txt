@@ -1,0 +1,16 @@
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/EraseAndRewrite.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/phase1_tests.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/phase2_tests.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/test.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/edit_cache.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/rebuild_cache.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/list_install_components.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/install.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/install/local.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/install/strip.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/EraseAndRewrite_autogen_timestamp_deps.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/EraseAndRewrite_autogen.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/phase1_tests_autogen_timestamp_deps.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/phase1_tests_autogen.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/phase2_tests_autogen_timestamp_deps.dir
+C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/CMakeFiles/phase2_tests_autogen.dir

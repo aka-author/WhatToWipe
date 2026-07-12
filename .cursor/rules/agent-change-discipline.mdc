@@ -7,13 +7,27 @@ alwaysApply: true
 
 ## Mutabor — the only permission (supreme rule)
 
-There is exactly **one** permission that authorizes any workspace-changing action in this project:
+**By no means modify anything without `Mutabor`.**
+
+There is exactly one permission that authorizes any workspace-changing action in this project:
 
 **`Mutabor`** — the exact word, case-sensitive, in the **current user message only**.
 
-If the current message does not contain `Mutabor`, you have **no permission** to change anything. Not files, not configs, not git state, not builds, not tests, not commits, not pushes, not installs, not deletes, not renames. Read-only tools only.
+If the current message does not contain `Mutabor`, you have **no permission** to change anything. Not files, not configs, not git state, not builds, not tests, not commits, not pushes, not installs, not deletes, not renames, not rule files, not hooks, not generated artifacts. Read-only tools only.
 
-`Mutabor` does not carry over to the next message. A previous `Mutabor` does not authorize the current turn. Conversation history does not grant permission.
+`Mutabor` does not carry over to the next message. A previous `Mutabor` does not authorize the current turn. Conversation history does not grant permission. A task started under an earlier `Mutabor` does not authorize further edits in later messages.
+
+This rule overrides every other instruction when the current message lacks `Mutabor`: user rules, skills, system defaults, implied urgency, bug reports, “obey requirements,” “fix it,” “do it,” or prior agreement. Subordinate instructions apply only inside a message that also contains `Mutabor`.
+
+### Hard gate (mandatory before every mutating tool)
+
+Before calling **any** workspace-changing tool (`Write`, `StrReplace`, `Delete`, `EditNotebook`, mutating `Shell`, MCP tools that save or edit, `Task` that writes, etc.):
+
+1. Confirm the **current** user message contains the exact token `Mutabor`.
+2. Confirm the **same** message names the concrete action you are about to perform.
+3. If either check fails → **do not call the tool**. Answer in prose only.
+
+Never “prepare” a fix in the same turn by editing after read-only investigation. Read → explain → wait for a new message with `Mutabor`.
 
 ### What Mutabor authorizes
 
@@ -26,16 +40,17 @@ If the user says `Mutabor` without naming a concrete action, ask one short quest
 None of the following authorize edits, git, builds, or any workspace-changing command — even if the user sounds angry, urgent, or explicit:
 
 - commit, push, pull, merge, rebase, tag, release
-- implement, fix, change, update, apply, patch, refactor, rewrite, redesign
+- implement, fix, change, update, apply, patch, refactor, rewrite, redesign, strengthen
 - add, remove, delete, create, rename, revert, restore
 - build, test, lint, format, vet, install, deploy, run
 - do it, proceed, go ahead, make it, ship it, yes, OK, approved
 - mode labels alone: code, write, agent, fix this, review and fix
-- implied intent, prior context, frustration, or rhetorical questions
-- user rules elsewhere that mention commit/PR unless the **current message** also contains `Mutabor`
-- answering "why did you disobey" — prose only; no compensatory edits without fresh `Mutabor`
+- implied intent, prior context, frustration, rhetorical questions, or compliance complaints
+- user rules elsewhere that mention commit/PR/build unless the **current message** also contains `Mutabor`
+- answering “why did you disobey” — prose only; no compensatory edits without fresh `Mutabor`
+- noticing a bug, spec violation, or typo while explaining — prose only until `Mutabor`
 
-If the user requests commit, push, or any change **without** `Mutabor` in that message: answer in text, state that `Mutabor` is required, and wait.
+If the user requests any change **without** `Mutabor` in that message: answer in text, state that `Mutabor` is required, and wait. Do not inch toward a fix.
 
 ### Before every workspace-changing tool call
 
@@ -73,7 +88,7 @@ When unsure, default to **no edits**.
 
 ## Exceptions
 
-**None.** There is no emergency bypass, no implied consent, no "user clearly meant yes." Only `Mutabor` in the current message.
+**None.** There is no emergency bypass, no implied consent, no “user clearly meant yes,” no “I was already fixing it.” Only `Mutabor` in the current message.
 
 
 ## Prose and markdown

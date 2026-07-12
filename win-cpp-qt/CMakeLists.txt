@@ -1,11 +1,18 @@
 cmake_minimum_required(VERSION 3.21)
 project(EraseAndRewrite VERSION 1.0.0 LANGUAGES CXX)
 
+option(WTW_STATIC_QT "Link Qt and required plugins statically into EraseAndRewrite.exe" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
+
+if(WTW_STATIC_QT)
+    set(BUILD_SHARED_LIBS OFF)
+    set(QT_USE_STATIC_LIBS ON)
+endif()
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Svg Test)
 
@@ -48,7 +55,7 @@ if(WIN32)
     list(APPEND WTW_SOURCES resources/app.rc)
 endif()
 
-qt_add_executable(EraseAndRewrite ${WTW_SOURCES})
+qt_add_executable(EraseAndRewrite WIN32 ${WTW_SOURCES})
 
 target_include_directories(EraseAndRewrite PRIVATE src)
 
@@ -58,7 +65,24 @@ if(WIN32)
     target_link_libraries(EraseAndRewrite PRIVATE shell32 ole32 version)
 endif()
 
+if(WTW_STATIC_QT)
+    qt_import_plugins(EraseAndRewrite
+        INCLUDE Qt::QWindowsIntegrationPlugin
+        INCLUDE Qt::QSvgPlugin
+        INCLUDE Qt::QICOPlugin
+        INCLUDE Qt::QJpegPlugin
+        INCLUDE Qt::QGifPlugin
+    )
+endif()
+
 if(MINGW)
+  if(WTW_STATIC_QT)
+    target_link_options(EraseAndRewrite PRIVATE
+        -static
+        -static-libgcc
+        -static-libstdc++
+    )
+  else()
     target_link_options(EraseAndRewrite PRIVATE
         -static-libgcc
         -static-libstdc++
@@ -66,6 +90,7 @@ if(MINGW)
         -lwinpthread
         -Wl,-Bdynamic
     )
+  endif()
 endif()
 
 install(TARGETS EraseAndRewrite RUNTIME DESTINATION .)

@@ -1,3 +1,7 @@
+param(
+    [switch]$StaticQt
+)
+
 $ErrorActionPreference = "Stop"
 
 $ModuleRoot = $PSScriptRoot
@@ -6,7 +10,11 @@ $ShitwiperRoot = Split-Path $CodebaseRoot -Parent
 $ToolsRoot = Join-Path $ShitwiperRoot "tools"
 $WinBinRoot = Join-Path $ShitwiperRoot "bin\win"
 $OutDir = Join-Path $WinBinRoot "current"
-$BuildDir = Join-Path $ModuleRoot "build"
+$BuildDir = if ($StaticQt) {
+    Join-Path $ModuleRoot "build-static"
+} else {
+    Join-Path $ModuleRoot "build"
+}
 $VersionInfoPath = Join-Path $ModuleRoot "versioninfo.json"
 $AppRcPath = Join-Path $ModuleRoot "resources\app.rc"
 $Exe = Join-Path $OutDir "EraseAndRewrite.exe"
@@ -186,6 +194,44 @@ function Clear-DirectoryContents {
     }
 }
 
+function Wipe-BinQtDeployArtifacts {
+    param([Parameter(Mandatory = $true)][string]$WinBinRoot)
+    if (-not (Test-Path -LiteralPath $WinBinRoot)) { return }
+
+    $pluginDirs = @(
+        "platforms", "styles", "imageformats", "iconengines", "generic",
+        "networkinformation", "tls", "translations", "bearer"
+    )
+    $dllPatterns = @(
+        "Qt6*.dll", "libstdc++-6.dll", "libgcc_s_seh-1.dll", "libwinpthread-1.dll",
+        "D3Dcompiler_47.dll", "opengl32sw.dll"
+    )
+
+    $removedFiles = 0
+    $removedDirs = 0
+    $folders = @(Get-ChildItem -LiteralPath $WinBinRoot -Directory -Force -ErrorAction SilentlyContinue)
+    foreach ($folder in $folders) {
+        foreach ($dirName in $pluginDirs) {
+            $pluginPath = Join-Path $folder.FullName $dirName
+            if (Test-Path -LiteralPath $pluginPath) {
+                Remove-Item -LiteralPath $pluginPath -Recurse -Force
+                $removedDirs++
+            }
+        }
+        foreach ($pattern in $dllPatterns) {
+            $matches = @(Get-ChildItem -LiteralPath $folder.FullName -Filter $pattern -File -ErrorAction SilentlyContinue)
+            foreach ($file in $matches) {
+                Remove-Item -LiteralPath $file.FullName -Force
+                $removedFiles++
+            }
+        }
+    }
+
+    if ($removedFiles -gt 0 -or $removedDirs -gt 0) {
+        Write-Host "Wiped redundant Qt deploy artifacts under $WinBinRoot ($removedFiles files, $removedDirs plugin dirs)."
+    }
+}
+
 function Relocate-ModuleRootExeArtifacts {
     param(
         [Parameter(Mandatory = $true)][string]$ModuleRoot,
@@ -267,6 +313,28 @@ function Resolve-QtMingwRoot {
     throw "No mingw*_64 toolchain with g++.exe under $toolsDir"
 }
 
+function Strip-MingwStaticExe {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][string]$MingwRoot
+    )
+    $strip = Join-Path $MingwRoot "bin\strip.exe"
+    if (-not (Test-Path -LiteralPath $strip)) {
+        throw "MinGW strip not found: $strip"
+    }
+    $before = (Get-Item -LiteralPath $ExePath).Length
+    & $strip --strip-all $ExePath
+    if ($LASTEXITCODE -ne 0) { throw "strip --strip-all failed for $ExePath" }
+    $after = (Get-Item -LiteralPath $ExePath).Length
+    $saved = $before - $after
+    if ($saved -le 0) {
+        Write-Warning "strip --strip-all did not reduce $ExePath (before=$before after=$after)."
+        return
+    }
+    Write-Host ("Stripped static exe debug overlay: {0:N0} -> {1:N0} bytes (-{2:N0}, -{3:p1})" -f `
+        $before, $after, $saved, ($saved / $before))
+}
+
 $GitRoot = $null
 $walkDir = (Resolve-Path -LiteralPath $ModuleRoot).Path
 while ($walkDir) {
@@ -311,14 +379,17 @@ if ($GitRoot) {
 }
 
 Prepare-CurrentBuildFolder -WinBinRoot $WinBinRoot -CurrentDir $OutDir
+if ($StaticQt) {
+    Wipe-BinQtDeployArtifacts -WinBinRoot $WinBinRoot
+}
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 
 $cmake = Get-Command cmake -ErrorAction SilentlyContinue
 if (-not $cmake) { throw "cmake not found in PATH" }
 
-$qtPrefix = $env:CMAKE_PREFIX_PATH
-if (-not $qtPrefix) {
+$sharedQtPrefix = $env:CMAKE_PREFIX_PATH
+if (-not $sharedQtPrefix) {
     $qtGuess = @(
         "C:\cpp\qt\6.10.3\mingw_64",
         "C:\Qt\6.10.3\mingw_64",
@@ -328,16 +399,43 @@ if (-not $qtPrefix) {
     )
     foreach ($p in $qtGuess) {
         if (Test-Path -LiteralPath $p) {
-            $qtPrefix = $p
+            $sharedQtPrefix = $p
             break
         }
     }
 }
-if (-not $qtPrefix) {
+if (-not $sharedQtPrefix) {
     throw "Qt prefix not found. Set CMAKE_PREFIX_PATH."
 }
-$qtPrefix = (Resolve-Path -LiteralPath $qtPrefix).Path
-$mingwRoot = Resolve-QtMingwRoot -QtPrefix $qtPrefix
+$sharedQtPrefix = (Resolve-Path -LiteralPath $sharedQtPrefix).Path
+
+$qtPrefix = $sharedQtPrefix
+if ($StaticQt) {
+    if ($env:QT_STATIC_PREFIX) {
+        $qtPrefix = $env:QT_STATIC_PREFIX
+    } else {
+        $qtPrefix = Join-Path (Split-Path $sharedQtPrefix -Parent) "mingw_64_static"
+    }
+    if (-not (Test-Path -LiteralPath $qtPrefix)) {
+        $buildQtStatic = Join-Path $ModuleRoot "build-qt-static.ps1"
+        Write-Host "Static Qt prefix missing; building static kit first ..."
+        & $buildQtStatic -SharedQtPrefix $sharedQtPrefix
+        if ($LASTEXITCODE -ne 0) { throw "build-qt-static.ps1 failed" }
+    }
+    $qtPrefix = (Resolve-Path -LiteralPath $qtPrefix).Path
+    $coreTargets = Join-Path $qtPrefix "lib\cmake\Qt6Core\Qt6CoreTargets.cmake"
+    if (-not (Test-Path -LiteralPath $coreTargets)) {
+        throw "Static Qt kit incomplete: $qtPrefix"
+    }
+    $targetsText = Get-Content -LiteralPath $coreTargets -Raw
+    if ($targetsText -notmatch "add_library\(Qt6::Core STATIC IMPORTED\)") {
+        throw "Qt prefix is not a static kit: $qtPrefix"
+    }
+    Write-Host "Static Qt build: $qtPrefix"
+} else {
+    $qtPrefix = $sharedQtPrefix
+}
+$mingwRoot = Resolve-QtMingwRoot -QtPrefix $sharedQtPrefix
 $toolchainFile = Join-Path $ModuleRoot "toolchain-qt-mingw.cmake"
 $compilerMarker = Join-Path $BuildDir ".qt_mingw_compiler"
 if (Test-Path -LiteralPath $compilerMarker) {
@@ -361,8 +459,12 @@ $cmakeArgs = @(
     "-DCMAKE_BUILD_TYPE=Release",
     "-DCMAKE_PREFIX_PATH=$qtPrefix",
     "-DCMAKE_TOOLCHAIN_FILE=$toolchainFile",
-    "-DQT_MINGW_ROOT=$mingwRoot"
+    "-DQT_MINGW_ROOT=$mingwRoot",
+    "-DCMAKE_DISABLE_FIND_PACKAGE_WrapVulkanHeaders=TRUE"
 )
+if ($StaticQt) {
+    $cmakeArgs += "-DWTW_STATIC_QT=ON"
+}
 
 & cmake @cmakeArgs
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
@@ -380,18 +482,28 @@ if (-not (Test-Path -LiteralPath $built)) {
 
 Copy-WithRetry -Source $built -Destination $Exe
 
-$deployScript = Join-Path $ModuleRoot "deploy-standalone.ps1"
-if (-not (Test-Path -LiteralPath $deployScript)) {
-    throw "deploy-standalone.ps1 not found: $deployScript"
+if ($StaticQt) {
+    Strip-MingwStaticExe -ExePath $Exe -MingwRoot $mingwRoot
+    Get-ChildItem -LiteralPath $OutDir -File | Where-Object {
+        $_.Name -ne "EraseAndRewrite.exe"
+    } | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -LiteralPath $OutDir -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+} else {
+    $deployScript = Join-Path $ModuleRoot "deploy-standalone.ps1"
+    if (-not (Test-Path -LiteralPath $deployScript)) {
+        throw "deploy-standalone.ps1 not found: $deployScript"
+    }
+    & $deployScript -TargetDir $OutDir -ExePath $Exe -QtPrefix $qtPrefix -MingwRoot $mingwRoot
+    if ($LASTEXITCODE -ne 0) { throw "standalone Qt deploy failed" }
 }
-& $deployScript -TargetDir $OutDir -ExePath $Exe -QtPrefix $qtPrefix -MingwRoot $mingwRoot
-if ($LASTEXITCODE -ne 0) { throw "standalone Qt deploy failed" }
 
 $testScript = Join-Path $ModuleRoot "test-run.ps1"
 if (-not (Test-Path -LiteralPath $testScript)) {
     throw "test-run.ps1 not found: $testScript"
 }
-& $testScript -BinDir $OutDir
+$testArgs = @{ BinDir = $OutDir }
+if ($StaticQt) { $testArgs.StaticQt = $true }
+& $testScript @testArgs
 if ($LASTEXITCODE -ne 0) { throw "post-build run test failed" }
 
 if ($env:ERASE_REWRITE_SIGNTOOL) {

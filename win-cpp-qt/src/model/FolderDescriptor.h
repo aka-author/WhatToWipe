@@ -58,7 +58,6 @@ struct TreemapItem {
     bool isNode = false;
     bool isEmpty = false;
     bool isExecFile = false;
-    bool sizeIsLowerBound = false;
 };
 
 struct BlockLayout {

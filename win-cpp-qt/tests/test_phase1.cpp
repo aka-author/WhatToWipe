@@ -8,6 +8,7 @@
 #include "scan/ScanWorker.h"
 #include "scan/SubtreeMerge.h"
 #include "treemap/TreemapProjection.h"
+#include "treemap/TreemapLayout.h"
 #include "util/Format.h"
 
 #include "util/CheckedMath.h"
@@ -486,9 +487,46 @@ private slots:
         QVERIFY(items.empty());
     }
 
-    void partial_folder_tile_lower_bound_label() {
-        const QString label = util::formatFolderSize(1024, scan::SizeCompleteness::Partial);
-        QVERIFY(label.startsWith(QStringLiteral("\u2265 ")));
+    void partial_folder_tile_uses_fs_size_format() {
+        const QString label = util::formatObjectSize(static_cast<quint64>(1024));
+        QCOMPARE(label, QStringLiteral("1.0 KB"));
+        QVERIFY(!label.contains(QStringLiteral("\u2265")));
+    }
+
+    void status_path_uses_backslashes_on_windows() {
+#ifdef _WIN32
+        QCOMPARE(util::formatPathForStatusBar(QStringLiteral("C:/Users/test")),
+                 QStringLiteral("C:\\Users\\test"));
+#else
+        QSKIP("Windows-only");
+#endif
+    }
+
+    void squarify_fills_layout_area() {
+        std::vector<model::TreemapItem> items;
+        for (int i = 0; i < 5; ++i) {
+            model::TreemapItem item;
+            item.name = QString::number(i);
+            item.size = static_cast<quint64>(100 + i * 50);
+            items.push_back(item);
+        }
+        const QRect area(0, 0, 400, 300);
+        const auto blocks = treemap::squarify(items, area, 1, 1);
+        QVERIFY(!blocks.empty());
+        int minLeft = area.left();
+        int maxRight = area.left();
+        int minTop = area.top();
+        int maxBottom = area.top();
+        for (const auto& block : blocks) {
+            minLeft = qMin(minLeft, block.rect.left());
+            maxRight = qMax(maxRight, block.rect.right());
+            minTop = qMin(minTop, block.rect.top());
+            maxBottom = qMax(maxBottom, block.rect.bottom());
+        }
+        QCOMPARE(minLeft, area.left());
+        QCOMPARE(maxRight, area.right());
+        QCOMPARE(minTop, area.top());
+        QCOMPARE(maxBottom, area.bottom());
     }
 
     void empty_dir_enumeration() {

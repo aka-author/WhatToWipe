@@ -47,6 +47,7 @@ win-cpp-qt/
   CMakeLists.txt
   toolchain-qt-mingw.cmake
   build.ps1
+  build-qt-static.ps1
   deploy-standalone.ps1
   test-run.ps1
   versioninfo.json
@@ -69,6 +70,8 @@ CMake target and executable name: `EraseAndRewrite` → `EraseAndRewrite.exe`.
 
 Build outputs follow the project rule: `<ProjectRoot>/bin/win/current/`, not inside `codebase/`.
 
+Qt sources and the compiled static Qt kit live **outside** the repository (see §9).
+
 
 ## 4. Subsystems
 
@@ -82,9 +85,9 @@ Logical roles; class names are suggestions.
 - **Command strip** — horizontal `QWidget` + `QHBoxLayout` (not a mixed `QToolBar` that fights FS Total/Free semantics):
   - `QToolButton` — Open, Up, Explore, Update/Stop (icons from `assets/icons` rasterized at 24×24 at 96 DPI, `@2x` for HiDPI).
   - `QLabel` — Total at X: (static text per FS).
-  - `QLabel` + `QPushButton` — Free at X: label and free-space button.
-- **Treemap host** — `TreemapWidget` (stretch).
-- **Status bar** — `QStatusBar`.
+  - `QLabel` + `QPushButton` — Free at X: label and free-space button; refreshed after successful Update scan.
+- **Treemap host** — `TreemapWidget` (`QSizePolicy::Expanding`; relayout on resize via `layoutAreaChanged`).
+- **Status bar** — `QStatusBar`; paths shown with native Windows backslashes.
 
 Menu `QAction`s are the source of truth for shortcuts; `updateChrome()` syncs menu, strip, and treemap enabled state via `app/UpdateChromePolicy` (mirrors `setScanChrome` in `win-go`).
 
@@ -126,10 +129,14 @@ Port field semantics from `win-go/internal/model` and `scan.BuildTreemapItems` a
 
 Pure function: child metrics + pixel rectangle → tile rectangles. Areas follow FS volume-share proportions among siblings. Cache until navigation, data, resize, or DPI change (techspec RS-02, DP-02). Squarified layout (same algorithm family as `win-go/internal/layout/squarify.go`) is the default.
 
+**Full-area fill.** Each recursive squarify split extends the trailing child rectangle to the parent area edge on the split axis. Integer rounding therefore does not leave unfilled bands or margins inside the treemap region. The layout input rectangle is the widget’s full `rect()`; there is no inner inset or clipping margin around the diagram.
+
 ### Treemap view (`TreemapWidget`)
 
 `QWidget` with `paintEvent`:
 
+- `QSizePolicy::Expanding` on both axes so the treemap consumes all space below the command strip.
+- On resize, `resizeEvent` emits `layoutAreaChanged`; `MainWindow` connects this to `rebuildTreemap()` so tile geometry rescales to the new region (techspec DP-02).
 - Fill tiles using FS colors from loaded config.
 - Label fit algorithm (FS priority: form quality → shortening quality → font size quality):
 
@@ -184,7 +191,7 @@ The settings grid uses four shared columns.
 | 2 | Preview — color swatch or empty placeholder |
 | 3 | Picker — color … button or empty placeholder |
 
-Row count: one per user-editable FS treemap parameter (32 rows in the current FS table). Column widths and resize behavior are documented in impl §8.2.
+Row count: one per user-editable FS treemap parameter visible on the host OS (31 rows on Windows — `treemap.win.exeFiles` only; Linux and macOS exe rows omitted). Column widths and resize behavior are documented in impl §8.2.
 
 ### Editor mapping
 
@@ -276,17 +283,90 @@ Large tile counts: label fitting is O(tiles × font sizes). Options:
 
 ---
 
-## 9. Build and release
+## 9. Qt runtime and linking
 
-- **CMake** + **Qt 6.10.3 MinGW 13.1.0** (`toolchain-qt-mingw.cmake`); static-link `libstdc++` into the executable.
-- `build.ps1`: bump version resource, commit snapshot, `cmake --build`, copy `EraseAndRewrite.exe` to `bin/win/current`, run `windeployqt`, append `docs/history/builds.txt` (same discipline as `win-go/build.ps1`).
-- `deploy-standalone.ps1` and `test-run.ps1` verify standalone deployment.
-- `windeployqt` in installer pipeline; Inno Setup script can reuse `installer/Erase & Rewrite.iss` with updated `SourceDir`.
+The Windows delivery links **Qt 6.10.3** with **MinGW 13.1.0** (`toolchain-qt-mingw.cmake`). The shipping build is **static**: Qt libraries, required image-format and platform plugins, and the MinGW C++ runtime are linked into one `EraseAndRewrite.exe`. There is no `windeployqt` step and no `Qt6*.dll` beside the program.
+
+### Two Qt installations on the build machine
+
+| Path (typical) | Role |
+|----------------|------|
+| `C:\cpp\qt\6.10.3\mingw_64` | Shared Qt kit from the Qt installer; import libraries + DLLs. Used only as the reference for toolchain discovery and as the starting point when building the static kit. |
+| `C:\cpp\qt\6.10.3\mingw_64_static` | Static Qt kit produced locally. CMake `CMAKE_PREFIX_PATH` for shipping builds. `Qt6::Core` is `STATIC IMPORTED`. |
+| `C:\cpp\qt-src\6.10.3\Src\` | Qt **source** trees (`qtbase`, `qtsvg`) downloaded by `build-qt-static.ps1`. Not in the Git repository. |
+
+The repository contains build scripts only. Qt source archives are fetched on demand via `aqt install-src` when the static prefix is missing.
+
+### Building the static Qt kit (`build-qt-static.ps1`)
+
+One-time (or after Qt version bump):
+
+1. Download `qtbase` and `qtsvg` source for 6.10.3 into `SourceRoot` (default `C:\cpp\qt-src`).
+2. Configure and build **static** `qtbase` with CMake/Ninja (`BUILD_SHARED_LIBS=OFF`, bundled zlib/PNG/JPEG/HarfBuzz/Freetype).
+3. Build and install **static** `qtsvg` against that prefix.
+4. Install to `mingw_64_static` beside the shared kit.
+
+The script verifies the result by checking `Qt6CoreTargets.cmake` for `STATIC IMPORTED`. Expect a long first run (on the order of one hour).
+
+### Application link model (`CMakeLists.txt`)
+
+CMake option `WTW_STATIC_QT` (ON for shipping):
+
+- Sets `QT_USE_STATIC_LIBS` before `find_package(Qt6)`.
+- Links `Qt6::Widgets` and `Qt6::Svg`.
+- Calls `qt_import_plugins` so plugin code is embedded rather than loaded from `platforms/` or `imageformats/` at runtime:
+  - `QWindowsIntegrationPlugin` (Windows platform)
+  - `QSvgPlugin`, `QICOPlugin`, `QJpegPlugin`, `QGifPlugin` (toolbar SVGs, `app.ico`, about PNG)
+- MinGW link flags: `-static -static-libgcc -static-libstdc++` so the executable does not import `libstdc++-6.dll` or `libgcc_s_seh-1.dll`.
+- `WIN32` subsystem on `qt_add_executable` (techspec PL-07): no console window on launch.
+
+Dynamic linking remains available for development (`WTW_STATIC_QT=OFF`): same CMake project, shared prefix, `deploy-standalone.ps1` + `windeployqt`, and `build/` instead of `build-static/`.
+
+### Shipping executable size and debug overlay stripping
+
+A static Qt Widgets link naturally produces a large PE image (~29 MB of code and read-only data: Qt Widgets → Gui → Core, platform plugin, HarfBuzz/FreeType, embedded plugins, and the application). That size is expected for a monolithic Qt6 GUI binary even when the program uses only a subset of Qt APIs.
+
+MinGW static linking has a second, **avoidable** cost: the linker can append a **debug overlay** (~20 MB) after the last PE section. The overlay is DWARF debug data pulled from static `.a` archives; it is not required to run the program and is not visible as normal PE sections in the loaded image. Observed sizes on this line:
+
+| Stage | Typical size | Notes |
+|-------|--------------|--------|
+| Link output (`build-static/EraseAndRewrite.exe`) | ~47 MB | PE image ~29 MB + debug overlay ~20 MB |
+| After `strip --strip-all` (shipping) | ~28 MB | Overlay removed; `.text` / `.rdata` unchanged |
+
+**Shipping policy:** `build.ps1 -StaticQt` calls `Strip-MingwStaticExe` immediately after copying the exe to `bin/win/current/`. The step runs the MinGW `strip.exe` from the same toolchain as the link (`QT_MINGW_ROOT`) with **`--strip-all`**, which removes the out-of-image debug tail.
+
+**WR-03 compatibility:** techspec WR-03 forbids stripping that removes standard PE metadata. This step targets the MinGW debug overlay only. The `.rsrc` section (Windows `VERSIONINFO`, icon) and normal executable metadata remain. `test-run.ps1 -StaticQt` smoke-launches the stripped binary after every build.
+
+**Not used:** `strip --strip-debug` alone — it removes only in-section debug tables (~100 KB) and leaves the large overlay intact.
+
+Further size reduction (optional, not part of shipping today): Qt feature pruning when building `mingw_64_static`, link-time optimization (LTO), dropping unused image plugins, or rasterizing toolbar SVGs to remove `Qt6::Svg`. Those are separate from the overlay strip.
+
+### Runtime dependencies after static link
+
+The process still loads Windows system DLLs (`KERNEL32`, `USER32`, `GDI32`, `SHELL32`, `dwmapi`, etc.). It does **not** load `Qt6Core.dll`, `Qt6Gui.dll`, `Qt6Widgets.dll`, `Qt6Svg.dll`, or plugin DLLs from a deploy folder.
+
+### Resources compiled into the binary
+
+- Toolbar icons: SVG files in `toolbar.qrc` (rendered through the linked SVG plugin).
+- Window icon and about art: `app.qrc` (`app.ico`, `about-bunny.png`).
+- Windows `VERSIONINFO`: `resources/app.rc` from `versioninfo.json`.
+
+No Qt QML, no WebEngine, no separate translation deploy.
+
+
+## 10. Build and release
+
+- **Shipping command:** `build.ps1 -StaticQt` on branch `dev`.
+- **CMake** + **Qt 6.10.3 MinGW 13.1.0**; build directory `build-static/` when `-StaticQt`.
+- `build.ps1` flow: bump version resource, commit snapshot, archive prior `bin/win/current` via `.date` marker, optionally **wipe legacy Qt deploy artifacts** (DLLs and plugin folders) from all `bin/win/*` folders, configure with `-DWTW_STATIC_QT=ON`, build, copy **only** `EraseAndRewrite.exe` to `bin/win/current`, **`strip --strip-all`** (~47 MB link output → ~28 MB shipping exe), write `versioninfo.json` / `build-meta.json` / `.date`, append `docs/history/builds.txt`, run `test-run.ps1 -StaticQt`.
+- `test-run.ps1` (static): requires the exe only; `objdump` checks that neither MinGW runtime DLLs nor `Qt6*.dll` appear in the import table; smoke-launches the window.
+- **Dynamic fallback:** `build.ps1` without `-StaticQt` still runs `deploy-standalone.ps1` / `windeployqt` into `bin/win/current`.
 - Icon pipeline: `win-go/tools/genicons` for `app.ico`; toolbar SVGs from `codebase/assets/icons` via `toolbar.qrc`.
+- Installer: Inno Setup reads `bin/win/current`; static builds ship a single large exe plus sidecar metadata files.
 
 ---
 
-## 10. Testing hints
+## 11. Testing hints
 
 | Area | Approach |
 |------|----------|
@@ -300,7 +380,7 @@ Large tile counts: label fitting is O(tiles × font sizes). Options:
 Priority test: **settings grid manual pass** before declaring Go target retired.
 
 
-## 11. Relationship to Go implementation
+## 12. Relationship to Go implementation
 
 | Go module (`win-go/`) | Qt port source |
 |-----------------------|----------------|
@@ -315,7 +395,7 @@ Priority test: **settings grid manual pass** before declaring Go target retired.
 Behavioral parity is the goal; line-by-line port is not required.
 
 
-## 12. Non-goals
+## 13. Non-goals
 
 - Linux or macOS Qt builds (FS allows parameters for other OSes; this arch is Windows-only).
 - Embedding web views for settings or treemap.

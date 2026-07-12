@@ -1,5 +1,6 @@
 param(
-    [string]$BinDir = ""
+    [string]$BinDir = "",
+    [switch]$StaticQt
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,16 +17,25 @@ if (-not (Test-Path -LiteralPath $exe)) {
     throw "Missing executable: $exe"
 }
 
-$required = @(
-    "EraseAndRewrite.exe",
-    "Qt6Core.dll",
-    "Qt6Gui.dll",
-    "Qt6Widgets.dll",
-    "libstdc++-6.dll",
-    "libgcc_s_seh-1.dll",
-    "libwinpthread-1.dll",
-    (Join-Path "platforms" "qwindows.dll")
-)
+if (-not $StaticQt) {
+    $qtDll = Join-Path $BinDir "Qt6Core.dll"
+    if (-not (Test-Path -LiteralPath $qtDll)) {
+        $StaticQt = $true
+    }
+}
+
+$required = @("EraseAndRewrite.exe")
+if (-not $StaticQt) {
+    $required += @(
+        "Qt6Core.dll",
+        "Qt6Gui.dll",
+        "Qt6Widgets.dll",
+        "libstdc++-6.dll",
+        "libgcc_s_seh-1.dll",
+        "libwinpthread-1.dll",
+        (Join-Path "platforms" "qwindows.dll")
+    )
+}
 foreach ($rel in $required) {
     $full = Join-Path $BinDir $rel
     if (-not (Test-Path -LiteralPath $full)) {
@@ -52,6 +62,14 @@ if ($objdump) {
     foreach ($b in $bad) {
         if ($importLines | Where-Object { $_.Line -like "*$b*" }) {
             throw "Executable still imports $b; static runtime link failed."
+        }
+    }
+    if ($StaticQt) {
+        $qtDlls = @("Qt6Core.dll", "Qt6Gui.dll", "Qt6Widgets.dll", "Qt6Svg.dll")
+        foreach ($q in $qtDlls) {
+            if ($importLines | Where-Object { $_.Line -like "*$q*" }) {
+                throw "Static build still imports $q."
+            }
         }
     }
 }

@@ -18,7 +18,6 @@ struct Candidate {
     bool isNode = false;
     bool isEmpty = false;
     bool isExecFile = false;
-    bool sizeIsLowerBound = false;
     double share = 0.0;
     bool clump = false;
     model::PackingType packing = model::PackingType::Native;
@@ -98,7 +97,6 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
             !child.children.empty(),
             child.children.empty() && child.files.empty(),
             false,
-            child.sizeCompleteness == scan::SizeCompleteness::Partial,
             child.volumeShare,
             false,
             model::PackingType::Native,
@@ -121,7 +119,6 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
             false,
             false,
             isExecutablePath(file.fullPath, cfg),
-            false,
             share,
             false,
             file.packing,
@@ -192,7 +189,6 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
             false,
             false,
             false,
-            false,
             clShare,
             true,
             model::PackingType::Native,
@@ -211,7 +207,6 @@ std::vector<model::TreemapItem> buildTreemapItems(const model::FolderDescriptor*
         item.isNode = candidate.isNode;
         item.isEmpty = candidate.isEmpty;
         item.isExecFile = candidate.isExecFile;
-        item.sizeIsLowerBound = candidate.sizeIsLowerBound;
 
         if (candidate.clump) {
             item.kind = model::TreemapItemKind::Clump;

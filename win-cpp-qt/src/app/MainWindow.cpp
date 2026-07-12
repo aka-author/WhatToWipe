@@ -21,6 +21,7 @@
 #include "ui/ToolbarIcons.h"
 #include "util/Format.h"
 
+#include <QSizePolicy>
 #include <QAction>
 #include <QDateTime>
 #include <QFileDialog>
@@ -149,9 +150,11 @@ void MainWindow::buildUi() {
     stripLayout->addStretch();
 
     m_treemap = new treemap::TreemapWidget(central);
+    m_treemap->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     connect(m_treemap, &treemap::TreemapWidget::diveRequested, this, &MainWindow::onDive);
     connect(m_treemap, &treemap::TreemapWidget::exploreRequested, this, &MainWindow::onExploreTile);
     connect(m_treemap, &treemap::TreemapWidget::openFileRequested, this, &MainWindow::onOpenFile);
+    connect(m_treemap, &treemap::TreemapWidget::layoutAreaChanged, this, &MainWindow::rebuildTreemap);
 
     layout->addWidget(strip);
     layout->addWidget(m_treemap, 1);
@@ -191,7 +194,8 @@ QString MainWindow::statusForContext() const {
     if (!m_session.treemapComplete) {
         return QStringLiteral("Choose a target folder");
     }
-    return m_session.contextPath.isEmpty() ? m_session.targetPath : m_session.contextPath;
+    const QString path = m_session.contextPath.isEmpty() ? m_session.targetPath : m_session.contextPath;
+    return util::formatPathForStatusBar(path);
 }
 
 void MainWindow::refreshVolumeToolbar() {
@@ -536,6 +540,9 @@ void MainWindow::onScanFinished(scan::ScanResult result) {
             break;
         case ScanFinishUiAction::StatusForContext:
             setStatusText(statusForContext());
+            break;
+        case ScanFinishUiAction::RefreshVolumeIndicators:
+            refreshVolumeToolbar();
             break;
         }
     }

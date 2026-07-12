@@ -309,6 +309,7 @@ All of the following conditions are met:
    If the scanning has finished successfully:
 
    - Update the treemap data.
+   - Update the volume indicators.
    - Display the treemap for the context folder as complete.
    - Recognize the result as positive.
 
@@ -958,6 +959,8 @@ The static label must be *Free at X:*. The *X* stands for the current volume let
 
 The button must display the volume free space. When the user clicks on the button the volume free space updates.
 
+When *Updating the Context Folder* finishes with a positive result, the program must refresh both volume indicators (**Total** and **Free**) from the current volume. The displayed total capacity and free space must reflect the volume state at the end of the update, not values left over from an earlier scan or folder open.
+
 
 ### Treemap
 
@@ -1181,7 +1184,13 @@ The tooltip must provide the following data on the file system object:
 
 ##### Treemap Size
 
-The treemap fills the client area and rescales when the main window is resized.
+The treemap must occupy the full area allocated to it in the main window: the region below the toolbar and above the status bar, edge to edge.
+
+The treemap must cover that entire region. White margins, unused border bands, letterboxing, or pillarboxing around the diagram are strictly forbidden.
+
+Clipping the treemap is strictly forbidden. Every tile must be drawn wholly inside the treemap region, and the union of all tile external rectangles must exactly fill the treemap region with no gaps and no overflow past its edges.
+
+When the main window is resized, the treemap must rescale to the new treemap region immediately. Tile layout must be recomputed from the new width and height; retaining a previous pixel layout after resize is not allowed.
 
 
 ### Status Bar
@@ -1191,6 +1200,10 @@ Basically, the status bar is used to display the current status.
 When the treemap is unset and the program is not scanning, the phrase *Choose a target folder* must be displayed.
 
 When the treemap is complete, the path to the context folder must be displayed.
+
+#### Windows
+
+Paths displayed in the status bar must use the normal Windows path form. The separator must be backslash (`\`), not forward slash (`/`). A shortened path must keep backslashes (for example `C:\...\Projects\data`, not `C:/.../Projects/data`). This rule applies to the context-folder path when the treemap is complete and to the currently scanned folder path during scanning.
 
 
 ### System Open Dialog Box
@@ -1313,7 +1326,9 @@ The settings form must not be implemented as a vertical stack of separate row pa
 
 All rows must belong to one shared grid layout so that the parameter-name column and the value column (and, for color rows, the swatch and picker columns) have identical column boundaries and widths across the whole form.
 
-The grid must contain one row per configurable treemap parameter from Treemap Configuration Parameters.
+The grid must contain one row per configurable treemap parameter from Treemap Configuration Parameters that applies on the host operating system.
+
+Host-OS-specific executable-extension parameters must appear in the settings grid only on the matching host operating system. Rows for other operating systems are redundant and must not be shown. On Windows, the grid must include `treemap.win.exeFiles` only; `treemap.linux.exeFiles` and `treemap.macos.exeFiles` must not appear.
 
 Each row must include:
 
@@ -1365,6 +1380,7 @@ Definition of done (strict acceptance checklist):
 - `treemap.tileFontName` is editable and supports both list selection and manual input.
 - Validation blocks apply/ok when invalid and shows a clear error.
 - Full settings save is atomic (all valid or none applied).
+- On Windows, executable-extension rows list only `treemap.win.exeFiles`; Linux and macOS executable-extension rows are absent.
 
 Automatic rejection criteria:
 
@@ -1469,6 +1485,8 @@ A *color* defines the red, green, and blue channels for on-screen drawing. In co
 ### Treemap Configuration Parameters
 
 Color, Percentage, and TSize are defined in Special Data Types.
+
+The parameters `treemap.win.exeFiles`, `treemap.linux.exeFiles`, and `treemap.macos.exeFiles` are host-OS-specific. Only the parameter for the host operating system may appear in the settings grid (see Settings Form).
 
 | Name | Description | Type | Constraints | Default | User |
 |------|-------------|------|-------------|---------|------|
