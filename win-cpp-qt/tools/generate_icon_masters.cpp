@@ -30,14 +30,14 @@ struct LayerSpec {
 };
 
 static const LayerSpec kLayers[] = {
-    {16, 15},
+    {16, 16},
     {20, 18},
     {24, 22},
-    {32, 28},
+    {32, 30},
     {40, 36},
-    {48, 42},
-    {64, 56},
-    {256, 240},
+    {48, 44},
+    {64, 58},
+    {256, 248},
 };
 
 static std::vector<unsigned char> readFile(const std::string& path) {
@@ -119,31 +119,38 @@ static void sampleBackground(const Image& img, unsigned char bg[3]) {
     bg[2] = static_cast<unsigned char>(b / count);
 }
 
+static bool isMascotPixel(const unsigned char* px) {
+    if (px[3] < 128) {
+        return false;
+    }
+    const int r = static_cast<int>(px[0]);
+    const int g = static_cast<int>(px[1]);
+    const int b = static_cast<int>(px[2]);
+    const int lum = (r + g + b) / 3;
+    if (lum > 205) {
+        return true;
+    }
+    if (r > 165 && g > 120 && b < 150) {
+        return true;
+    }
+    if (r > 90 && r < 190 && g > 60 && g < 150 && b < 110) {
+        return true;
+    }
+    return false;
+}
+
 static bool isPurpleBackground(const unsigned char* px, const unsigned char bg[3]) {
+    if (px[3] < 128) {
+        return false;
+    }
     const int dr = static_cast<int>(px[0]) - static_cast<int>(bg[0]);
     const int dg = static_cast<int>(px[1]) - static_cast<int>(bg[1]);
     const int db = static_cast<int>(px[2]) - static_cast<int>(bg[2]);
-    return std::abs(dr) + std::abs(dg) + std::abs(db) < 56;
+    return std::abs(dr) + std::abs(dg) + std::abs(db) < 72;
 }
 
-static bool isForegroundPixel(const unsigned char* px, const unsigned char bg[3]) {
-    if (px[3] < 32) {
-        return false;
-    }
-    if (isPurpleBackground(px, bg)) {
-        return false;
-    }
-    const int lum = (static_cast<int>(px[0]) + static_cast<int>(px[1]) + static_cast<int>(px[2])) / 3;
-    if (lum > 180) {
-        return true;
-    }
-    if (px[0] > 120 && px[1] > 90) {
-        return true;
-    }
-    return lum > 60;
-}
-
-static bool findForegroundBounds(const Image& img, const unsigned char bg[3], int* x0, int* y0, int* x1, int* y1) {
+static bool findPurpleTileBounds(
+    const Image& img, const unsigned char bg[3], int* x0, int* y0, int* x1, int* y1) {
     int minX = img.w;
     int minY = img.h;
     int maxX = -1;
@@ -151,7 +158,35 @@ static bool findForegroundBounds(const Image& img, const unsigned char bg[3], in
     for (int y = 0; y < img.h; ++y) {
         for (int x = 0; x < img.w; ++x) {
             const unsigned char* px = &img.rgba[(y * img.w + x) * 4];
-            if (!isForegroundPixel(px, bg)) {
+            if (!isPurpleBackground(px, bg)) {
+                continue;
+            }
+            minX = std::min(minX, x);
+            minY = std::min(minY, y);
+            maxX = std::max(maxX, x);
+            maxY = std::max(maxY, y);
+        }
+    }
+    if (maxX < minX) {
+        return false;
+    }
+    *x0 = minX;
+    *y0 = minY;
+    *x1 = maxX;
+    *y1 = maxY;
+    return true;
+}
+
+static bool findMascotBoundsInRegion(
+    const Image& img, int rx0, int ry0, int rx1, int ry1, int* x0, int* y0, int* x1, int* y1) {
+    int minX = img.w;
+    int minY = img.h;
+    int maxX = -1;
+    int maxY = -1;
+    for (int y = ry0; y <= ry1; ++y) {
+        for (int x = rx0; x <= rx1; ++x) {
+            const unsigned char* px = &img.rgba[(y * img.w + x) * 4];
+            if (!isMascotPixel(px)) {
                 continue;
             }
             minX = std::min(minX, x);
@@ -301,12 +336,14 @@ int main(int argc, char** argv) {
     unsigned char bg[3] = {};
     sampleBackground(source, bg);
 
-    int x0 = 0;
-    int y0 = 0;
-    int x1 = source.w - 1;
-    int y1 = source.h - 1;
-    if (!findForegroundBounds(source, bg, &x0, &y0, &x1, &y1)) {
-        std::fprintf(stderr, "no foreground content detected in %s\n", sourcePath.c_str());
+    const int insetX = source.w * 14 / 100;
+    const int insetY = source.h * 14 / 100;
+    int x0 = insetX;
+    int y0 = insetY;
+    int x1 = source.w - 1 - insetX;
+    int y1 = source.h - 1 - insetY;
+    if (x1 <= x0 || y1 <= y0) {
+        std::fprintf(stderr, "invalid center crop for %s\n", sourcePath.c_str());
         return 1;
     }
 
@@ -319,7 +356,7 @@ int main(int argc, char** argv) {
 
     const Image foreground = extractCrop(source, x0, y0, x1, y1);
     std::fprintf(stderr,
-                 "foreground crop %dx%d from %dx%d source (bg %d,%d,%d)\n",
+                 "mascot crop %dx%d from %dx%d source (bg %d,%d,%d)\n",
                  foreground.w,
                  foreground.h,
                  source.w,
