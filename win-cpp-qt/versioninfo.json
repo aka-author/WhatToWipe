@@ -4,13 +4,13 @@
                                               "Major":  1,
                                               "Minor":  0,
                                               "Patch":  0,
-                                              "Build":  43
+                                              "Build":  44
                                           },
                           "ProductVersion":  {
                                                  "Major":  1,
                                                  "Minor":  0,
                                                  "Patch":  0,
-                                                 "Build":  43
+                                                 "Build":  44
                                              },
                           "FileFlagsMask":  "3f",
                           "FileFlags":  "00",
@@ -22,11 +22,11 @@
                            "Comments":  "Disk usage treemap (Erase \u0026 Rewrite functional spec)",
                            "CompanyName":  "Erase \u0026 Rewrite",
                            "FileDescription":  "Erase \u0026 Rewrite folder size treemap",
-                           "FileVersion":  "1.0.0.002B",
+                           "FileVersion":  "1.0.0.002C",
                            "InternalName":  "eraserewrite",
                            "LegalCopyright":  "See repository license",
                            "OriginalFilename":  "EraseAndRewrite.exe",
                            "ProductName":  "Erase \u0026 Rewrite",
-                           "ProductVersion":  "1.0.0.002B"
+                           "ProductVersion":  "1.0.0.002C"
                        }
 }

@@ -269,24 +269,74 @@ static Image resizeMultiStep(const Image& src, int dstW, int dstH) {
     return resizeBox(current, dstW, dstH);
 }
 
-static Image makeSolidCanvas(int size, const unsigned char bg[3]) {
+static float roundedRectCoverage(float px, float py, float size, float radius) {
+    const float cx = px - size * 0.5f;
+    const float cy = py - size * 0.5f;
+    const float hx = size * 0.5f - radius;
+    const float hy = size * 0.5f - radius;
+    const float ax = std::fabs(cx) - hx;
+    const float ay = std::fabs(cy) - hy;
+    const float outsideX = std::max(ax, 0.0f);
+    const float outsideY = std::max(ay, 0.0f);
+    const float outside = std::sqrt(outsideX * outsideX + outsideY * outsideY);
+    const float dist = outside - radius;
+    if (dist > 0.5f) {
+        return 0.0f;
+    }
+    if (dist < -0.5f) {
+        return 1.0f;
+    }
+    return 0.5f - dist;
+}
+
+static int cornerRadiusForSize(int size) {
+    // Match the rounded purple tile in broombunny.png (~45px radius at 256px).
+    return std::max(2, (size * 45 + 128) / 256);
+}
+
+static void applyRoundedTileMask(Image* img) {
+    const int size = img->w;
+    const float radius = static_cast<float>(cornerRadiusForSize(size));
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            const float coverage = roundedRectCoverage(
+                static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f,
+                static_cast<float>(size), radius);
+            const int idx = (y * size + x) * 4;
+            img->rgba[idx + 3] = static_cast<unsigned char>(
+                img->rgba[idx + 3] * coverage + 0.5f);
+        }
+    }
+}
+
+static Image makeTransparentCanvas(int size) {
     Image canvas;
     canvas.w = size;
     canvas.h = size;
-    canvas.rgba.assign(static_cast<size_t>(size * size * 4), 255);
-    for (int y = 0; y < size; ++y) {
-        for (int x = 0; x < size; ++x) {
-            const int idx = (y * size + x) * 4;
-            canvas.rgba[idx + 0] = bg[0];
-            canvas.rgba[idx + 1] = bg[1];
-            canvas.rgba[idx + 2] = bg[2];
-            canvas.rgba[idx + 3] = 255;
-        }
-    }
+    canvas.rgba.assign(static_cast<size_t>(size * size * 4), 0);
     return canvas;
 }
 
-static void blitOpaque(Image* dst, const Image& src, int ox, int oy) {
+static void fillRoundedTile(Image* canvas, const unsigned char bg[3], int radius) {
+    const int size = canvas->w;
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            const float coverage = roundedRectCoverage(
+                static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f,
+                static_cast<float>(size), static_cast<float>(radius));
+            if (coverage <= 0.0f) {
+                continue;
+            }
+            const int idx = (y * size + x) * 4;
+            canvas->rgba[idx + 0] = bg[0];
+            canvas->rgba[idx + 1] = bg[1];
+            canvas->rgba[idx + 2] = bg[2];
+            canvas->rgba[idx + 3] = static_cast<unsigned char>(coverage * 255.0f + 0.5f);
+        }
+    }
+}
+
+static void blitOver(Image* dst, const Image& src, int ox, int oy) {
     for (int y = 0; y < src.h; ++y) {
         const int dy = oy + y;
         if (dy < 0 || dy >= dst->h) {
@@ -298,14 +348,24 @@ static void blitOpaque(Image* dst, const Image& src, int ox, int oy) {
                 continue;
             }
             const int srcIdx = (y * src.w + x) * 4;
-            if (src.rgba[srcIdx + 3] < 16) {
+            const float srcA = src.rgba[srcIdx + 3] / 255.0f;
+            if (srcA <= 0.0f) {
                 continue;
             }
             const int dstIdx = (dy * dst->w + dx) * 4;
-            dst->rgba[dstIdx + 0] = src.rgba[srcIdx + 0];
-            dst->rgba[dstIdx + 1] = src.rgba[srcIdx + 1];
-            dst->rgba[dstIdx + 2] = src.rgba[srcIdx + 2];
-            dst->rgba[dstIdx + 3] = 255;
+            const float dstA = dst->rgba[dstIdx + 3] / 255.0f;
+            const float outA = srcA + dstA * (1.0f - srcA);
+            if (outA <= 0.0f) {
+                dst->rgba[dstIdx + 3] = 0;
+                continue;
+            }
+            for (int c = 0; c < 3; ++c) {
+                const float srcC = src.rgba[srcIdx + c] / 255.0f;
+                const float dstC = dst->rgba[dstIdx + c] / 255.0f;
+                const float outC = (srcC * srcA + dstC * dstA * (1.0f - srcA)) / outA;
+                dst->rgba[dstIdx + c] = static_cast<unsigned char>(outC * 255.0f + 0.5f);
+            }
+            dst->rgba[dstIdx + 3] = static_cast<unsigned char>(outA * 255.0f + 0.5f);
         }
     }
 }
@@ -316,10 +376,13 @@ static Image composeLayer(const Image& foregroundCrop, int size, int fillPx, con
     const int nw = std::max(1, static_cast<int>(foregroundCrop.w * scale + 0.5f));
     const int nh = std::max(1, static_cast<int>(foregroundCrop.h * scale + 0.5f));
     Image scaled = resizeMultiStep(foregroundCrop, nw, nh);
-    Image canvas = makeSolidCanvas(size, bg);
+
+    Image canvas = makeTransparentCanvas(size);
+    fillRoundedTile(&canvas, bg, cornerRadiusForSize(size));
     const int ox = (size - nw) / 2;
     const int oy = (size - nh) / 2;
-    blitOpaque(&canvas, scaled, ox, oy);
+    blitOver(&canvas, scaled, ox, oy);
+    applyRoundedTileMask(&canvas);
     return canvas;
 }
 
@@ -366,7 +429,13 @@ int main(int argc, char** argv) {
                  bg[2]);
 
     for (const LayerSpec& layer : kLayers) {
-        Image composed = composeLayer(foreground, layer.size, layer.fillPx, bg);
+        Image composed;
+        if (layer.size >= 256) {
+            composed = resizeMultiStep(source, layer.size, layer.size);
+            applyRoundedTileMask(&composed);
+        } else {
+            composed = composeLayer(foreground, layer.size, layer.fillPx, bg);
+        }
         char name[64];
         std::snprintf(name, sizeof(name), "broombunny-%d.png", layer.size);
         const std::string path = outDir + "/" + name;
