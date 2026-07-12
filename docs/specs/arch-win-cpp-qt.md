@@ -339,7 +339,7 @@ No Qt QML, no WebEngine, no separate translation deploy.
 
 - **Shipping command:** `build.ps1 -StaticQt` on branch `dev`.
 - **CMake** + **Qt 6.10.3 MinGW 13.1.0**; build directory `build-static/` when `-StaticQt`.
-- `build.ps1` flow: bump version resource, commit snapshot, archive prior `bin/win/current` via `.date` marker, optionally **wipe legacy Qt deploy artifacts** (DLLs and plugin folders) from all `bin/win/*` folders, configure with `-DWTW_STATIC_QT=ON`, build, copy **only** `EraseAndRewrite.exe` to `bin/win/current`, write `versioninfo.json` / `build-meta.json` / `.date`, append `docs/history/builds.txt`, run `test-run.ps1 -StaticQt`.
+- `build.ps1` flow: bump version resource, commit snapshot, archive prior `bin/win/current` via `.date` marker, optionally **wipe legacy Qt deploy artifacts** (DLLs and plugin folders) from all `bin/win/*` folders, configure with `-DWTW_STATIC_QT=ON`, build, copy **only** `EraseAndRewrite.exe` to `bin/win/current`, **`strip --strip-all`** (~47 MB link output → ~28 MB shipping exe), write `versioninfo.json` / `build-meta.json` / `.date`, append `docs/history/builds.txt`, run `test-run.ps1 -StaticQt`.
 - `test-run.ps1` (static): requires the exe only; `objdump` checks that neither MinGW runtime DLLs nor `Qt6*.dll` appear in the import table; smoke-launches the window.
 - **Dynamic fallback:** `build.ps1` without `-StaticQt` still runs `deploy-standalone.ps1` / `windeployqt` into `bin/win/current`.
 - Icon pipeline: `win-go/tools/genicons` for `app.ico`; toolbar SVGs from `codebase/assets/icons` via `toolbar.qrc`.

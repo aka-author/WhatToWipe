@@ -313,6 +313,28 @@ function Resolve-QtMingwRoot {
     throw "No mingw*_64 toolchain with g++.exe under $toolsDir"
 }
 
+function Strip-MingwStaticExe {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][string]$MingwRoot
+    )
+    $strip = Join-Path $MingwRoot "bin\strip.exe"
+    if (-not (Test-Path -LiteralPath $strip)) {
+        throw "MinGW strip not found: $strip"
+    }
+    $before = (Get-Item -LiteralPath $ExePath).Length
+    & $strip --strip-all $ExePath
+    if ($LASTEXITCODE -ne 0) { throw "strip --strip-all failed for $ExePath" }
+    $after = (Get-Item -LiteralPath $ExePath).Length
+    $saved = $before - $after
+    if ($saved -le 0) {
+        Write-Warning "strip --strip-all did not reduce $ExePath (before=$before after=$after)."
+        return
+    }
+    Write-Host ("Stripped static exe debug overlay: {0:N0} -> {1:N0} bytes (-{2:N0}, -{3:p1})" -f `
+        $before, $after, $saved, ($saved / $before))
+}
+
 $GitRoot = $null
 $walkDir = (Resolve-Path -LiteralPath $ModuleRoot).Path
 while ($walkDir) {
@@ -461,6 +483,7 @@ if (-not (Test-Path -LiteralPath $built)) {
 Copy-WithRetry -Source $built -Destination $Exe
 
 if ($StaticQt) {
+    Strip-MingwStaticExe -ExePath $Exe -MingwRoot $mingwRoot
     Get-ChildItem -LiteralPath $OutDir -File | Where-Object {
         $_.Name -ne "EraseAndRewrite.exe"
     } | Remove-Item -Force -ErrorAction SilentlyContinue

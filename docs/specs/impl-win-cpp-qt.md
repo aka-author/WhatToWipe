@@ -61,7 +61,7 @@ The module ships one Windows GUI program. Its technical parameters are listed be
 
 | Parameter | Value |
 |-----------|-------|
-| Executable | `EraseAndRewrite.exe` (~47 MB static build) |
+| Executable | `EraseAndRewrite.exe` (~28 MB static build after MinGW strip; ~47 MB unstripped link output) |
 | Deploy folder | `<ProjectRoot>/bin/win/current/` — exe plus `versioninfo.json`, `build-meta.json`, `.date` marker only (no Qt DLLs or plugin folders) |
 | Product name (UI, PE strings) | Erase & Rewrite |
 | Config path (new installs) | `%LocalAppData%\Erase & Rewrite\Erase & Rewrite.config.txt` |
@@ -479,7 +479,7 @@ The script mirrors `win-go/build.ps1` discipline:
 4. **`Wipe-BinQtDeployArtifacts`** — remove obsolete `Qt6*.dll`, MinGW runtime DLLs, and plugin directories (`platforms/`, `styles/`, `imageformats/`, etc.) from every folder under `bin/win/`, including archived builds. Keeps exe and metadata files.
 5. Resolve static Qt prefix (`mingw_64_static` beside shared kit). If missing, invoke `build-qt-static.ps1`.
 6. CMake configure/build `EraseAndRewrite` into `build-static/`.
-7. Copy exe to `bin/win/current/`. Strip any non-exe files from `current` (static mode).
+7. Copy exe to `bin/win/current/`; **`strip --strip-all`** removes ~20 MB MinGW debug overlay (WR-03: PE `VERSIONINFO` / `.rsrc` preserved). Strip any non-exe files from `current` (static mode).
 8. `test-run.ps1 -StaticQt` — smoke launch; `objdump` verifies no `Qt6*.dll` or `libstdc++-6.dll` imports.
 9. Write `versioninfo.json`, `build-meta.json`, `.date` marker; append `docs/history/builds.txt`; second git commit for history.
 
