@@ -571,6 +571,12 @@
 			null
 		],
 		[
+			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AppIcon.h",
+			"MU",
+			"YPKJ5OE7LN/moc_AppIcon.cpp",
+			null
+		],
+		[
 			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/SettingsDialog.h",
 			"MU",
 			"YPKJ5OE7LN/moc_SettingsDialog.cpp",
@@ -796,6 +802,11 @@
 		],
 		[
 			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AlertDialogs.cpp",
+			"MU",
+			null
+		],
+		[
+			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AppIcon.cpp",
 			"MU",
 			null
 		],

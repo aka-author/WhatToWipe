@@ -995,6 +995,8 @@ EraseAndRewrite_autogen/timestamp: \
 	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AboutDialog.h \
 	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AlertDialogs.cpp \
 	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AlertDialogs.h \
+	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AppIcon.cpp \
+	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/AppIcon.h \
 	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/SettingsDialog.cpp \
 	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/SettingsDialog.h \
 	C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/ui/SettingsSchema.cpp \
