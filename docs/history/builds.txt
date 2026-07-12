@@ -107,3 +107,4 @@ version	branch	commit_full	commit_short
 1.0.0.001C	master	e9ddd76b7f2ca2d90df32e9a48f3ea1d4ed225aa	e9ddd76
 1.0.0.001D	master	15b57afa4500cc787e526b85ab9af1c86406aa05	15b57af
 1.0.0.001E	master	c3fa3c971b7f26f7b55314838b1d7d23e0d6064e	c3fa3c9
+1.0.0.001F	master	7a176b9698f70c7024ab248362aa2c1a369e666f	7a176b9
