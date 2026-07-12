@@ -135,7 +135,7 @@ function Generate-AppIcon {
     if (-not (Test-Path -LiteralPath $cpp)) {
         throw "Icon builder source not found: $cpp"
     }
-    foreach ($name in @("broombunny.png", "broombunny-small.png", "broombunny-32x32.png", "broombunny-16x16.png")) {
+    foreach ($name in @("broombunny.png", "broombunny-small.png")) {
         if (-not (Test-Path -LiteralPath (Join-Path $artDir $name))) {
             throw "Missing icon art: $(Join-Path $artDir $name)"
         }

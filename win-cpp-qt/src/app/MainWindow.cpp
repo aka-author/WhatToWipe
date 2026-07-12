@@ -9,6 +9,7 @@
 #include "model/FolderDescriptor.h"
 #include "platform/ShellOpen.h"
 #include "platform/VolumeInfo.h"
+#include "platform/WinWindowIcon.h"
 #include "scan/ScanResult.h"
 #include "scan/ScanWorker.h"
 #include "treemap/TreemapLayout.h"
@@ -33,6 +34,7 @@
 #include <QMenuBar>
 #include <QPushButton>
 #include <QStatusBar>
+#include <QShowEvent>
 #include <QThread>
 #include <QTimer>
 #include <QToolButton>
@@ -75,6 +77,14 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     m_session.resetToInitial();
     setStatusText(QStringLiteral("Choose a target folder"));
     updateChrome();
+}
+
+void MainWindow::showEvent(QShowEvent* event) {
+    QMainWindow::showEvent(event);
+    if (!m_winIconsApplied) {
+        platform::applyWin32WindowIcons(this);
+        m_winIconsApplied = true;
+    }
 }
 
 void MainWindow::buildUi() {

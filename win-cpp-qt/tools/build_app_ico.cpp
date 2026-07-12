@@ -29,14 +29,15 @@ struct Layer {
 };
 
 // Taskbar/title bar need 16/20/24/32 at common Windows DPI scales.
+// Use broombunny-small for small layers: the *-16x16/*-32x32 files are full-size art.
 static const Layer kLayers[] = {
     {256, "broombunny.png", false},
     {64, "broombunny-small.png", false},
     {48, "broombunny-small.png", false},
-    {32, "broombunny-32x32.png", true},
+    {32, "broombunny-small.png", false},
     {24, "broombunny-small.png", false},
     {20, "broombunny-small.png", false},
-    {16, "broombunny-16x16.png", true},
+    {16, "broombunny-small.png", false},
 };
 
 static std::vector<unsigned char> readFile(const std::string& path) {

@@ -22,7 +22,7 @@ QIcon appWindowIcon() {
     for (const auto& layer : kLayers) {
         const QPixmap pixmap(QString::fromLatin1(layer.resource));
         if (!pixmap.isNull()) {
-            icon.addPixmap(pixmap);
+            icon.addPixmap(pixmap, QIcon::Normal, QIcon::Off, QSize(layer.size, layer.size));
         }
     }
     if (!icon.isNull()) {

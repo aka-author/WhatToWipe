@@ -4,6 +4,7 @@
 #include "config/TreemapConfig.h"
 #include "scan/ScanResult.h"
 #include <QMainWindow>
+#include <QShowEvent>
 
 class QToolButton;
 class QLabel;
@@ -25,6 +26,9 @@ class MainWindow : public QMainWindow {
 
 public:
     explicit MainWindow(const config::TreemapSettings& settings, QWidget* parent = nullptr);
+
+protected:
+    void showEvent(QShowEvent* event) override;
 
 private slots:
     void onOpenFolder();
@@ -79,6 +83,7 @@ private:
     scan::ScanWorker* m_scanWorker = nullptr;
     QString m_latestProgressPath;
     qint64 m_lastProgressEmitMs = 0;
+    bool m_winIconsApplied = false;
 };
 
 }  // namespace wtw::app
