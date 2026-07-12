@@ -93,12 +93,13 @@ Same as Go: **`<ProjectRoot>\bin\win\current\EraseAndRewrite.exe`** plus `versio
 Same git and folder discipline as `win-go/build.ps1` (version bump, snapshot commit, archive prior `current` via `.date`, history commit). Additionally:
 
 1. **`Wipe-BinQtDeployArtifacts`** — remove legacy Qt DLL/plugin trees from all `bin/win/*` folders.
-2. **`Sync-ArtAssets`** — copy `art/broombunny*.png` from project root into `codebase/assets/art/`.
-3. **`tools/build_app_ico.cpp`** (MinGW, same toolchain as the app) builds `app.ico`; **`app.rc`** picks up version info and embeds the icon.
+2. **`Sync-ArtAssets`** — copy `art/broombunny*.png` from project root into `codebase/assets/art/` (About dialog art).
+3. **`tools/build_app_icon_qt.cpp`** rasterizes `assets/icons/app.svg` to `app.ico` and per-size PNGs; **`app.rc`** embeds the icon.
 4. CMake configure/build in **`build-static/`** with `-DWTW_STATIC_QT=ON` against `mingw_64_static`.
 5. Copy **`EraseAndRewrite.exe`** to `bin/win/current/`.
 6. **`Strip-MingwStaticExe`** — `strip --strip-all` via the Qt MinGW toolchain (see below).
-7. **`test-run.ps1 -StaticQt`** — import-table checks and smoke launch (optional verification).
+7. Write **`versioninfo.json`**, **`build-meta.json`**, and a **`.date`** marker beside the exe (before smoke test, so a failed test still leaves traceable output).
+8. **`test-run.ps1 -StaticQt`** — import-table checks and smoke launch (optional verification).
 
 Full detail: [specs/arch-win-cpp-qt.md](specs/arch-win-cpp-qt.md) §9, [specs/impl-win-cpp-qt.md](specs/impl-win-cpp-qt.md) §13.
 

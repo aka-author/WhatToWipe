@@ -43,6 +43,18 @@ foreach ($rel in $required) {
     }
 }
 
+foreach ($rel in @("versioninfo.json", "build-meta.json")) {
+    $full = Join-Path $BinDir $rel
+    if (-not (Test-Path -LiteralPath $full)) {
+        throw "Missing build metadata: $rel (run tools/restore-build-metadata.ps1 if deploy was interrupted)"
+    }
+}
+$dateMarker = Get-ChildItem -LiteralPath $BinDir -File -Filter "*.date" -Force -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+if ($null -eq $dateMarker) {
+    throw "Missing build metadata: *.date archive marker (run tools/restore-build-metadata.ps1 if deploy was interrupted)"
+}
+
 $objdump = Get-Command objdump -ErrorAction SilentlyContinue
 if (-not $objdump) {
     $guesses = @(

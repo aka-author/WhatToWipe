@@ -1,0 +1,41 @@
+---
+description: bin/win/current must include exe plus versioninfo.json, build-meta.json, and a .date marker; installer must never ship those files.
+alwaysApply: true
+---
+
+# Build output metadata (agent)
+
+## Required layout (`bin/win/current`)
+
+After any exe deploy, `bin/win/current` must contain this engineering set:
+
+| File | Role |
+|------|------|
+| `EraseAndRewrite.exe` | Shipping binary |
+| `versioninfo.json` | Canonical four-part version; copied from `win-cpp-qt/versioninfo.json` |
+| `build-meta.json` | Trace: `productVersion`, `build`, `buildPadded`, `folderStem`, `branch`, `commit`, `commitShort`, `timeUtc` |
+| `*.date` | Archive stem; `Prepare-CurrentBuildFolder` moves `current` into `bin/win/<stem>/` on the next build |
+
+Without the `.date` marker, the next `build.ps1` run wipes `current` instead of archiving it.
+
+`win-cpp-qt/build.ps1` writes metadata immediately after exe deploy/strip and before `test-run.ps1`. `Test-BuildOutputMetadata` and `test-run.ps1` fail if any piece is missing.
+
+Interrupted deploy (exe only): `powershell -File win-cpp-qt/tools/restore-build-metadata.ps1`
+
+## Installer exclusion (mandatory)
+
+`installer/Erase & Rewrite.iss` `[Files]` is an explicit allow-list:
+
+- `EraseAndRewrite.exe` from `SourceDir`
+- `COPYING`, `LICENSE-NOTICE`, `THIRD-PARTY-NOTICES` from `installer/`
+
+Never add wildcards over `SourceDir`. Never install `versioninfo.json`, `build-meta.json`, or `*.date` to `{app}` (legalspec LS-123, build-workflow §3).
+
+`SourceDir` is usually `bin/win/current`, which legitimately contains metadata beside the exe; the installer ignores them by design.
+
+## Agent obligations (when Mutabor authorizes build)
+
+1. Prefer `win-cpp-qt/build.ps1 -StaticQt` so metadata is written and validated automatically.
+2. Do not leave `bin/win/current` with only an exe.
+3. Read `build-meta.json` and `versioninfo.json` before claiming a build number or commit.
+4. Do not add metadata files to installer `[Files]` or copy them into `{app}`.

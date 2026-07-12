@@ -30,7 +30,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\EraseAndRewrite.exe
 
 [Files]
-; Program binary from the build output folder (no build metadata JSON).
+; Explicit file list only — no wildcards. SourceDir may contain engineering metadata
+; (versioninfo.json, build-meta.json, *.date) beside the exe; those must never be installed.
 Source: "{#SourceDir}\EraseAndRewrite.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Legal texts from installer/ (paths relative to this .iss file).
 Source: "COPYING"; DestDir: "{app}"; Flags: ignoreversion

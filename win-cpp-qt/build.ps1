@@ -121,13 +121,14 @@ function Generate-AppIcon {
         [Parameter(Mandatory = $true)][string]$CodebaseRoot,
         [Parameter(Mandatory = $true)][string]$IconDestination,
         [Parameter(Mandatory = $true)][string]$ModuleRoot,
-        [Parameter(Mandatory = $true)][string]$MingwRoot
+        [Parameter(Mandatory = $true)][string]$MingwRoot,
+        [Parameter(Mandatory = $true)][string]$QtPrefix
     )
-    $artDir = Join-Path $CodebaseRoot "assets\art"
+    $svgSource = Join-Path $CodebaseRoot "assets\icons\app.svg"
     $toolsDir = Join-Path $ModuleRoot "tools"
     $iconPngDir = Join-Path $ModuleRoot "resources\icons"
-    $cpp = Join-Path $toolsDir "build_app_ico.cpp"
-    $toolExe = Join-Path $toolsDir "build_app_ico.exe"
+    $cpp = Join-Path $toolsDir "build_app_icon_qt.cpp"
+    $toolExe = Join-Path $toolsDir "build_app_icon.exe"
     $gxx = Join-Path $MingwRoot "bin\g++.exe"
     if (-not (Test-Path -LiteralPath $gxx)) {
         throw "MinGW g++ not found: $gxx"
@@ -135,18 +136,25 @@ function Generate-AppIcon {
     if (-not (Test-Path -LiteralPath $cpp)) {
         throw "Icon builder source not found: $cpp"
     }
-    foreach ($name in @("broombunny.png", "broombunny-small.png")) {
-        if (-not (Test-Path -LiteralPath (Join-Path $artDir $name))) {
-            throw "Missing icon art: $(Join-Path $artDir $name)"
-        }
+    if (-not (Test-Path -LiteralPath $svgSource)) {
+        throw "Main window icon source missing (FS-TOOLBAR-MAP): $svgSource"
     }
+    $qtInclude = Join-Path $QtPrefix "include"
+    $qtLib = Join-Path $QtPrefix "lib"
+    $qtBin = Join-Path $QtPrefix "bin"
     Push-Location $toolsDir
     try {
         New-Item -ItemType Directory -Force -Path $iconPngDir | Out-Null
-        & $gxx -std=c++17 -O2 -o $toolExe build_app_ico.cpp
-        if ($LASTEXITCODE -ne 0) { throw "build_app_ico compile failed" }
-        & $toolExe $artDir $IconDestination $iconPngDir
-        if ($LASTEXITCODE -ne 0) { throw "build_app_ico failed" }
+        $prevPath = $env:PATH
+        $env:PATH = "$qtBin;$prevPath"
+        & $gxx -std=c++17 -O2 -o $toolExe $cpp `
+            -I"$qtInclude/QtCore" -I"$qtInclude/QtGui" -I"$qtInclude/QtSvg" -I"$qtInclude" `
+            -L"$qtLib" -lQt6Svg -lQt6Gui -lQt6Core -lQt6EntryPoint `
+            "-Wl,-subsystem,console"
+        if ($LASTEXITCODE -ne 0) { throw "build_app_icon_qt compile failed" }
+        & $toolExe $svgSource $IconDestination $iconPngDir
+        if ($LASTEXITCODE -ne 0) { throw "build_app_icon_qt failed" }
+        $env:PATH = $prevPath
     } finally {
         Pop-Location
     }
@@ -320,6 +328,99 @@ function Commit-BuildSnapshot {
     if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
 }
 
+function Write-BuildOutputMetadata {
+    param(
+        [Parameter(Mandatory = $true)][string]$OutDir,
+        [Parameter(Mandatory = $true)][string]$VersionInfoPath,
+        [Parameter(Mandatory = $true)][string]$ProductVer,
+        [Parameter(Mandatory = $true)][int]$BuildNum,
+        [Parameter(Mandatory = $true)][string]$BuildPadded,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [Parameter(Mandatory = $true)][string]$CommitShort
+    )
+    Copy-WithRetry -Source $VersionInfoPath -Destination (Join-Path $OutDir "versioninfo.json")
+
+    $folderTime = Get-Date -Format "yyyy-MM-dd_HH-mm"
+    $folderStem = "${folderTime}_${BuildPadded}"
+    $marker = Join-Path $OutDir ($folderStem + ".date")
+    $markerBody = "productVersion=$ProductVer`nbuild=$BuildNum`nbuildPadded=$BuildPadded`nfolderStem=$folderStem`n"
+    [System.IO.File]::WriteAllText($marker, $markerBody, [System.Text.UTF8Encoding]::new($false))
+
+    $metaPath = Join-Path $OutDir "build-meta.json"
+    @{
+        build          = $BuildNum
+        buildPadded    = $BuildPadded
+        folderStem     = $folderStem
+        productVersion = $ProductVer
+        branch         = $Branch
+        commit         = $Commit
+        commitShort    = $CommitShort
+        timeUtc        = (Get-Date).ToUniversalTime().ToString("o")
+    } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metaPath -Encoding utf8
+
+    return @{
+        Marker     = $marker
+        MetaPath   = $metaPath
+        FolderStem = $folderStem
+    }
+}
+
+function Test-BuildOutputMetadata {
+    param(
+        [Parameter(Mandatory = $true)][string]$OutDir
+    )
+    $exe = Join-Path $OutDir "EraseAndRewrite.exe"
+    $versionInfo = Join-Path $OutDir "versioninfo.json"
+    $buildMeta = Join-Path $OutDir "build-meta.json"
+    $dateMarker = Get-ChildItem -LiteralPath $OutDir -File -Filter "*.date" -Force -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if (-not (Test-Path -LiteralPath $exe)) {
+        throw "Build output incomplete: missing $exe"
+    }
+    if (-not (Test-Path -LiteralPath $versionInfo)) {
+        throw "Build output incomplete: missing versioninfo.json beside the exe"
+    }
+    if (-not (Test-Path -LiteralPath $buildMeta)) {
+        throw "Build output incomplete: missing build-meta.json beside the exe"
+    }
+    if ($null -eq $dateMarker) {
+        throw "Build output incomplete: missing *.date archive marker beside the exe"
+    }
+}
+
+function Append-BuildHistory {
+    param(
+        [Parameter(Mandatory = $true)][string]$CodebaseRoot,
+        [Parameter(Mandatory = $true)][string]$ProductVer,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [Parameter(Mandatory = $true)][string]$CommitShort,
+        [string]$GitRoot
+    )
+    $historyDir = Join-Path $CodebaseRoot "docs\history"
+    $historyPath = Join-Path $historyDir "builds.txt"
+    if (-not (Test-Path -LiteralPath $historyDir)) {
+        New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
+    }
+    if (-not (Test-Path -LiteralPath $historyPath)) {
+        $header = "version`tbranch`tcommit_full`tcommit_short" + [Environment]::NewLine
+        [System.IO.File]::WriteAllText($historyPath, $header, [System.Text.UTF8Encoding]::new($false))
+    }
+    $histLine = ($ProductVer + "`t" + $Branch + "`t" + $Commit + "`t" + $CommitShort + [Environment]::NewLine)
+    [System.IO.File]::AppendAllText($historyPath, $histLine, [System.Text.UTF8Encoding]::new($false))
+
+    if ($GitRoot) {
+        git -C $GitRoot add -A
+        if ($LASTEXITCODE -ne 0) { throw "git add -A failed" }
+        git -C $GitRoot commit -m "docs: append build $ProductVer to history"
+        if ($LASTEXITCODE -ne 0) { throw "git commit (build history) failed" }
+    }
+
+    return $historyPath
+}
+
 function Resolve-QtMingwRoot {
     param([Parameter(Mandatory = $true)][string]$QtPrefix)
     $versionDir = Split-Path $QtPrefix -Parent
@@ -450,7 +551,7 @@ if ($StaticQt) {
 }
 $mingwRoot = Resolve-QtMingwRoot -QtPrefix $sharedQtPrefix
 Sync-ArtAssets -ShitwiperRoot $ShitwiperRoot -CodebaseRoot $CodebaseRoot
-Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath -ModuleRoot $ModuleRoot -MingwRoot $mingwRoot
+Generate-AppIcon -CodebaseRoot $CodebaseRoot -IconDestination $AppIconPath -ModuleRoot $ModuleRoot -MingwRoot $mingwRoot -QtPrefix $sharedQtPrefix
 Generate-AboutArt -CodebaseRoot $CodebaseRoot -Destination $AboutArtPath
 Update-AppResourceFromVersionInfo -VersionInfoPath $VersionInfoPath -AppRcPath $AppRcPath
 
@@ -525,6 +626,11 @@ if ($StaticQt) {
     if ($LASTEXITCODE -ne 0) { throw "standalone Qt deploy failed" }
 }
 
+$metaWritten = Write-BuildOutputMetadata -OutDir $OutDir -VersionInfoPath $VersionInfoPath `
+    -ProductVer $productVer -BuildNum $buildNum -BuildPadded $buildPadded `
+    -Branch $branch -Commit $commit -CommitShort $commitShort
+Test-BuildOutputMetadata -OutDir $OutDir
+
 $testScript = Join-Path $ModuleRoot "test-run.ps1"
 if (-not (Test-Path -LiteralPath $testScript)) {
     throw "test-run.ps1 not found: $testScript"
@@ -544,47 +650,11 @@ if ($env:ERASE_REWRITE_SIGNTOOL) {
     & $signTool @signArgs
 }
 
-Copy-WithRetry -Source $VersionInfoPath -Destination (Join-Path $OutDir "versioninfo.json")
-
-$folderTime = Get-Date -Format "yyyy-MM-dd_HH-mm"
-$folderStem = "${folderTime}_${buildPadded}"
-$Marker = Join-Path $OutDir ($folderStem + ".date")
-$markerBody = "productVersion=$productVer`nbuild=$buildNum`nbuildPadded=$buildPadded`nfolderStem=$folderStem`n"
-[System.IO.File]::WriteAllText($Marker, $markerBody, [System.Text.UTF8Encoding]::new($false))
-
-$metaPath = Join-Path $OutDir "build-meta.json"
-@{
-    build          = $buildNum
-    buildPadded    = $buildPadded
-    folderStem     = $folderStem
-    productVersion = $productVer
-    branch         = $branch
-    commit         = $commit
-    commitShort    = $commitShort
-    timeUtc        = (Get-Date).ToUniversalTime().ToString("o")
-} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metaPath -Encoding utf8
-
-$historyDir = Join-Path $CodebaseRoot "docs\history"
-$historyPath = Join-Path $historyDir "builds.txt"
-if (-not (Test-Path -LiteralPath $historyDir)) {
-    New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
-}
-if (-not (Test-Path -LiteralPath $historyPath)) {
-    $header = "version`tbranch`tcommit_full`tcommit_short" + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($historyPath, $header, [System.Text.UTF8Encoding]::new($false))
-}
-$histLine = ($productVer + "`t" + $branch + "`t" + $commit + "`t" + $commitShort + [Environment]::NewLine)
-[System.IO.File]::AppendAllText($historyPath, $histLine, [System.Text.UTF8Encoding]::new($false))
-
-if ($GitRoot) {
-    git -C $GitRoot add -A
-    if ($LASTEXITCODE -ne 0) { throw "git add -A failed" }
-    git -C $GitRoot commit -m "docs: append build $productVer to history"
-    if ($LASTEXITCODE -ne 0) { throw "git commit (build history) failed" }
-}
+$historyPath = Append-BuildHistory -CodebaseRoot $CodebaseRoot -ProductVer $productVer `
+    -Branch $branch -Commit $commit -CommitShort $commitShort -GitRoot $GitRoot
 
 Write-Host "Built:  $Exe"
 Write-Host "Version info: " (Join-Path $OutDir "versioninfo.json")
-Write-Host "Marker: $Marker"
-Write-Host "Build meta: $metaPath"
+Write-Host "Marker: $($metaWritten.Marker)"
+Write-Host "Build meta: $($metaWritten.MetaPath)"
 Write-Host "History: $historyPath"

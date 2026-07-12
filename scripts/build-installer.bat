@@ -44,6 +44,9 @@ if not exist "%SOURCE_DIR%\EraseAndRewrite.exe" (
   exit /b 4
 )
 
+rem SourceDir may also hold versioninfo.json, build-meta.json, and *.date for engineering trace.
+rem The Inno [Files] section installs only EraseAndRewrite.exe from SourceDir — never those metadata files.
+
 set "OUTPUT_ROOT_DIR=%~f2"
 
 if not exist "%OUTPUT_ROOT_DIR%" (

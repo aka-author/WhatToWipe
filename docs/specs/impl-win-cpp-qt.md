@@ -149,7 +149,7 @@ The application shell covers window chrome, menus, the command strip, and the st
 
 The main window title comes from `productDisplayName()` in `app/Product.h` and reads Erase & Rewrite.
 
-The window icon uses per-size PNGs at `:/app/icons/app-{16,20,24,32,48,64,256}.png`, generated from `assets/art/broombunny*.png` by `tools/build_app_ico.cpp` during `build.ps1`. `QIcon::addFile` picks the best size for the title bar and taskbar; `app.ico` is embedded in the PE for Explorer.
+The main window icon is `assets/icons/app.svg` per `assets/icons/FS-TOOLBAR-MAP.txt` (FS unique main-window icon). `build.ps1` rasterizes it to `app.ico` and per-size PNGs via `tools/build_app_icon_qt.cpp`; runtime uses `:/app/app.svg` with raster fallbacks. `broombunny*.png` is About-dialog art only.
 
 
 ### 4.2 Menu bar
@@ -434,9 +434,9 @@ The table below maps dialogs to source files.
 
 | Asset | Source |
 |-------|--------|
-| `app.ico` | `assets/art/broombunny*.png` via `win-cpp-qt/tools/build_app_ico.cpp` (MinGW) during `build.ps1` |
+| `app.ico` | `assets/icons/app.svg` via `win-cpp-qt/tools/build_app_icon_qt.cpp` during `build.ps1` |
 | Toolbar SVGs | `codebase/assets/icons/toolbar-*.svg` in `toolbar.qrc` |
-| About PNG | `genaboutpng` or `assets/art/about-bunny.png` at build time |
+| About PNG | `assets/art/about-bunny.png` or `broombunny.png` at build time |
 
 Toolbar icons render at 24×24 inside 32×32 hit targets. Qt scales for HiDPI.
 
@@ -480,8 +480,11 @@ The script mirrors `win-go/build.ps1` discipline:
 5. Resolve static Qt prefix (`mingw_64_static` beside shared kit). If missing, invoke `build-qt-static.ps1`.
 6. CMake configure/build `EraseAndRewrite` into `build-static/`.
 7. Copy exe to `bin/win/current/`; **`strip --strip-all`** removes ~20 MB MinGW debug overlay (WR-03: PE `VERSIONINFO` / `.rsrc` preserved). Strip any non-exe files from `current` (static mode).
-8. `test-run.ps1 -StaticQt` — smoke launch; `objdump` verifies no `Qt6*.dll` or `libstdc++-6.dll` imports.
-9. Write `versioninfo.json`, `build-meta.json`, `.date` marker; append `docs/history/builds.txt`; second git commit for history.
+8. Write `versioninfo.json`, `build-meta.json`, `.date` marker (`Write-BuildOutputMetadata`); validate with `Test-BuildOutputMetadata`.
+9. `test-run.ps1 -StaticQt` — verifies metadata plus smoke launch; `objdump` verifies no `Qt6*.dll` or `libstdc++-6.dll` imports.
+10. Append `docs/history/builds.txt`; second git commit for history.
+
+Interrupted deploy: `tools/restore-build-metadata.ps1`. Installer `[Files]` never packages metadata (explicit allow-list in `installer/Erase & Rewrite.iss`).
 
 Environment overrides: `CMAKE_PREFIX_PATH` (shared kit hint), `QT_STATIC_PREFIX` (explicit static prefix).
 
