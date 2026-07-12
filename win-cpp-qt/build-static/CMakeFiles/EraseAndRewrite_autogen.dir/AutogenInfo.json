@@ -505,12 +505,6 @@
 			null
 		],
 		[
-			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/platform/WinWindowIcon.h",
-			"MU",
-			"36A7VMLXJR/moc_WinWindowIcon.cpp",
-			null
-		],
-		[
 			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/scan/ArchiveClassifier.h",
 			"MU",
 			"M2F3XSZVVA/moc_ArchiveClassifier.cpp",
@@ -753,11 +747,6 @@
 		],
 		[
 			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/platform/WinDirEnum.cpp",
-			"MU",
-			null
-		],
-		[
-			"C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/platform/WinWindowIcon.cpp",
 			"MU",
 			null
 		],

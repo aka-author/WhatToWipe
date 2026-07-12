@@ -1,11 +1,7 @@
 C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autogen/ISMKEKEPX5/moc_MainWindow.cpp: C:/privat/misha/Shitwiper/codebase/win-cpp-qt/src/app/MainWindow.h \
   C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autogen/moc_predefs.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QDateTime \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QList \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QObject \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QRect \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QSize \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QSizeF \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QString \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/QVector \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q17memory.h \
@@ -16,7 +12,6 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q20utility.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q23type_traits.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/q23utility.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qabstracteventdispatcher.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qalgorithms.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qalloc.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qanystringview.h \
@@ -27,7 +22,6 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qatomic.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qatomic_cxx11.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbasicatomic.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbasictimer.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbindingstorage.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbytearray.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qbytearrayalgorithms.h \
@@ -46,16 +40,11 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcontainerinfo.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcontainertools_impl.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcontiguouscache.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcoreapplication.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcoreapplication_platform.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qcoreevent.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdarwinhelpers.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdatastream.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdatetime.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdeadlinetimer.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qdebug.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qendian.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qeventloop.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qexceptionhandling.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qflags.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qfloat16.h \
@@ -67,7 +56,6 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qglobalstatic.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qhash.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qhashfunctions.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qiodevice.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qiodevicebase.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qiterable.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qiterator.h \
@@ -84,7 +72,6 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qmetatype.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qminmax.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qnamespace.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qnativeinterface.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qnumeric.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qobject.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qobject_impl.h \
@@ -141,7 +128,6 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qtversionchecks.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qtypeinfo.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qtypes.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qurl.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qutf8stringview.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qvariant.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qvarlengtharray.h \
@@ -150,43 +136,30 @@ C:/privat/misha/Shitwiper/codebase/win-cpp-qt/build-static/EraseAndRewrite_autog
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qxptype_traits.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtCore/qyieldcpu.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/QColor \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/QShowEvent \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/QTransform \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qaction.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qbitmap.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qbrush.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qcolor.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qcursor.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qevent.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qeventpoint.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qfont.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qfontinfo.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qfontmetrics.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qfontvariableaxis.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qguiapplication.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qguiapplication_platform.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qicon.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qimage.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qinputdevice.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qinputmethod.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qkeysequence.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qpaintdevice.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qpalette.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qpixelformat.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qpixmap.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qpointingdevice.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qpolygon.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qregion.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qrgb.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qrgba64.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qscreen.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qscreen_platform.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qtgui-config.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qtguiexports.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qtguiglobal.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qtransform.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qvector2d.h \
-  C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qvectornd.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qwindowdefs.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtGui/qwindowdefs_win.h \
   C:/cpp/qt/6.10.3/mingw_64_static/include/QtWidgets/QMainWindow \
