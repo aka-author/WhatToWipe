@@ -1,4 +1,4 @@
-// Build a Windows .ico from size-specific broombunny PNG art (PNG-in-ICO format).
+// Build a Windows .ico and per-size PNGs from broombunny art (PNG-in-ICO format).
 // Compiled with the same MinGW toolchain as EraseAndRewrite (see build.ps1).
 
 #include <cstdint>
@@ -25,15 +25,18 @@ struct Image {
 struct Layer {
     int size;
     const char* file;
-    bool smooth;
+    bool pixelArt;
 };
 
+// Taskbar/title bar need 16/20/24/32 at common Windows DPI scales.
 static const Layer kLayers[] = {
-    {256, "broombunny.png", true},
-    {64, "broombunny-small.png", true},
-    {48, "broombunny-small.png", true},
-    {32, "broombunny-32x32.png", false},
-    {16, "broombunny-16x16.png", false},
+    {256, "broombunny.png", false},
+    {64, "broombunny-small.png", false},
+    {48, "broombunny-small.png", false},
+    {32, "broombunny-32x32.png", true},
+    {24, "broombunny-small.png", false},
+    {20, "broombunny-small.png", false},
+    {16, "broombunny-16x16.png", true},
 };
 
 static std::vector<unsigned char> readFile(const std::string& path) {
@@ -77,54 +80,73 @@ static Image loadPng(const std::string& path) {
     return img;
 }
 
-static unsigned char sample(const Image& src, float x, float y, int c) {
-    const int ix = static_cast<int>(x);
-    const int iy = static_cast<int>(y);
-    if (ix < 0 || iy < 0 || ix >= src.w || iy >= src.h) {
+static unsigned char sampleNearest(const Image& src, int x, int y, int c) {
+    if (x < 0 || y < 0 || x >= src.w || y >= src.h) {
         return 0;
     }
-    return src.rgba[(iy * src.w + ix) * 4 + c];
+    return src.rgba[(y * src.w + x) * 4 + c];
 }
 
-static unsigned char lerpByte(float a, float b, float t) {
-    return static_cast<unsigned char>(a + (b - a) * t + 0.5f);
-}
-
-static unsigned char sampleSmooth(const Image& src, float x, float y, int c) {
-    const float fx = x - 0.5f;
-    const float fy = y - 0.5f;
-    const int x0 = static_cast<int>(std::floor(fx));
-    const int y0 = static_cast<int>(std::floor(fy));
-    const int x1 = x0 + 1;
-    const int y1 = y0 + 1;
-    const float tx = fx - static_cast<float>(x0);
-    const float ty = fy - static_cast<float>(y0);
-    const float c00 = sample(src, static_cast<float>(x0), static_cast<float>(y0), c);
-    const float c10 = sample(src, static_cast<float>(x1), static_cast<float>(y0), c);
-    const float c01 = sample(src, static_cast<float>(x0), static_cast<float>(y1), c);
-    const float c11 = sample(src, static_cast<float>(x1), static_cast<float>(y1), c);
-    const float c0 = c00 + (c10 - c00) * tx;
-    const float c1 = c01 + (c11 - c01) * tx;
-    return lerpByte(c0, c1, ty);
-}
-
-static Image resize(const Image& src, int size, bool smooth) {
+static Image resizeNearest(const Image& src, int size) {
     Image dst;
     dst.w = size;
     dst.h = size;
     dst.rgba.resize(static_cast<size_t>(size * size * 4));
     for (int y = 0; y < size; ++y) {
         for (int x = 0; x < size; ++x) {
-            const float sx = (x + 0.5f) * static_cast<float>(src.w) / static_cast<float>(size);
-            const float sy = (y + 0.5f) * static_cast<float>(src.h) / static_cast<float>(size);
+            const int sx = (x * src.w) / size;
+            const int sy = (y * src.h) / size;
             for (int c = 0; c < 4; ++c) {
-                const unsigned char v =
-                    smooth ? sampleSmooth(src, sx, sy, c) : sample(src, sx, sy, c);
-                dst.rgba[(y * size + x) * 4 + c] = v;
+                dst.rgba[(y * size + x) * 4 + c] = sampleNearest(src, sx, sy, c);
             }
         }
     }
     return dst;
+}
+
+static Image resizeBox(const Image& src, int size) {
+    Image dst;
+    dst.w = size;
+    dst.h = size;
+    dst.rgba.resize(static_cast<size_t>(size * size * 4));
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            const int x0 = (x * src.w) / size;
+            const int y0 = (y * src.h) / size;
+            const int x1 = ((x + 1) * src.w) / size;
+            const int y1 = ((y + 1) * src.h) / size;
+            const int xEnd = x1 < src.w ? x1 : src.w;
+            const int yEnd = y1 < src.h ? y1 : src.h;
+            const int count = (xEnd - x0) * (yEnd - y0);
+            float acc[4] = {0, 0, 0, 0};
+            if (count > 0) {
+                for (int sy = y0; sy < yEnd; ++sy) {
+                    for (int sx = x0; sx < xEnd; ++sx) {
+                        const int idx = (sy * src.w + sx) * 4;
+                        for (int c = 0; c < 4; ++c) {
+                            acc[c] += src.rgba[idx + c];
+                        }
+                    }
+                }
+            }
+            const int out = (y * size + x) * 4;
+            for (int c = 0; c < 4; ++c) {
+                dst.rgba[out + c] =
+                    static_cast<unsigned char>(acc[c] / static_cast<float>(count > 0 ? count : 1) + 0.5f);
+            }
+        }
+    }
+    return dst;
+}
+
+static Image renderLayer(const Image& src, const Layer& layer) {
+    if (src.w == layer.size && src.h == layer.size) {
+        return src;
+    }
+    if (layer.pixelArt && src.w <= layer.size && src.h <= layer.size) {
+        return resizeNearest(src, layer.size);
+    }
+    return resizeBox(src, layer.size);
 }
 
 static void pngWriteCallback(void* ctx, void* data, int len) {
@@ -135,7 +157,8 @@ static void pngWriteCallback(void* ctx, void* data, int len) {
 
 static std::vector<unsigned char> encodePng(const Image& img) {
     std::vector<unsigned char> png;
-    if (!stbi_write_png_to_func(pngWriteCallback, &png, img.w, img.h, 4, img.rgba.data(), img.w * 4)) {
+    if (!stbi_write_png_to_func(
+            pngWriteCallback, &png, img.w, img.h, 4, img.rgba.data(), img.w * 4)) {
         std::fprintf(stderr, "png encode failed\n");
         std::exit(1);
     }
@@ -196,23 +219,34 @@ static void writeBinary(const std::string& path, const std::vector<unsigned char
     std::fclose(f);
 }
 
+static void writePngFile(const std::string& dir, int size, const Image& img) {
+    char name[64];
+    std::snprintf(name, sizeof(name), "app-%d.png", size);
+    const std::string path = dir + "/" + name;
+    const std::vector<unsigned char> png = encodePng(img);
+    writeBinary(path, png);
+}
+
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        std::fprintf(stderr, "usage: %s <art-dir> <output.ico>\n", argv[0]);
+    if (argc != 4) {
+        std::fprintf(stderr, "usage: %s <art-dir> <output.ico> <png-out-dir>\n", argv[0]);
         return 1;
     }
     const std::string artDir = argv[1];
     const std::string outIco = argv[2];
+    const std::string pngDir = argv[3];
 
     std::vector<std::vector<unsigned char>> pngs;
     std::vector<int> sizes;
     for (const Layer& layer : kLayers) {
         const std::string path = artDir + "/" + layer.file;
         const Image src = loadPng(path);
-        const Image scaled = resize(src, layer.size, layer.smooth);
+        const Image scaled = renderLayer(src, layer);
         pngs.push_back(encodePng(scaled));
         sizes.push_back(layer.size);
-        std::fprintf(stderr, "layer %d from %s\n", layer.size, layer.file);
+        writePngFile(pngDir, layer.size, scaled);
+        std::fprintf(stderr, "layer %d from %s (%dx%d -> %d)\n",
+                     layer.size, layer.file, src.w, src.h, layer.size);
     }
     const std::vector<unsigned char> ico = buildIco(pngs, sizes);
     writeBinary(outIco, ico);

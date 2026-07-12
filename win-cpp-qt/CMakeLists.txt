@@ -44,6 +44,7 @@ set(WTW_SOURCES
     src/ui/SettingsDialog.cpp
     src/ui/AboutDialog.cpp
     src/ui/AlertDialogs.cpp
+    src/ui/AppIcon.cpp
     src/ui/ToolbarIcons.cpp
     src/util/Format.cpp
 )

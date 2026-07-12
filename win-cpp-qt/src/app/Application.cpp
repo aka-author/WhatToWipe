@@ -4,9 +4,9 @@
 #include "app/Product.h"
 #include "config/ConfigStore.h"
 #include "platform/AppVersion.h"
+#include "ui/AppIcon.h"
 
 #include <QApplication>
-#include <QIcon>
 
 namespace wtw::app {
 
@@ -16,7 +16,7 @@ void WtwApplication::configure(QApplication& app) {
     QApplication::setOrganizationName(productDisplayName());
     QApplication::setApplicationVersion(platform::fileVersionDotted());
     app.setStyle(QStringLiteral("Fusion"));
-    const QIcon windowIcon(QStringLiteral(":/app/app.ico"));
+    const QIcon windowIcon = ui::appWindowIcon();
     if (!windowIcon.isNull()) {
         app.setWindowIcon(windowIcon);
     }

@@ -125,6 +125,7 @@ function Generate-AppIcon {
     )
     $artDir = Join-Path $CodebaseRoot "assets\art"
     $toolsDir = Join-Path $ModuleRoot "tools"
+    $iconPngDir = Join-Path $ModuleRoot "resources\icons"
     $cpp = Join-Path $toolsDir "build_app_ico.cpp"
     $toolExe = Join-Path $toolsDir "build_app_ico.exe"
     $gxx = Join-Path $MingwRoot "bin\g++.exe"
@@ -141,9 +142,10 @@ function Generate-AppIcon {
     }
     Push-Location $toolsDir
     try {
+        New-Item -ItemType Directory -Force -Path $iconPngDir | Out-Null
         & $gxx -std=c++17 -O2 -o $toolExe build_app_ico.cpp
         if ($LASTEXITCODE -ne 0) { throw "build_app_ico compile failed" }
-        & $toolExe $artDir $IconDestination
+        & $toolExe $artDir $IconDestination $iconPngDir
         if ($LASTEXITCODE -ne 0) { throw "build_app_ico failed" }
     } finally {
         Pop-Location

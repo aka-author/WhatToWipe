@@ -149,7 +149,7 @@ The application shell covers window chrome, menus, the command strip, and the st
 
 The main window title comes from `productDisplayName()` in `app/Product.h` and reads Erase & Rewrite.
 
-The window icon is `:/app/app.ico`, generated from size-specific `assets/art/broombunny*.png` by `tools/build_app_ico.cpp` (same MinGW toolchain) during `build.ps1`.
+The window icon uses per-size PNGs at `:/app/icons/app-{16,20,24,32,48,64,256}.png`, generated from `assets/art/broombunny*.png` by `tools/build_app_ico.cpp` during `build.ps1`. `QIcon::addFile` picks the best size for the title bar and taskbar; `app.ico` is embedded in the PE for Explorer.
 
 
 ### 4.2 Menu bar
