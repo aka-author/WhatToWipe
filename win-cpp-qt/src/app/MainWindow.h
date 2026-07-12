@@ -83,7 +83,6 @@ private:
     scan::ScanWorker* m_scanWorker = nullptr;
     QString m_latestProgressPath;
     qint64 m_lastProgressEmitMs = 0;
-    bool m_winIconsApplied = false;
 };
 
 }  // namespace wtw::app

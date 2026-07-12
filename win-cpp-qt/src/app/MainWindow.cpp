@@ -36,7 +36,7 @@
 #include <QStatusBar>
 #include <QShowEvent>
 #include <QThread>
-#include <QWindow>
+#include <QTimer>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -71,7 +71,9 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
     qRegisterMetaType<scan::ScanResult>("wtw::scan::ScanResult");
     qRegisterMetaType<scan::ScanIdentity>("wtw::scan::ScanIdentity");
     setWindowTitle(productDisplayName());
+#ifndef Q_OS_WIN
     setWindowIcon(ui::appWindowIcon());
+#endif
     resize(1100, 720);
     buildUi();
     buildMenus();
@@ -82,15 +84,9 @@ MainWindow::MainWindow(const config::TreemapSettings& settings, QWidget* parent)
 
 void MainWindow::showEvent(QShowEvent* event) {
     QMainWindow::showEvent(event);
-    const QIcon icon = ui::appWindowIcon();
-    setWindowIcon(icon);
-    if (QWindow* window = windowHandle()) {
-        window->setIcon(icon);
-    }
-    if (!m_winIconsApplied) {
-        platform::applyWin32WindowIcons(this);
-        m_winIconsApplied = true;
-    }
+#ifdef Q_OS_WIN
+    QTimer::singleShot(0, this, [this]() { platform::applyWin32WindowIcons(this); });
+#endif
 }
 
 void MainWindow::buildUi() {
