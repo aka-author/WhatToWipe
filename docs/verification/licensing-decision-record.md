@@ -4,40 +4,53 @@ Status: **draft — requires owner sign-off before release**
 
 Last updated: 2026-07-12
 
-This file satisfies LEGALSPEC LS-70. It is informative until marked **approved** by the copyright holder.
+This file satisfies LEGALSPEC LS-70 and LS-72. It is not approved until the principal copyright holder marks it **approved**.
 
 
-## Program
+## Program (first-party)
 
 | Field | Value |
 |-------|-------|
 | Product | Erase & Rewrite |
-| Copyright | Mikhail Ostrogorskiy |
+| Principal copyright | Mikhail Ostrogorskiy |
 | Program license | GNU General Public License v3.0 or later (GPLv3+) |
-| Source offer | Git repository `codebase/` at release tag / `build-meta.json` commit |
+| Corresponding Source method | GPLv3 section 6d (network server) — **draft** |
+| Source URL | **TBD** — must be public, no authentication |
+| Immutable tag/commit | **TBD** — must match shipped binary |
+| Source retention | While binaries offered + minimum period per chosen §6 method |
+| Build reproduction verified | **No** |
 
 
-## Qt (third-party)
+## Component inventory (mandatory per release)
+
+Each row must be complete before approval. One license basis per component.
+
+| Component | Version | Link | License basis | Modified | Notices shipped | Source / relinking |
+|-----------|---------|------|---------------|----------|-----------------|-------------------|
+| Erase & Rewrite (Program) | see build-meta | n/a | GPLv3+ | no | `LICENSE`, `INSTALL-LICENSE.txt` | see Program table above |
+| Qt6Core | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| Qt6Gui | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| Qt6Widgets | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| Qt6Svg | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| QWindowsIntegrationPlugin | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| QSvgPlugin | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| QICOPlugin | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| QJpegPlugin | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| QGifPlugin | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
+| MinGW runtime (libgcc/libstdc++) | **TBD** | static | **TBD** | no | **TBD** | n/a |
+
+Technical version and module facts for the active line: [impl-win-cpp-qt.md](../specs/impl-win-cpp-qt.md) §13 (not repeated here).
+
+
+## LGPL static relinking kit (LS-82)
+
+Required only if any Qt row uses LGPLv3 + static linking.
 
 | Field | Value |
 |-------|-------|
-| Version | 6.10.3 |
-| Toolchain | MinGW 13.1.0 |
-| Modules | Qt6Core, Qt6Gui, Qt6Widgets, Qt6Svg |
-| Plugins (static) | QWindowsIntegrationPlugin, QSvgPlugin, QICOPlugin, QJpegPlugin, QGifPlugin |
-| Link model | **Static** — libraries and plugins linked into `EraseAndRewrite.exe` |
-| Qt kit path | `C:\cpp\qt\6.10.3\mingw_64_static` (not in Git) |
-| Qt sources | `C:\cpp\qt-src\6.10.3\Src\` (qtbase, qtsvg; not in Git) |
-| Qt modified | No (upstream sources as built) |
-| **Qt license path chosen** | **TBD — owner must record: GPL-Qt option vs LGPL static compliance vs commercial** |
-
-
-## MinGW runtime
-
-| Field | Value |
-|-------|-------|
-| Link model | Static (`libgcc`, `libstdc++`) into executable |
-| Evidence | `test-run.ps1` objdump check; see build 1.0.0.0019 |
+| Mechanism chosen | **TBD** |
+| Deliverables in installer / offer | **TBD** |
+| Verified relink procedure documented | **No** |
 
 
 ## Installer (Inno Setup)
@@ -45,8 +58,8 @@ This file satisfies LEGALSPEC LS-70. It is informative until marked **approved**
 | Field | Value |
 |-------|-------|
 | Script | `codebase/installer/Erase & Rewrite.iss` |
-| License page | `EULA.txt` |
-| Installed files (static model) | `EraseAndRewrite.exe`, license/notice texts (see LEGALSPEC LS-50 — **notice files TBD in installer payload**) |
+| License notice file | `INSTALL-LICENSE.txt` (`LicenseFile`) |
+| Installed `{app}` license files | **TBD** — `LICENSE`, `THIRD-PARTY-NOTICES` minimum per LS-50 |
 | Excluded | `*.date` build markers |
 
 
@@ -54,17 +67,18 @@ This file satisfies LEGALSPEC LS-70. It is informative until marked **approved**
 
 | Artifact | Path |
 |----------|------|
-| EULA | `codebase/installer/EULA.txt` |
+| Installer license notice | `codebase/installer/INSTALL-LICENSE.txt` |
 | Legal spec | `codebase/docs/specs/legalspec.md` |
 | Technical link model | `codebase/docs/specs/impl-win-cpp-qt.md` §13 |
 | Import table check | `codebase/win-cpp-qt/test-run.ps1` (static mode) |
 
 
-## Open actions before release sign-off
+## Open actions before approval
 
-1. Owner selects and records Qt license path (GPL-Qt vs LGPL static vs commercial).
-2. Add `LICENSE` (GPLv3 full text) to `codebase/` root if missing.
-3. Align `EULA.txt` Qt section with static link model and chosen Qt path.
-4. Ship `LICENSE` and `THIRD-PARTY-NOTICES` (or equivalent) inside installer `{app}`.
-5. Add license notice or link in About dialog (LEGALSPEC LS-31).
-6. Update PE `LegalCopyright` in `app.rc` / `versioninfo.json` pipeline.
+1. Principal copyright holder selects **one** license basis per Qt component (GPL-Qt, LGPL static with LS-82 kit, or commercial).
+2. Add `LICENSE` (full GPLv3 text) to `codebase/` repository root.
+3. Fill source URL, tag/commit, and reproduction test (LS-04, checklist §6).
+4. Ship `LICENSE` and `THIRD-PARTY-NOTICES` in installer `{app}`.
+5. Implement About dialog Appropriate Legal Notices (LS-31).
+6. Update PE `LegalCopyright` pipeline.
+7. Complete LGPL relinking kit if LGPL static path is chosen.

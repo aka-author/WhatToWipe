@@ -22,7 +22,8 @@ Required baseline files today:
 | File | Role |
 |------|------|
 | `funcspec.md` | Functional specification (FS). One document for the product. Platform-neutral where possible; platform-specific UI may still be described here when it is part of the product definition. |
-| `legalspec.md` | Legal and licensing specification. GPLv3 cornerstone, third-party (Qt) obligations, repository rules, installer notices. |
+| `legalspec.md` | Legal and licensing specification. GPLv3 cornerstone, third-party (Qt) obligations, repository rules, installer notices, contributor obligations. |
+| `CONTRIBUTORS.md` | Contributor registry: display names and short descriptions of merged inputs (LEGALSPEC §4.1). |
 
 Nothing under `docs/specs/` should fork the functional spec per delivery target. If an implementation cannot meet FS, that is a waiver or product change in FS, not a second funcspec.
 
