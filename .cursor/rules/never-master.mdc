@@ -1,0 +1,70 @@
+---
+description: ABSOLUTE BAN on development on master — always switch to dev or a topic branch first.
+alwaysApply: true
+---
+
+# NEVER develop on master
+
+## Supreme rule
+
+**`master` is not a working branch.** Do not develop, edit, build, commit, or push project work on `master`.
+
+`master` holds integrated, release-ready history only. All day-to-day work happens on **`dev`** or a **topic branch** cut from `dev`.
+
+**`Mutabor` does not authorize work on `master`.** File-change permission and branch choice are separate gates. Both must pass.
+
+## Mandatory pre-flight (before EVERY mutating tool)
+
+When the current message contains `Mutabor` and you are about to call any workspace-changing tool (`Write`, `StrReplace`, `Delete`, mutating `Shell`, MCP save/edit, `Task` that writes, etc.):
+
+1. Run `git branch --show-current` (repo root: `codebase/`).
+2. If the result is **`master`** → **STOP**. Do not edit. Do not build. Do not commit.
+3. Check out a working branch:
+   - **Default:** `git checkout dev`
+   - **Or:** a topic branch the user named in the same message (create from `dev` if needed).
+4. Re-run `git branch --show-current` and confirm you are **not** on `master`.
+5. Only then proceed with the task.
+
+If checkout fails (dirty tree, missing branch, conflict) → report the blocker and **wait**. Do not fall back to editing on `master`.
+
+## Forbidden on `master`
+
+- Editing any project file (code, docs, rules, assets, installer, scripts)
+- `git commit`, `git add`, amend, merge, rebase that leaves new work on `master`
+- `git push` of new commits to `origin/master` unless the user explicitly names a **release merge to master** in the same `Mutabor` message
+- Running **`win-cpp-qt/build.ps1`** or other scripts that **auto-commit** (they commit on whatever branch is checked out)
+- Running installer/build pipelines that produce commits as a side effect
+- “Just this one small fix on master” — **forbidden**
+
+## Allowed on `master` (read-only unless user names release)
+
+- `git log`, `git diff`, `git status`, read-only inspection
+- Merge **into** `master` only when the user explicitly requests release/integration on `master` in the same `Mutabor` message
+
+## Working branches
+
+| Situation | Branch |
+|-----------|--------|
+| Default daily work | `dev` |
+| Focused feature, fix, experiment | `topic/<short-name>` from `dev` |
+| Release integration | merge `dev` → `master` only on explicit user request with `Mutabor` |
+
+## Correct workflow
+
+```
+User task + Mutabor
+  → git branch --show-current
+  → master?  → git checkout dev   (or user-named topic branch)
+  → confirm not master
+  → do the work
+  → commit on dev / topic branch
+  → push dev / topic (not master unless release named)
+```
+
+## Build scripts warning
+
+`win-cpp-qt/build.ps1` bumps version and **creates git commits** on the current branch. Running it on `master` pollutes release history. **Always verify branch before build.**
+
+## No exceptions
+
+No urgency, no “user is waiting”, no “already started on master”, no “only docs/rules”, no “trivial one-liner”. **Switch branch first.**

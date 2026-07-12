@@ -1,9 +1,11 @@
 ---
-description: Never commit or edit on master; use dev by default or a topic branch.
+description: Never commit or edit on master; use dev by default or a topic branch. See never-master.mdc.
 alwaysApply: true
 ---
 
 # Git branching (agent)
+
+This rule restates branch policy. The full hard gate lives in **`never-master.mdc`** — read and obey both.
 
 ## Never modify master
 
@@ -11,6 +13,7 @@ Do not make modifications on `master`.
 
 - Do not commit on `master`.
 - Do not edit files for project work while checked out on `master`.
+- Do not run auto-commit builds on `master`.
 - Do not push direct commits to `master` unless the user explicitly names a merge-to-master or release action in a `Mutabor` message.
 
 `master` is for integrated, release-ready history — not day-to-day edits.
@@ -20,10 +23,16 @@ Do not make modifications on `master`.
 | Situation | Branch |
 |-----------|--------|
 | Default | `dev` |
-| Focused feature, fix, or review isolation | topic branch from `dev` (or from another base the user names) |
+| Focused feature, fix, or review isolation | topic branch from `dev` (e.g. `topic/icon-fix`) |
 | Release integration | merge into `master` only when the user explicitly requests it with `Mutabor` |
 
-Before the first workspace-changing action in a task, confirm the current branch is not `master`. If it is `master`, check out `dev` (or the user-named branch) first — but only when `Mutabor` authorizes the task.
+## Mandatory before first edit
+
+Before the first workspace-changing action in any `Mutabor` task:
+
+1. `git branch --show-current`
+2. If `master` → `git checkout dev` (or user-named topic branch) **before any edit**
+3. Confirm not on `master`, then proceed
 
 ## Workflow
 
@@ -32,4 +41,4 @@ Before the first workspace-changing action in a task, confirm the current branch
 3. Push `dev` (or the topic branch) unless the user names otherwise.
 4. Merge to `master` only on explicit user request (for example release, installer publish).
 
-Build scripts that auto-commit (for example `win-cpp-qt/build.ps1`) still run on whichever branch is checked out. Do not run a build that commits on `master` unless the user explicitly names a release build on `master` in the same `Mutabor` message.
+Build scripts that auto-commit (for example `win-cpp-qt/build.ps1`) commit on the **current** branch. Never run them on `master` unless the user explicitly names a release build on `master` in the same `Mutabor` message.

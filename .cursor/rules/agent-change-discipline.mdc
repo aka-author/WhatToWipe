@@ -41,7 +41,8 @@ Before **any** workspace-changing tool call (`Write`, `StrReplace`, `Delete`, `E
 
 1. The **current** user message contains the exact token `Mutabor`.
 2. The **same** message names the concrete action you are about to perform.
-3. Both checks pass → you may do **only** that named action.
+3. **Branch gate:** `git branch --show-current` in `codebase/` is **not** `master`. If it is `master` → run `git checkout dev` (or a user-named topic branch from `dev`), confirm you are off `master`, then continue. See **`never-master.mdc`**. `Mutabor` does **not** waive this gate.
+4. Checks 1–3 pass → you may do **only** that named action.
 
 If **any** check fails → **do not call the tool**. Prose only. No exceptions.
 
