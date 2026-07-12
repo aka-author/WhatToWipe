@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/app">
+        <file alias="app.svg">../../assets/icons/app.svg</file>
         <file>app.ico</file>
         <file>about-bunny.png</file>
     </qresource>
