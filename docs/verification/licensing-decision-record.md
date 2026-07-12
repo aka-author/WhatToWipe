@@ -14,10 +14,10 @@ This file satisfies LEGALSPEC LS-70 and LS-72. It is not approved until the prin
 | Product | Erase & Rewrite |
 | Principal copyright | Mikhail Ostrogorskiy |
 | Program license | GNU General Public License v3.0 or later (GPLv3+) |
-| Corresponding Source method | GPLv3 section 6d (network server) — **draft** |
-| Source URL | **TBD** — must be public, no authentication |
+| Corresponding Source method | GPLv3 section 6d (public Internet release) — **draft** |
+| Source URL | **TBD** — stable URL, no authentication, maintained per §6d |
 | Immutable tag/commit | **TBD** — must match shipped binary |
-| Source retention | While binaries offered + minimum period per chosen §6 method |
+| Source retention | While binaries offered, per GPLv3 section 6d |
 | Build reproduction verified | **No** |
 
 
@@ -27,7 +27,7 @@ Each row must be complete before approval. One license basis per component.
 
 | Component | Version | Link | License basis | Modified | Notices shipped | Source / relinking |
 |-----------|---------|------|---------------|----------|-----------------|-------------------|
-| Erase & Rewrite (Program) | see build-meta | n/a | GPLv3+ | no | `LICENSE`, `INSTALL-LICENSE.txt` | see Program table above |
+| Erase & Rewrite (Program) | see build-meta | n/a | GPLv3+ | no | `COPYING`, `LICENSE-NOTICE`, `INSTALL-LICENSE.txt` | see Program table above |
 | Qt6Core | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
 | Qt6Gui | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
 | Qt6Widgets | **TBD** | static | **TBD** | no | **TBD** | **TBD** |
@@ -44,7 +44,7 @@ Technical version and module facts for the active line: [impl-win-cpp-qt.md](../
 
 ## LGPL static relinking kit (LS-82)
 
-Required only if any Qt row uses LGPLv3 + static linking.
+Required only if any Qt row uses LGPLv3 + static linking as the **recorded license basis**. Choosing GPLv3 or commercial Qt instead is an **alternative basis** (LS-83), not an LGPL compliance mechanism.
 
 | Field | Value |
 |-------|-------|
@@ -58,8 +58,8 @@ Required only if any Qt row uses LGPLv3 + static linking.
 | Field | Value |
 |-------|-------|
 | Script | `codebase/installer/Erase & Rewrite.iss` |
-| License notice file | `INSTALL-LICENSE.txt` (`LicenseFile`) |
-| Installed `{app}` license files | **TBD** — `LICENSE`, `THIRD-PARTY-NOTICES` minimum per LS-50 |
+| Legal notice file | `INSTALL-LICENSE.txt` (`InfoBeforeFile` — no acceptance gate) |
+| Installed `{app}` license files | **TBD** — `COPYING`, `LICENSE-NOTICE`, `THIRD-PARTY-NOTICES` minimum per LS-50 |
 | Excluded | `*.date` build markers |
 
 
@@ -75,10 +75,10 @@ Required only if any Qt row uses LGPLv3 + static linking.
 
 ## Open actions before approval
 
-1. Principal copyright holder selects **one** license basis per Qt component (GPL-Qt, LGPL static with LS-82 kit, or commercial).
-2. Add `LICENSE` (full GPLv3 text) to `codebase/` repository root.
-3. Fill source URL, tag/commit, and reproduction test (LS-04, checklist §6).
-4. Ship `LICENSE` and `THIRD-PARTY-NOTICES` in installer `{app}`.
+1. Principal copyright holder selects **one** license basis per Qt component (GPL-Qt, LGPL static with LS-82 kit, or commercial per LS-83).
+2. Add `COPYING` (full GPLv3 text only) and `LICENSE-NOTICE` to `codebase/` repository root.
+3. Fill stable source URL, tag/commit, and reproduction test (LS-04 §6d, checklist §6).
+4. Ship `COPYING`, `LICENSE-NOTICE`, and `THIRD-PARTY-NOTICES` in installer `{app}`.
 5. Implement About dialog Appropriate Legal Notices (LS-31).
 6. Update PE `LegalCopyright` pipeline.
 7. Complete LGPL relinking kit if LGPL static path is chosen.

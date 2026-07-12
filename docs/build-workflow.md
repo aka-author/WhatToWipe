@@ -128,7 +128,7 @@ This file is **not** run directly; **`ISCC.exe`** compiles it. The batch always 
 ### Packaging rules (summary)
 
 - **`[Files]`**: `Source: "{#SourceDir}\*"` into `{app}`, recursive; **`Excludes: "*.date"`** so marker files are not shipped.
-- **License notice page**: `[Setup]` uses `LicenseFile=INSTALL-LICENSE.txt`, so the installer shows GPL and third-party license notices before file installation (display only; GPLv3 section 9 — not a click-wrap requirement to run).
+- **Legal notice page**: `[Setup]` uses `InfoBeforeFile=INSTALL-LICENSE.txt`, so the installer shows GPL and third-party license notices before file installation with **Next** only — no acceptance gate (GPLv3 section 9; LEGALSPEC LS-120).
 
 ---
 

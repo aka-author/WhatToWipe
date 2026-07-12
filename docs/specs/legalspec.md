@@ -57,7 +57,7 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 
 *Distribution package:* what an end user receives in one delivery (installer output, archive, or store download), including the Program binary, license texts, notices, and any separately distributed components.
 
-*Principal copyright holder:* Mikhail Ostrogorskiy, or a successor recorded in `LICENSE` and release notices, for the Program as a whole.
+*Principal copyright holder:* Mikhail Ostrogorskiy, or a successor recorded in `LICENSE-NOTICE` and release notices, for the Program as a whole.
 
 *Contribution copyright:* copyright retained by each contributor in their own contributions unless a written assignment says otherwise.
 
@@ -74,9 +74,9 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 |----|-------------|
 | LS-01 | The Program must be free software licensed under the **GNU General Public License version 3** (GPLv3), or (at the principal copyright holder's option) **any later version** of the GPL published by the Free Software Foundation. |
 | LS-02 | First-party source code must not be distributed under terms that contradict GPLv3 copyleft (for example notices that deny the right to modify and redistribute the Program under GPL). |
-| LS-03 | **Copyright attribution** must distinguish: (a) the **principal copyright holder** named in `LICENSE`, installer notices, and PE metadata; (b) **per-contribution copyright** retained by contributors unless assigned in writing; (c) **third-party copyright** preserved in `THIRD-PARTY-NOTICES` and component license texts. Accepting a GPLv3-compatible contribution does not by itself transfer copyright to the principal holder. |
-| LS-04 | Every **binary distribution** of the Program must satisfy GPLv3 **section 6** for **Corresponding Source** of the Program. At minimum the distributor must: (1) publish a **permanent source URL** alongside the binary download (release page, installer metadata, or equivalent) that works **without authentication** for the public; (2) identify an **immutable** matching **tag or commit** that contains the complete Corresponding Source for that exact binary; (3) include in that source tree all material required by GPLv3 section 1 — including complete build and installation scripts, configuration needed to produce the binary from source, and `LICENSE`; (4) **maintain** that source access for the period required by the chosen section 6 method (for example while offering binaries under subsection 6b, for at least three years after cessation of distribution). A vague "practical way" or undocumented repository tip is not sufficient. |
-| LS-05 | GPLv3 **section 7** additional permissions or requirements may be used only when legally reviewed. They must **not** modify the text of `LICENSE`. They must appear in a separate file (for example `ADDITIONAL-TERMS`) and/or in clearly identified source-file notices that state where additional terms apply, as GPLv3 section 7 requires. The default is no section 7 terms beyond GPLv3. |
+| LS-03 | **Copyright attribution** must distinguish: (a) the **principal copyright holder** named in `LICENSE-NOTICE`, installer notices, and PE metadata; (b) **per-contribution copyright** retained by contributors unless assigned in writing; (c) **third-party copyright** preserved in `THIRD-PARTY-NOTICES` and component license texts. Accepting a GPLv3-compatible contribution does not by itself transfer copyright to the principal holder. |
+| LS-04 | Every **binary distribution** of the Program must satisfy GPLv3 **section 6** for **Corresponding Source** of the Program. **Public Internet releases** must use GPLv3 **section 6d**: the binary download location must provide **equivalent access** to the exact Corresponding Source at no further charge, with **clear directions beside the binary**. Source access must remain available for as long as required to satisfy section 6d. At minimum the distributor must: (1) publish a **stable URL maintained for the required period** alongside the binary download (release page, installer metadata, or equivalent) that works **without authentication** for the public; (2) identify an **immutable** matching **tag or commit** that contains the complete Corresponding Source for that exact binary; (3) include in that source tree all material required by GPLv3 section 1 — including complete build and installation scripts, configuration needed to produce the binary from source, and `COPYING`; (4) record the chosen section 6 method in the license decision record. **Physical-media distribution** (if ever used) may instead follow GPLv3 **section 6b** (written source offer valid for at least three years and as long as spare parts or customer support are offered for that product model); that path must be explicitly recorded and must not be described as the ordinary Internet-release method. A vague "practical way" or undocumented repository tip is not sufficient. |
+| LS-05 | GPLv3 **section 7** additional permissions or requirements may be used only when legally reviewed. They must **not** modify the text of `COPYING`. They must appear in a separate file (for example `ADDITIONAL-TERMS`) and/or in clearly identified source-file notices that state where additional terms apply, as GPLv3 section 7 requires. The default is no section 7 terms beyond GPLv3. |
 | LS-06 | Patents: contributors grant rights consistent with GPLv3 section 11. Do not add separate patent licenses that weaken copyleft for first-party code. |
 
 
@@ -86,7 +86,7 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 
 | ID | Requirement |
 |----|-------------|
-| LS-10 | The repository root under `codebase/` must contain `LICENSE` or `COPYING` with the **complete, unmodified text of GPLv3** plus a copyright notice for the principal copyright holder. A URL pointer alone does **not** satisfy this requirement. |
+| LS-10 | The repository root under `codebase/` must contain `COPYING` with the **complete, unmodified text of GPLv3 only** — no copyright notice inserted into or presented as part of that text. Program copyright and the GPLv3-or-later application notice for the Program must appear in `LICENSE-NOTICE`, source-file headers, or another clearly separate section or file. A URL pointer alone does **not** satisfy the requirement to ship the full GPL text. |
 | LS-11 | First-party source files should carry a short SPDX or copyright header referencing GPLv3-or-later. New files in `win-cpp-qt/` and `win-go/` must follow the same convention once established. |
 
 
@@ -94,7 +94,7 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 
 | ID | Requirement |
 |----|-------------|
-| LS-20 | PE `VERSIONINFO` string `LegalCopyright` must not be misleading. It must name the principal copyright holder and/or point to shipped license texts (for example "See LICENSE in installation folder"). |
+| LS-20 | PE `VERSIONINFO` string `LegalCopyright` must not be misleading. It must name the principal copyright holder and/or point to shipped license texts (for example "See COPYING and LICENSE-NOTICE in installation folder"). |
 | LS-21 | `ProductName`, `FileDescription`, and `OriginalFilename` must match the shipping product identity (Erase & Rewrite / `EraseAndRewrite.exe`) and must not imply a proprietary license regime. |
 
 
@@ -103,7 +103,7 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 | ID | Requirement |
 |----|-------------|
 | LS-30 | The About dialog must satisfy FS *Displaying the Program Information* (product name and dotted version identical to PE File version). |
-| LS-31 | The About dialog **must** display **Appropriate Legal Notices** for the Program as GPLv3 uses that term: copyright notice, statement that there is no warranty, statement that recipients may convey the Program under GPLv3, and indication of how to view the full license (for example a control opening `{app}\LICENSE` or an in-dialog notice with the same substance). A release must not ship without this in-program path. |
+| LS-31 | The About dialog **must** display **Appropriate Legal Notices** for the Program as GPLv3 uses that term: copyright notice, statement that there is no warranty, statement that recipients may convey the Program under GPLv3, and indication of how to view the full license (for example a control opening `{app}\COPYING` or an in-dialog notice with the same substance). A release must not ship without this in-program path. |
 | LS-32 | About text must not claim the Program is proprietary, trialware, or subject to restrictions beyond GPLv3. |
 
 
@@ -111,7 +111,7 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 
 | ID | Requirement |
 |----|-------------|
-| LS-40 | `codebase/installer/INSTALL-LICENSE.txt` is the authoritative **installer license notice** file referenced by Inno Setup `LicenseFile`. It must include the Program copyright notice, GPLv3-or-later statement for the Program, and the **full GPLv3 text** (or the full text duplicated in `{app}\LICENSE` with the installer file clearly pointing to it). Do not label this file an "EULA" in normative documents; it is a **license and notice** display, not a proprietary end-user contract. |
+| LS-40 | `codebase/installer/INSTALL-LICENSE.txt` is the authoritative **installer legal notice** file referenced by Inno Setup `InfoBeforeFile` (see LS-120). It must include the Program copyright notice, GPLv3-or-later statement for the Program, and the **full GPLv3 text** (or the full text duplicated in `{app}\COPYING` with the installer file clearly pointing to it). Do not label this file an "EULA" in normative documents; it is a **license and notice** display, not a proprietary end-user contract. |
 | LS-41 | The installer notice must **not** state that the user must accept contractual restrictions **beyond GPLv3** as a condition of **receiving or running** the Program (GPLv3 section 9). It may inform the user of license terms; it must not present GPLv3 as a click-through permission gate for mere installation or execution. |
 | LS-42 | Third-party sections (Qt and future libraries) must be clearly separated from the Program GPL section and describe only that component's license and notices. |
 | LS-43 | Changes to `INSTALL-LICENSE.txt` require a one-line entry in the license decision record with date and reason. |
@@ -121,9 +121,9 @@ Words like "must", "must not", and "should" carry their usual English force. "Mu
 
 | ID | Requirement |
 |----|-------------|
-| LS-50 | Every shipping installer must place in `{app}` at least: (1) full GPLv3 text for the Program (`LICENSE` or `COPYING`), (2) third-party license texts required by the license decision record, (3) `THIRD-PARTY-NOTICES` (or equivalent) listing every linked and separately distributed component with version and license. |
+| LS-50 | Every shipping installer must place in `{app}` at least: (1) `COPYING` with the full unmodified GPLv3 text for the Program, (2) `LICENSE-NOTICE` (or equivalent) with Program copyright and GPLv3-or-later application notice, (3) third-party license texts required by the license decision record, (4) `THIRD-PARTY-NOTICES` (or equivalent) listing every linked and separately distributed component with version and license. |
 | LS-51 | `versioninfo.json` and `build-meta.json` are build metadata, not license documents. They may record version and commit for traceability but do not satisfy LS-04 or LS-50 alone. |
-| LS-52 | README or in-app help may summarize licensing but must not contradict `LICENSE` or `INSTALL-LICENSE.txt`. |
+| LS-52 | README or in-app help may summarize licensing but must not contradict `COPYING`, `LICENSE-NOTICE`, or `INSTALL-LICENSE.txt`. |
 
 
 ### 2.6 Documents stored in the repository
@@ -153,11 +153,12 @@ Normative requirements apply to whatever Qt version and module set the active re
 | ID | Requirement |
 |----|-------------|
 | LS-80 | Qt is a linked component governed by **its own** license terms unless the release record documents use of Qt under the **GPL v3 option** for open-source development, in which case Qt's obligations align with that choice. |
-| LS-81 | For each release, the decision record must state the **single** chosen basis for each shipped Qt module and plugin: (a) Qt under **GPLv3** (open-source option), (b) Qt under **LGPLv3** with full compliance for the actual link model, or (c) **commercial Qt license** with agreement reference. Do not ship without a completed row for every Qt artifact in the binary. |
-| LS-82 | **LGPLv3 static linking:** if any Qt component is used under LGPLv3 and linked statically, the distribution package must include a **verified relinking kit**, not merely a abstract promise. At least one of: (1) relinkable object files (`.o`/`.a`) for the Program's own code plus documented, reproducible link instructions sufficient to substitute a modified compatible Qt library; (2) another mechanism that demonstrably allows installation and use of a modified version of the linked Qt library per LGPLv3 section 4 and the combined-work rules; (3) use Qt under GPLv3 instead of LGPL for that component; (4) a valid commercial Qt license covering static distribution. The chosen mechanism must be named in the decision record and present in the installer payload or documented offer. |
-| LS-83 | **Commercial Qt:** the decision record must cite the agreement identifier; shipping notices must not claim GPLv3 covers Qt itself. |
-| LS-84 | The distribution package must ship **Qt copyright and license notices** required by the chosen path. Static linking does not remove this obligation. |
-| LS-85 | MinGW runtime components linked into the executable must appear in `THIRD-PARTY-NOTICES` with applicable license or exception text (for example GCC runtime library exception where it applies). |
+| LS-81 | For each release, the decision record must state the **single** chosen basis for each shipped Qt module and plugin: (a) Qt under **GPLv3** (open-source option), (b) Qt under **LGPLv3** with full compliance for the actual link model (LS-82), or (c) **commercial Qt license** with agreement reference (LS-84). Do not ship without a completed row for every Qt artifact in the binary. |
+| LS-82 | **LGPLv3 static linking — compliance when LGPL is the recorded basis.** If any Qt component is recorded under LGPLv3 and linked statically, the distribution package must include a **verified relinking kit**, not merely **an** abstract promise. At least one of: (1) relinkable object files (`.o`/`.a`) for the Program's own code plus documented, reproducible link instructions sufficient to substitute a modified compatible Qt library; (2) another mechanism that demonstrably allows installation and use of a modified version of the linked Qt library per LGPLv3 section 4 and the combined-work rules. The distribution must also ship LGPL-required notices and installation information for that component. The chosen mechanism must be named in the decision record and present in the installer payload or documented offer. |
+| LS-83 | **Alternative license basis — not LGPL compliance.** Using Qt under GPLv3 (open-source option) or under a commercial Qt license is **not** an LGPL static-linking compliance mechanism. Before distribution on that basis, the license decision record must record the change of license basis for each affected Qt component away from LGPL (per LS-81), and shipping notices must reflect the chosen basis (LS-84–LS-85). |
+| LS-84 | **Commercial Qt:** the decision record must cite the agreement identifier; shipping notices must not claim GPLv3 covers Qt itself. |
+| LS-85 | The distribution package must ship **Qt copyright and license notices** required by the chosen path. Static linking does not remove this obligation. |
+| LS-86 | MinGW runtime components linked into the executable must appear in `THIRD-PARTY-NOTICES` with applicable license or exception text (for example GCC runtime library exception where it applies). |
 
 
 ### 3.3 Other and future dependencies
@@ -179,7 +180,7 @@ Normative requirements apply to whatever Qt version and module set the active re
 | LS-103 | Preserve `git` history for source-offer traceability. Every public binary release must record the matching commit hash in `build-meta.json`, release notes, or the decision record. |
 | LS-104 | Agents must not weaken LEGALSPEC without explicit owner approval (`Mutabor` message or direct edit by the principal copyright holder). |
 | LS-105 | Close licensing gaps by updating LEGALSPEC, the decision record, and shipping texts — not by marking [dispute.md](./dispute.md) threads alone. |
-| LS-106 | Each release audit: import table matches recorded link model; installer file list matches decision record; every binary component appears in `THIRD-PARTY-NOTICES`; attribution strings are preserved; [CONTRIBUTORS.md](../CONTRIBUTORS.md) is current for merged contributions in that release line. |
+| LS-106 | Each release audit: import table matches recorded link model; installer file list matches decision record; every binary component appears in `THIRD-PARTY-NOTICES`; attribution strings are preserved; [CONTRIBUTORS.md](../CONTRIBUTORS.md) is current for merged contributions in that release line; installer notice page verified as non-acceptance (`InfoBeforeFile`, LS-120). |
 
 
 ### 4.1 Contributors — obligations and registry
@@ -187,11 +188,12 @@ Normative requirements apply to whatever Qt version and module set the active re
 | ID | Requirement |
 |----|-------------|
 | LS-107 | Everyone who submits a **merged** change to first-party Program code or to normative product documentation in `docs/specs/` (other than FS, which is owner-edited) is a **contributor**. Before merge, the contributor must agree that the submission is licensed under **GPLv3-or-later** (or under a written copyright assignment if the project later adopts one). Submission implies the patent grants GPLv3 section 11 describes for contributors, to the extent the submission is merged. |
-| LS-108 | The contributor must have the legal right to submit the material (original work, permission from upstream, or a compatible license). Do not submit proprietary, confidential, or third-party code without explicit permission and registry notes. |
-| LS-109 | The repository must maintain [docs/CONTRIBUTORS.md](../CONTRIBUTORS.md). **Before or when** a non-trivial external contribution is merged, add or update an entry with: (1) **display name** — the contributor's real name **or** an anonymous pseudonym they choose; (2) a **short description** of what they contributed (area, feature, or document — not a full changelog). Optional: first/last contribution date or commit range. |
-| LS-110 | **Display names** must not be offensive, discriminatory, harassing, impersonating, or otherwise unacceptable. The principal copyright holder may require a contributor to use their real name or choose a different pseudonym before merge. Anonymous contribution is allowed when the pseudonym meets this rule. |
-| LS-111 | The principal copyright holder and long-standing maintainers must also appear in `CONTRIBUTORS.md` when their work is not solely attributed only in `LICENSE` copyright line — at minimum the principal holder entry must exist. |
-| LS-112 | `CONTRIBUTORS.md` is part of the **Corresponding Source** (LS-04). It must be kept accurate; do not remove historical entries without legal reason — add corrections or successor notes instead. |
+| LS-108 | The agreement in LS-107 must be **recorded** using at least one accepted mechanism before merge: (a) Developer Certificate of Origin (DCO) sign-off in the commit message (`Signed-off-by`); (b) pull-request checkbox or explicit in-thread statement that the submission is licensed under GPLv3-or-later; (c) signed contributor agreement on file; or (d) other recorded written approval referenced in the merge record or `docs/verification/`. Verbal or assumed consent is not sufficient. |
+| LS-109 | The contributor must have the legal right to submit the material (original work, permission from upstream, or a compatible license). Do not submit proprietary, confidential, or third-party code without explicit permission and registry notes. |
+| LS-110 | The repository must maintain [docs/CONTRIBUTORS.md](../CONTRIBUTORS.md). **Before or when** a non-trivial external contribution is merged, add or update an entry with: (1) **display name** — the contributor's real name **or** an anonymous pseudonym they choose; (2) a **short description** of what they contributed (area, feature, or document — not a full changelog). Optional: first/last contribution date or commit range. |
+| LS-111 | **Display names** must not be offensive, discriminatory, harassing, impersonating, or otherwise unacceptable. The principal copyright holder may require a contributor to use their real name or choose a different pseudonym before merge. Anonymous contribution is allowed when the pseudonym meets this rule. |
+| LS-112 | The principal copyright holder and long-standing maintainers must also appear in `CONTRIBUTORS.md` when their work is not solely attributed only in `LICENSE-NOTICE` — at minimum the principal holder entry must exist. |
+| LS-113 | `CONTRIBUTORS.md` is part of the **Corresponding Source** (LS-04). It must be kept accurate; do not remove historical entries without legal reason — add corrections or successor notes instead. |
 
 
 ## 5. Installer and installation notices
@@ -200,8 +202,8 @@ The Windows installer is built from `codebase/installer/Erase & Rewrite.iss` (In
 
 | ID | Requirement |
 |----|-------------|
-| LS-120 | The installer must set `LicenseFile=INSTALL-LICENSE.txt` and show that notice in the wizard **before** file installation. Inno Setup's license page is a **display mechanism** only; it does not create a proprietary click-wrap contract and does not change GPLv3 section 9. |
-| LS-121 | The installer must **display or provide** the GPL notice and full Program license text before or during installation. The installer must **not** state that accepting additional contractual restrictions is required to **receive or run** the Program. |
+| LS-120 | The installer must display the GPL notice **before** file installation **without requiring acceptance** of additional contractual terms as a condition of installing or running the Program (GPLv3 section 9). Use Inno Setup `InfoBeforeFile=INSTALL-LICENSE.txt` — **not** `LicenseFile` — so the wizard shows a notice page with **Next** only (no "I accept" / "I do not accept" gate). The observable requirement is verifiable in a test install: proceeding must not be blocked on accepting GPLv3 as a contract. |
+| LS-121 | The installer must **display or provide** the GPL notice and full Program license text before or during installation. Third-party sections must follow LS-42. |
 | LS-122 | The installer must install all files required by LS-50 into `{app}`. The exact file set follows the link model in the decision record (monolithic executable and/or documented DLL layout). |
 | LS-123 | Build markers (`*.date`) and developer-only metadata must not be installed (`Excludes: "*.date"` or equivalent). |
 | LS-124 | Shortcuts must launch `EraseAndRewrite.exe` directly (techspec PL-07). |
@@ -216,19 +218,19 @@ The Windows installer is built from `codebase/installer/Erase & Rewrite.iss` (In
 
 Before declaring a Windows release compliant with LEGALSPEC, verify and record evidence under `docs/verification/`:
 
-1. `LICENSE` / `COPYING` in repo contains **full unmodified GPLv3**; release tag matches `build-meta.json` / release notes.
-2. **Source URL** in release materials works **without authentication** and points to the **immutable** tag/commit.
+1. `COPYING` in repo contains **full unmodified GPLv3 only**; `LICENSE-NOTICE` (or equivalent) carries Program copyright and GPLv3-or-later application statement; release tag matches `build-meta.json` / release notes.
+2. **Stable source URL** in release materials works **without authentication**, provides equivalent Corresponding Source access beside the binary per GPLv3 **section 6d**, and points to the **immutable** tag/commit.
 3. **Corresponding Source** at that revision includes everything needed to reproduce the shipped Program binary (scripts, toolchain pins, configuration).
-4. A test build from that source produces a functionally equivalent binary (or documented, justified delta).
-5. `INSTALL-LICENSE.txt` and `{app}\LICENSE` match the Program license; installer text complies with LS-41 and LS-121.
+4. **(Project reproducibility — not a direct GPLv3 requirement.)** A test build from that source produces a functionally equivalent binary (or documented, justified delta).
+5. `INSTALL-LICENSE.txt` is shown via `InfoBeforeFile` without an acceptance gate (LS-120); `{app}\COPYING` and `{app}\LICENSE-NOTICE` match the Program license; installer text complies with LS-41.
 6. License decision record **approved** with one row per distributed component (LS-70, LS-72).
 7. `THIRD-PARTY-NOTICES` matches every binary component; copyright and attribution preserved.
-8. Qt obligations fulfilled for the **chosen single basis** per module (source offer, notices, and **relinking kit** if LGPL static — LS-82).
+8. Qt obligations fulfilled for the **chosen single basis** per module (notices; **relinking kit** if LGPL static per LS-82; **basis change recorded** if GPLv3 or commercial per LS-83).
 9. About dialog satisfies FS and LS-31 (Appropriate Legal Notices).
 10. PE `LegalCopyright` reviewed (LS-20).
 11. `objdump` or equivalent confirms link model (no unexpected Qt DLLs when static is recorded).
 12. Installer `{app}` file list matches the decision record.
-13. [CONTRIBUTORS.md](../CONTRIBUTORS.md) lists every contributor merged in the release line (LS-109–LS-112).
+13. [CONTRIBUTORS.md](../CONTRIBUTORS.md) lists every contributor merged in the release line (LS-110–LS-113); LS-108 evidence exists for external merges.
 
 
 ## 7. Document maintenance

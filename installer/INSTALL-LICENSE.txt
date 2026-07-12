@@ -12,12 +12,13 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE. See the GNU General Public License below.
 
 Under GPLv3 section 9, you are not required to accept this License merely to
-receive or run a copy of the Program. This installer page displays license and
-copyright notices for your information. Propagating or modifying the Program is
-permitted only under GPLv3.
+receive or run a copy of the Program. This installer notice is shown on an
+information page (Inno Setup InfoBeforeFile) before installation. You may
+continue with Next without accepting GPLv3 as a contract. Propagating or
+modifying the Program is permitted only under GPLv3.
 
-Corresponding Source for the Program is offered as described in the release
-materials (public source repository URL, immutable tag or commit, and complete
+Corresponding Source for the Program is offered per GPLv3 section 6d as described in the release
+materials (stable public source URL beside the binary, immutable tag or commit, and complete
 build scripts). See legalspec.md LS-04 in the source repository.
 
 
