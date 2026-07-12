@@ -49,7 +49,7 @@ Required only if any Qt row uses LGPLv3 + static linking as the **recorded licen
 | Field | Value |
 |-------|-------|
 | Mechanism chosen | **TBD** |
-| Deliverables in installer / offer | **TBD** |
+| Delivery method | Per recorded GPLv3 §6 method (§6d equivalent access beside binary for Internet releases) |
 | Verified relink procedure documented | **No** |
 
 
